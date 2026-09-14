@@ -1,0 +1,8 @@
+<resources>
+    <string name="app_name">AlkilApp</string>
+    <string name="search_hint">Buscar departamentos…</string>
+    <string name="nearby_title">Inmuebles Cercanos</string>
+    <string name="my_location_title">Tu Ubicación</string>
+    <string name="location_error">No se logró obtener la ubicación actual</string>
+    <string name="permission_denied">Permiso de ubicación denegado</string>
+</resources>

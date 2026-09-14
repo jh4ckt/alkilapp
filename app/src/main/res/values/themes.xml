@@ -1,0 +1,7 @@
+<resources>
+    <style name="Theme.AlkilApp" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/alkil_primary</item>
+        <item name="colorOnPrimary">@color/white</item>
+        <item name="android:statusBarColor">@color/alkil_primary</item>
+    </style>
+</resources>
