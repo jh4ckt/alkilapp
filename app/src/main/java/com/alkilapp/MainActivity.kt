@@ -3,11 +3,18 @@ package com.alkilapp
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.content.res.ColorStateList
+import android.content.res.Resources
+import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.view.View
+import android.view.ViewGroup
 import android.widget.ArrayAdapter
 import android.widget.EditText
+import android.widget.FrameLayout
+import android.widget.LinearLayout
 import android.widget.Spinner
+import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
@@ -39,8 +46,6 @@ import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.SetOptions
-import com.google.android.material.bottomsheet.BottomSheetBehavior
-import kotlin.math.roundToInt
 
 class MainActivity : AppCompatActivity(), OnMapReadyCallback {
 
@@ -124,23 +129,13 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
 
         setupListaDepartamentos()
         setupBotones()
-        configurarFabSobreBottomSheet()
+        configurarSidebar()
     }
 
-    /** El FAB "mi ubicación" sube junto con el panel del listado para no taparlo. */
-    private fun configurarFabSobreBottomSheet() {
-        val sheet = BottomSheetBehavior.from(binding.bottomSheet)
-        val deltaPx = (250 * resources.displayMetrics.density).roundToInt()
-        binding.fabMiUbicacion.post {
-            binding.fabMiUbicacion.translationY =
-                -if (sheet.state == BottomSheetBehavior.STATE_EXPANDED) deltaPx.toFloat() else 0f
-        }
-        sheet.addBottomSheetCallback(object : BottomSheetBehavior.BottomSheetCallback() {
-            override fun onStateChanged(bottomSheet: View, newState: Int) = Unit
-            override fun onSlide(bottomSheet: View, slideOffset: Float) {
-                binding.fabMiUbicacion.translationY = -slideOffset * deltaPx
-            }
-        })
+    private fun configurarSidebar() {
+        binding.btnSidebarPerfil.setOnClickListener { onBotonAuth() }
+        binding.btnSidebarChat.setOnClickListener { abrirChat() }
+        binding.btnSidebarFiltros.setOnClickListener { abrirDialogoFiltros() }
     }
 
     override fun onStart() {
@@ -169,10 +164,9 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     private fun setupBotones() {
         binding.fabAgregar.setOnClickListener { abrirRegistrarPropiedad() }
         binding.fabMiUbicacion.setOnClickListener { irAMiUbicacion() }
-        binding.btnAuth.setOnClickListener { onBotonAuth() }
-        binding.btnFiltros.setOnClickListener { abrirDialogoFiltros() }
-        binding.btnChat.setOnClickListener { abrirChat() }
     }
+
+    /** Barra lateral: perfil, chat y filtros ahora son un panel estrecho a la izquierda. */
 
     private fun abrirRegistrarPropiedad() {
         if (auth.currentUser == null) {
@@ -242,11 +236,11 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
 
         val depActual = filtroDepartamento ?: todos
         spinnerDep.setSelection(
-            (listOf(todos) + departamentos).indexOfFirst { it.equals(depActual, true) }.coerceAtLeast(0)
+            (todos + departamentos).indexOfFirst { it.lowercase() == depActual.lowercase() }.coerceAtLeast(0)
         )
         val disActual = filtroDistrito ?: todos
         spinnerDis.setSelection(
-            distritosConTodos.indexOfFirst { it.equals(disActual, true) }.coerceAtLeast(0)
+            distritosConTodos.indexOfFirst { it.lowercase() == disActual.lowercase() }.coerceAtLeast(0)
         )
 
         MaterialAlertDialogBuilder(this)
@@ -274,11 +268,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
 
     private fun actualizarBotonFiltros() {
         val activo = filtroDistrito ?: filtroDepartamento
-        binding.btnFiltros.text = if (activo != null) {
-            getString(R.string.filtros_btn_activo, activo)
-        } else {
-            getString(R.string.filtros_btn)
-        }
+        // El FAB de filtros se movió a la barra lateral; no se actualiza texto aquí.
     }
 
     /** Escucha en vivo los inmuebles guardados en Firestore (colección "propiedades"). */
@@ -296,8 +286,9 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
                     return@addSnapshotListener
                 }
                 val lista = snap?.documents?.mapNotNull { Propiedad.desde(it) }
-                ?.filter { it.estado != "under_review" && it.estado != "finalizado" } ?: emptyList()
+                    ?.filter { it.estado != "under_review" && it.estado != "finalizado" } ?: emptyList()
                 adapter.submitList(lista)
+                actualizarBadges(lista)
                 cargarVerificacionPropietarios(lista)
             }
     }
@@ -319,10 +310,106 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         }
     }
 
+    // ======================================================================
+    // Badges estáticos de disponibilidad por zona sobre el mapa
+    // ======================================================================
+
+    private fun configurarBadges() {
+        mMap.setOnCameraIdleListener { posicionarBadges() }
+    }
+
+    private fun actualizarBadges(lista: List<Propiedad>) {
+        binding.overlayBadges.removeAllViews()
+        val zonaActiva = filtroDistrito ?: filtroDepartamento
+        val filtrada = if (zonaActiva != null) {
+            lista.filter {
+                it.barrio.equals(zonaActiva, ignoreCase = true) ||
+                it.ciudad.equals(zonaActiva, ignoreCase = true)
+            }
+        } else lista
+        val porZona = filtrada.groupBy { it.barrio.ifEmpty { it.ciudad } }
+        porZona.forEach { (zona, props) ->
+            if (zona.isBlank()) return@forEach
+            val center = centroZona(props)
+            val badge = construirBadge(zona, props.size, center)
+            val params = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT
+            )
+            badge.layoutParams = params
+            badge.tag = center
+            binding.overlayBadges.addView(badge)
+        }
+        binding.overlayBadges.post { posicionarBadges() }
+    }
+
+    private fun posicionarBadges() {
+        if (!::mMap.isInitialized) return
+        val projection = mMap.projection
+        for (i in 0 until binding.overlayBadges.childCount) {
+            val badge = binding.overlayBadges.getChildAt(i)
+            val center = badge.tag as? LatLng ?: continue
+            val w = badge.measuredWidth
+            val h = badge.measuredHeight
+            if (w <= 0 || h <= 0) continue
+            val screen = projection.toScreenLocation(center)
+            val lp = badge.layoutParams as FrameLayout.LayoutParams
+            lp.leftMargin = screen.x - w / 2
+            lp.topMargin = screen.y - h / 2
+            badge.layoutParams = lp
+        }
+    }
+
+    private fun construirBadge(zona: String, count: Int, center: LatLng): View {
+        val card = com.google.android.material.card.MaterialCardView(this).apply {
+            radius = (14.dp).toFloat()
+            cardElevation = (1.dp).toFloat()
+            setCardBackgroundColor(getColor(R.color.alkil_primary_soft))
+            isClickable = true
+            setOnClickListener {
+                if (::mMap.isInitialized) {
+                    mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(center, 14f))
+                }
+            }
+        }
+        val inner = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = android.view.Gravity.CENTER_VERTICAL
+            setPadding(10.dp, 5.dp, 10.dp, 5.dp)
+        }
+        val dot = View(this).apply {
+            layoutParams = LinearLayout.LayoutParams(8.dp, 8.dp).apply { marginEnd = 4.dp }
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(getColor(R.color.alkil_mint))
+            }
+        }
+        inner.addView(dot)
+        inner.addView(TextView(this).apply {
+            text = "$zona · $count"
+            textSize = 11f
+            setTextColor(getColor(R.color.text_primary))
+            setTypeface(null, android.graphics.Typeface.BOLD)
+        })
+        card.addView(inner)
+        return card
+    }
+
+    private fun centroZona(props: List<Propiedad>): LatLng {
+        val lat = props.sumOf { it.lat } / props.size
+        val lng = props.sumOf { it.lng } / props.size
+        return LatLng(lat, lng)
+    }
+
+    // ======================================================================
+    // Mapa
+    // ======================================================================
+
     override fun onMapReady(googleMap: GoogleMap) {
         mMap = googleMap
         mMap.uiSettings.isZoomControlsEnabled = true
         mMap.uiSettings.isMyLocationButtonEnabled = true
+        configurarBadges()
         verificarPermisosUbicacion()
     }
 
@@ -359,7 +446,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             centrarEn(LatLng(lat, lng), true)
         }
 
-        // Primero intenta una ubicación fresca; si falla, usa la última conocida.
         fusedLocationClient.getCurrentLocation(
             com.google.android.gms.location.Priority.PRIORITY_HIGH_ACCURACY,
             null
@@ -381,7 +467,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         if (esUbicacionPropia) {
             marcadores.add(
                 mMap.addMarker(
-                    com.google.android.gms.maps.model.MarkerOptions()
+                    MarkerOptions()
                         .position(punto)
                         .title(getString(R.string.my_location_title))
                 )!!
@@ -390,10 +476,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(punto, DEFAULT_CAMERA_ZOOM))
     }
 
-    /**
-     * Con un filtro activo, marca los inmuebles visibles y mueve la cámara a esa zona.
-     * Al limpiar el filtro, devuelve la cámara a la ubicación del usuario.
-     */
+    /** Escucha en vivo los inmuebles guardados en Firestore (colección "propiedades"). */
     private fun actualizarZonaMapa() {
         limpiarMarcadores()
         val hayFiltro = filtroDistrito != null || filtroDepartamento != null
@@ -448,10 +531,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
                 PropiedadDetalleActivity.EXTRA_COMODIDADES,
                 ArrayList(propiedad.comodidades)
             )
-            putStringArrayListExtra(
-                PropiedadDetalleActivity.EXTRA_FOTOS,
-                ArrayList(propiedad.fotos)
-            )
+            putStringArrayListExtra(PropiedadDetalleActivity.EXTRA_FOTOS, ArrayList(propiedad.fotos))
             putStringArrayListExtra(
                 PropiedadDetalleActivity.EXTRA_FOTOS_URL,
                 ArrayList(propiedad.photosUrl)
@@ -575,8 +655,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             }
     }
 
-    /** Vuelve a garantizar que el usuario aparece en "usuarios" sin pisar datos
-     *  ya editados desde "Mi perfil" (nombre, teléfono, tipo, foto). */
     private fun guardarUsuarioEnBase() {
         val u = auth.currentUser ?: return
         val ref = db.collection("usuarios").document(u.uid)
@@ -609,11 +687,14 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     }
 
     private fun actualizarUiSesion() {
-        val usuario = auth.currentUser
-        binding.btnAuth.text = if (usuario != null) {
-            getString(R.string.mi_perfil_titulo)
-        } else {
-            getString(R.string.auth_ingresar)
-        }
+        val sesion = auth.currentUser != null
+        binding.btnSidebarPerfil.imageTintList = ColorStateList.valueOf(
+            if (sesion) getColor(R.color.alkil_primary) else getColor(R.color.text_secondary)
+        )
     }
 }
+
+private val Int.dp: Int
+    get() = (this * Resources.getSystem().displayMetrics.density).toInt()
+
+private fun Int.toDpFloat(): Float = this * Resources.getSystem().displayMetrics.density

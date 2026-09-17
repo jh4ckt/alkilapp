@@ -5,14 +5,22 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
-    <!-- 1. Mapa de Google a Pantalla Completa -->
+    <!-- 1. Mapa de Google a pantalla completa -->
     <fragment
         android:id="@+id/mapFragment"
         android:name="com.google.android.gms.maps.SupportMapFragment"
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
 
-    <!-- 2. Barra Superior Flotante de Búsqueda -->
+    <!-- 2. Badges estáticos de disponibilidad por zona (sobre el mapa) -->
+    <FrameLayout
+        android:id="@+id/overlayBadges"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:clipChildren="false"
+        android:clipToPadding="false" />
+
+    <!-- 3. Barra superior: solo búsqueda -->
     <com.google.android.material.card.MaterialCardView
         android:id="@+id/cardBusqueda"
         android:layout_width="match_parent"
@@ -44,77 +52,118 @@
                 android:paddingStart="12dp"
                 android:textSize="14sp" />
 
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btnFiltros"
-                style="@style/Widget.Material3.Button.TextButton"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:insetTop="0dp"
-                android:insetBottom="0dp"
-                android:paddingStart="8dp"
-                android:paddingEnd="4dp"
-                android:text="@string/filtros_btn"
-                android:textSize="13sp"
-                app:icon="@android:drawable/ic_menu_sort_by_size"
-                app:iconGravity="textStart"
-                app:iconPadding="4dp" />
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btnChat"
-                style="@style/Widget.Material3.Button.TextButton"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:insetTop="0dp"
-                android:insetBottom="0dp"
-                android:paddingStart="8dp"
-                android:paddingEnd="4dp"
-                android:text="@string/chat_btn"
-                android:textSize="13sp"
-                app:icon="@drawable/ic_chat"
-                app:iconGravity="textStart"
-                app:iconPadding="4dp" />
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btnAuth"
-                style="@style/Widget.Material3.Button.TextButton"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:insetTop="0dp"
-                android:insetBottom="0dp"
-                android:paddingStart="8dp"
-                android:paddingEnd="4dp"
-                android:text="@string/auth_ingresar"
-                android:textSize="13sp"
-                app:icon="@drawable/ic_person"
-                app:iconGravity="textStart"
-                app:iconPadding="4dp" />
         </LinearLayout>
     </com.google.android.material.card.MaterialCardView>
 
-    <!-- 3b. Botón flotante para publicar un inmueble -->
-<com.google.android.material.floatingactionbutton.FloatingActionButton
-            android:id="@+id/fabAgregar"
+    <!-- 4a. Botón flotante para publicar -->
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/fabAgregar"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginEnd="24dp"
+        android:layout_marginBottom="12dp"
+        android:contentDescription="@string/prop_agregar_titulo"
+        android:src="@drawable/ic_add"
+        app:layout_anchor="@id/cardBusqueda"
+        app:layout_anchorGravity="bottom|end" />
+
+    <!-- 4b. Botón "mi ubicación" -->
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/fabMiUbicacion"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|end"
+        android:layout_marginEnd="24dp"
+        android:layout_marginBottom="120dp"
+        android:contentDescription="@string/mi_ubicacion_btn"
+        android:src="@android:drawable/ic_menu_mylocation" />
+
+    <!-- 5. Barra lateral izquierda: perfil, chat, filtros -->
+    <LinearLayout
+        android:id="@+id/sidebar"
+        android:layout_width="52dp"
+        android:layout_height="wrap_content"
+        android:layout_gravity="start|bottom"
+        android:layout_marginStart="12dp"
+        android:layout_marginBottom="124dp"
+        android:orientation="vertical"
+        android:gravity="center_horizontal"
+        android:paddingTop="10dp"
+        android:paddingBottom="10dp"
+        android:background="@drawable/bg_sidebar"
+        android:clipChildren="false">
+
+        <ImageButton
+            android:id="@+id/btnSidebarPerfil"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/perfil_foto_cd"
+            android:src="@drawable/ic_person"
+            app:tint="@color/alkil_primary"
+            android:importantForAutofill="no" />
+
+        <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginEnd="24dp"
-            android:layout_marginBottom="12dp"
-            android:contentDescription="@string/prop_agregar_titulo"
-            android:src="@drawable/ic_add"
-            app:layout_anchor="@id/cardBusqueda"
-            app:layout_anchorGravity="bottom|end" />
+            android:layout_marginTop="2dp"
+            android:text="@string/perfil_nombre_hint"
+            android:textColor="@color/text_secondary"
+            android:textSize="9sp" />
 
-        <!-- Botón "mi ubicación": vuelve a centrar el mapa donde está el usuario -->
-        <com.google.android.material.floatingactionbutton.FloatingActionButton
-            android:id="@+id/fabMiUbicacion"
+        <View
+            android:layout_width="20dp"
+            android:layout_height="1dp"
+            android:layout_marginTop="6dp"
+            android:layout_marginBottom="6dp"
+            android:background="@color/divider" />
+
+        <ImageButton
+            android:id="@+id/btnSidebarChat"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/chat_titulo_bandeja"
+            android:src="@drawable/ic_chat"
+            app:tint="@color/alkil_primary"
+            android:importantForAutofill="no" />
+
+        <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_gravity="bottom|end"
-            android:layout_marginEnd="24dp"
-            android:layout_marginBottom="120dp"
-            android:contentDescription="@string/mi_ubicacion_btn"
-            android:src="@android:drawable/ic_menu_mylocation" />
+            android:layout_marginTop="2dp"
+            android:text="@string/chat_btn"
+            android:textColor="@color/text_secondary"
+            android:textSize="9sp" />
 
-    <!-- 3. Panel Inferior Deslizable (BottomSheet) -->
+        <View
+            android:layout_width="20dp"
+            android:layout_height="1dp"
+            android:layout_marginTop="6dp"
+            android:layout_marginBottom="6dp"
+            android:background="@color/divider" />
+
+        <ImageButton
+            android:id="@+id/btnSidebarFiltros"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/filtros_titulo"
+            android:src="@android:drawable/ic_menu_sort_by_size"
+            app:tint="@color/alkil_primary"
+            android:importantForAutofill="no" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:text="@string/filtros_btn"
+            android:textColor="@color/text_secondary"
+            android:textSize="9sp" />
+
+    </LinearLayout>
+
+    <!-- 6. Panel inferior deslizable (BottomSheet) -->
     <LinearLayout
         android:id="@+id/bottomSheet"
         android:layout_width="match_parent"
