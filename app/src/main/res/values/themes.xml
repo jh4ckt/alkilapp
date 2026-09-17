@@ -3,5 +3,11 @@
         <item name="colorPrimary">@color/alkil_primary</item>
         <item name="colorOnPrimary">@color/white</item>
         <item name="android:statusBarColor">@color/alkil_primary</item>
+        <item name="android:windowBackground">@color/bg_soft</item>
+    </style>
+
+    <style name="AlkilAppCircle" parent="">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">50%</item>
     </style>
 </resources>

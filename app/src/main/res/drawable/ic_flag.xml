@@ -1,0 +1,23 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Palo de la bandera -->
+    <path
+        android:pathData="M5,3v18"
+        android:strokeColor="#D32F2F"
+        android:strokeWidth="2.4"
+        android:strokeLineCap="round" />
+    <!-- Bandera -->
+    <path
+        android:pathData="M7,3h11l-2.6,3.4L18,10H7Z"
+        android:fillColor="#D32F2F"
+        android:strokeLineJoin="round" />
+    <!-- Base -->
+    <path
+        android:pathData="M4.4,21h3.4"
+        android:strokeColor="#D32F2F"
+        android:strokeWidth="2.4"
+        android:strokeLineCap="round" />
+</vector>

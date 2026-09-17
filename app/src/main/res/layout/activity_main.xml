@@ -43,8 +43,76 @@
                 android:inputType="text"
                 android:paddingStart="12dp"
                 android:textSize="14sp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnFiltros"
+                style="@style/Widget.Material3.Button.TextButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:paddingStart="8dp"
+                android:paddingEnd="4dp"
+                android:text="@string/filtros_btn"
+                android:textSize="13sp"
+                app:icon="@android:drawable/ic_menu_sort_by_size"
+                app:iconGravity="textStart"
+                app:iconPadding="4dp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnChat"
+                style="@style/Widget.Material3.Button.TextButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:paddingStart="8dp"
+                android:paddingEnd="4dp"
+                android:text="@string/chat_btn"
+                android:textSize="13sp"
+                app:icon="@drawable/ic_chat"
+                app:iconGravity="textStart"
+                app:iconPadding="4dp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnAuth"
+                style="@style/Widget.Material3.Button.TextButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:paddingStart="8dp"
+                android:paddingEnd="4dp"
+                android:text="@string/auth_ingresar"
+                android:textSize="13sp"
+                app:icon="@drawable/ic_person"
+                app:iconGravity="textStart"
+                app:iconPadding="4dp" />
         </LinearLayout>
     </com.google.android.material.card.MaterialCardView>
+
+    <!-- 3b. Botón flotante para publicar un inmueble -->
+<com.google.android.material.floatingactionbutton.FloatingActionButton
+            android:id="@+id/fabAgregar"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="24dp"
+            android:layout_marginBottom="12dp"
+            android:contentDescription="@string/prop_agregar_titulo"
+            android:src="@drawable/ic_add"
+            app:layout_anchor="@id/cardBusqueda"
+            app:layout_anchorGravity="bottom|end" />
+
+        <!-- Botón "mi ubicación": vuelve a centrar el mapa donde está el usuario -->
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
+            android:id="@+id/fabMiUbicacion"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom|end"
+            android:layout_marginEnd="24dp"
+            android:layout_marginBottom="120dp"
+            android:contentDescription="@string/mi_ubicacion_btn"
+            android:src="@android:drawable/ic_menu_mylocation" />
 
     <!-- 3. Panel Inferior Deslizable (BottomSheet) -->
     <LinearLayout

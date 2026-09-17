@@ -3,6 +3,274 @@
     <string name="search_hint">Buscar departamentos…</string>
     <string name="nearby_title">Inmuebles Cercanos</string>
     <string name="my_location_title">Tu Ubicación</string>
+    <string name="mi_ubicacion_btn">Mi ubicación</string>
     <string name="location_error">No se logró obtener la ubicación actual</string>
     <string name="permission_denied">Permiso de ubicación denegado</string>
+
+    <!-- Autenticación -->
+    <string name="auth_ingresar">Ingresar</string>
+    <string name="auth_registrarse">Registrarse</string>
+    <string name="auth_titulo">Tu cuenta</string>
+    <string name="auth_email">Correo electrónico</string>
+    <string name="auth_password">Contraseña</string>
+    <string name="auth_sesion_iniciada">Sesión iniciada como %1$s</string>
+    <string name="auth_cerrar_sesion">Cerrar sesión</string>
+    <string name="auth_sesion_cerrada">Sesión cerrada</string>
+    <string name="auth_email_invalido">Ingresá un correo válido</string>
+    <string name="auth_password_corta">La contraseña debe tener al menos 6 caracteres</string>
+    <string name="auth_error">Error: %1$s</string>
+    <string name="auth_ok_login">¡Bienvenido de nuevo!</string>
+    <string name="auth_ok_registro">¡Cuenta creada! Bienvenido</string>
+    <string name="auth_usuario_guardado_error">No se pudo guardar el usuario: %1$s</string>
+    <string name="auth_requerido_para_agregar">Necesitás iniciar sesión para publicar un inmueble</string>
+
+    <!-- Alta de inmuebles -->
+    <string name="prop_agregar_titulo">Publicar inmueble</string>
+    <string name="prop_guardar">Guardar</string>
+    <string name="prop_hint_titulo">Título (ej: Depto. 2 dorm. céntrico)</string>
+    <string name="prop_hint_precio">Precio</string>
+    <string name="prop_hint_direccion">Dirección</string>
+    <string name="prop_buscar_dir_label">Buscar dirección en Google Maps</string>
+    <string name="prop_buscar_dir_hint">Escribí una dirección… ej: Av. José Larco 1234, Miraflores</string>
+    <string name="prop_buscar_dir_espera">Escribí al menos 3 letras para ver sugerencias</string>
+    <string name="prop_buscar_dir_vacio">Sin resultados. Escribí la dirección manualmente.</string>
+    <string name="prop_buscar_dir_error">No se pudo buscar la dirección: %1$s</string>
+    <string name="prop_dir_seleccionada">Ubicación del punto elegido: %1$s, %2$s (GPS)</string>
+    <string name="prop_hint_ambientes">Número de habitaciones</string>
+    <string name="prop_hint_superficie">Área (m²)</string>
+    <string name="prop_comodidades_label">Comodidades</string>
+    <string name="prop_hint_descripcion">Descripción</string>
+    <string name="prop_ubicacion_info">La ubicación se toma de tu posición actual.</string>
+    <string name="prop_tipo_label">Tipo</string>
+    <string name="prop_operacion_label">Operación</string>
+    <string name="prop_titulo_requerido">El título es obligatorio</string>
+    <string name="prop_ok_guardado">¡Inmueble publicado!</string>
+    <string name="prop_error_guardado">No se pudo publicar: %1$s</string>
+    <string name="prop_error_cargar">No se pudieron cargar los inmuebles: %1$s</string>
+
+    <!-- Fotos e inmuebles cercanos -->
+    <string name="prop_fotos_label">Fotos (máximo 3)</string>
+    <string name="prop_fotos_agregar">Agregar foto</string>
+    <string name="prop_fotos_error">No se pudo cargar la imagen</string>
+    <string name="prop_fotos_llena">Máximo 3 fotos por inmueble</string>
+    <string name="prop_foto_thumb_cd">Foto del inmueble</string>
+    <string name="prop_distancia_km">%1$s km</string>
+    <string name="prop_distancia_m">%1$s m</string>
+
+    <string-array name="tipos_inmueble">
+        <item>departamento</item>
+        <item>casa</item>
+        <item>habitacion</item>
+        <item>cochera</item>
+        <item>deposito</item>
+        <item>local</item>
+        <item>oficina</item>
+        <item>terreno</item>
+        <item>otro</item>
+    </string-array>
+    <string-array name="operaciones">
+        <item>alquiler</item>
+        <item>venta</item>
+    </string-array>
+
+    <!-- Moneda y publicación -->
+    <string name="prop_moneda_label">Moneda</string>
+    <string name="prop_distrito_label">Distrito</string>
+    <string name="prop_distrito_sin">Sin distrito</string>
+    <string name="ciudad_lima">Lima</string>
+
+    <string-array name="monedas">
+        <item>Soles (PEN)</item>
+        <item>Dólares (USD)</item>
+    </string-array>
+
+    <string-array name="comodidades_disponibles">
+        <item>Wifi</item>
+        <item>Agua</item>
+        <item>Luz</item>
+        <item>Ascensor</item>
+        <item>Balcón</item>
+        <item>Terraza</item>
+        <item>Cocina equipada</item>
+        <item>Amoblado</item>
+        <item>Parqueo</item>
+        <item>Jardín</item>
+    </string-array>
+
+    <!-- Filtros (Perú - Lima por ahora) -->
+    <string name="filtros_titulo">Filtrar inmuebles</string>
+    <string name="filtros_departamento">Departamento</string>
+    <string name="filtros_distrito">Distrito</string>
+    <string name="filtros_aplicar">Aplicar filtros</string>
+    <string name="filtros_limpiar">Limpiar filtros</string>
+    <string name="filtros_todos">Todos</string>
+    <string name="filtros_btn">Filtros</string>
+    <string name="filtros_btn_activo">Filtros: %1$s</string>
+    <string name="filtros_sin_resultados">No hay inmuebles que coincidan con el filtro</string>
+    <string name="filtros_scope_info">Por ahora se filtra solo Lima (Perú). Más departamentos próximamente.</string>
+
+    <string-array name="departamentos_peru">
+        <item>Lima</item>
+    </string-array>
+
+    <string-array name="distritos_lima">
+        <item>Ancón</item>
+        <item>Ate</item>
+        <item>Barranco</item>
+        <item>Breña</item>
+        <item>Carabayllo</item>
+        <item>Cercado de Lima</item>
+        <item>Chaclacayo</item>
+        <item>Chorrillos</item>
+        <item>Cieneguilla</item>
+        <item>Comas</item>
+        <item>El Agustino</item>
+        <item>Independencia</item>
+        <item>Jesús María</item>
+        <item>La Molina</item>
+        <item>La Victoria</item>
+        <item>Lince</item>
+        <item>Los Olivos</item>
+        <item>Lurigancho-Chosica</item>
+        <item>Lurín</item>
+        <item>Magdalena del Mar</item>
+        <item>Miraflores</item>
+        <item>Pachacámac</item>
+        <item>Pucusana</item>
+        <item>Pueblo Libre</item>
+        <item>Puente Piedra</item>
+        <item>Punta Hermosa</item>
+        <item>Punta Negra</item>
+        <item>Rímac</item>
+        <item>San Bartolo</item>
+        <item>San Borja</item>
+        <item>San Isidro</item>
+        <item>San Juan de Lurigancho</item>
+        <item>San Juan de Miraflores</item>
+        <item>San Luis</item>
+        <item>San Martín de Porres</item>
+        <item>San Miguel</item>
+        <item>Santa Anita</item>
+        <item>Santa María del Mar</item>
+        <item>Santa Rosa</item>
+        <item>Santiago de Surco</item>
+        <item>Surquillo</item>
+        <item>Villa El Salvador</item>
+        <item>Villa María del Triunfo</item>
+    </string-array>
+
+    <!-- Acceso con Google -->
+    <string name="auth_google">Ingresar con Google</string>
+    <string name="auth_google_no_config">El acceso con Google aún no está configurado</string>
+    <string name="auth_google_error">Error iniciando sesión con Google (%1$s)</string>
+    <string name="auth_ok_google">¡Sesión iniciada con Google!</string>
+
+    <!-- Client ID web de OAuth (auto-creado al habilitar Google sign-in en la consola) -->
+    <string name="default_web_client_id" translatable="false">288429280561-0f7jlpoc8h91m7naj0gsstavj8co4t38.apps.googleusercontent.com</string>
+
+    <!-- Chat -->
+    <string name="chat_btn">Chat</string>
+    <string name="chat_titulo_bandeja">Mensajes</string>
+    <string name="chat_bandeja_vacia">Todavía no tenés conversaciones. Tocá un inmueble y escribí al propietario.</string>
+    <string name="chat_requiere_sesion">Iniciá sesión para ver tus mensajes</string>
+    <string name="chat_hint_escribir">Escribí un mensaje…</string>
+    <string name="chat_enviar">Enviar mensaje</string>
+    <string name="chat_atras">Volver</string>
+    <string name="chat_identidad_verificada">Identidad verificada</string>
+
+    <!-- Destacado + Verificación de confianza -->
+    <string name="destacado_etiqueta">Destacado</string>
+    <string name="verificado_chip">Verificado por Alkilapp</string>
+    <string name="verificado_chip_cd">Propietario verificado por Alkilapp</string>
+    <string name="verificado_explica">Este propietario ha verificado su identidad (DNI) y no cuenta con reportes negativos de alquiler.</string>
+    <string name="chat_verificado_linea">Este propietario verificó su DNI y no tiene reportes negativos</string>
+
+    <!-- Ficha del inmueble -->
+    <string name="detalle_titulo">Inmueble</string>
+    <string name="detalle_foto_cd">Foto del inmueble</string>
+    <string name="detalle_no_fotos">Sin fotos disponibles</string>
+    <string name="detalle_chatear">Chatear con el Propietario</string>
+    <string name="detalle_chatear_sesion">Iniciá sesión para chatear</string>
+    <string name="detalle_es_tuyo">Este inmueble es tuyo</string>
+    <string name="detalle_chat_error">No se pudo abrir el chat: %1$s</string>
+    <string name="detalle_amb">%1$d hab.</string>
+    <string name="detalle_superficie">%1$s m²</string>
+    <string name="detalle_comodidades">Comodidades: %1$s</string>
+    <string name="ver_perfil">Ver perfil</string>
+    <string name="detalle_finalizar_btn">Dar por finalizada la publicación</string>
+    <string name="detalle_finalizar_confirm_titulo">¿Ya alquilaste este inmueble?</string>
+    <string name="detalle_finalizar_confirm_msg">Al finalizar la publicación dejará de mostrarse en el listado de inmuebles.</string>
+    <string name="detalle_finalizar_si">Sí, finalizar</string>
+    <string name="detalle_finalizar_no">Todavía no</string>
+    <string name="detalle_finalizar_ok">Publicación finalizada</string>
+    <string name="detalle_finalizar_error">No se pudo finalizar la publicación: %1$s</string>
+    <string name="detalle_finalizado_banner">Publicación finalizada — este inmueble ya fue alquilado</string>
+
+    <!-- Denuncia -->
+    <string name="denuncia_btn">Denunciar anuncio</string>
+    <string name="denuncia_titulo">Denunciar este anuncio</string>
+    <string name="denuncia_subtitulo">Contanos qué está mal. Tu denuncia se revisa y ayuda a mantener AlkilApp seguro.</string>
+    <string name="denuncia_detalle_hint">Contanos más (opcional)</string>
+    <string name="denuncia_cancelar">Cancelar</string>
+    <string name="denuncia_enviar">Enviar denuncia</string>
+    <string name="denuncia_sesion">Iniciá sesión para denunciar</string>
+    <string name="denuncia_ok">Denuncia enviada. ¡Gracias por reportarlo!</string>
+    <string name="denuncia_error">No se pudo enviar: %1$s</string>
+
+    <string-array name="motivos_denuncia">
+        <item>El anuncio no coincide con las fotos</item>
+        <item>Información falsa o engañosa</item>
+        <item>Precio engañoso</item>
+        <item>Presunta estafa o fraude</item>
+        <item>Contenido inapropiado</item>
+        <item>Otro motivo</item>
+    </string-array>
+
+    <!-- Perfil del propietario -->
+    <string name="perfil_titulo">Perfil del propietario</string>
+    <string name="perfil_foto_cd">Foto de perfil</string>
+    <string name="perfil_verificado_ok">Verificado por AlkilApp</string>
+    <string name="perfil_rol_propietario">Propietario</string>
+    <string name="perfil_rol_inquilino">Inquilino</string>
+    <string name="perfil_rol_ambos">Propietario e inquilino</string>
+    <string name="perfil_trust_none">Sin verificar</string>
+    <string name="perfil_trust_basic">Verificado básico</string>
+    <string name="perfil_trust_premium">Verificado premium</string>
+    <string name="perfil_miembro_desde">En AlkilApp desde %1$s</string>
+    <string name="perfil_reviews">Reseñas</string>
+    <string name="perfil_reviews_vacio">Todavía no tiene reseñas.</string>
+    <string name="perfil_review_autor">por %1$s</string>
+    <string name="perfil_chatear">Chatear</string>
+    <string name="perfil_no_encontrado">No se encontró el perfil.</string>
+    <string name="perfil_rating">%1$s (%2$d reseñas)</string>
+    <string name="perfil_foto_ok">¿Qué mejora?</string>
+    <string name="perfil_inmuebles">Inmuebles publicados</string>
+    <string name="perfil_inmuebles_vacio">Todavía no publicó inmuebles.</string>
+    <string name="prop_estado_disponible">Disponible</string>
+    <string name="prop_estado_finalizado">Finalizado</string>
+    <string name="prop_estado_revision">En revisión</string>
+    <string name="prop_finalizar_btn">Ya lo alquilé</string>
+
+    <!-- Mi perfil (cabecera y datos personales) -->
+    <string name="mi_perfil_titulo">Mi perfil</string>
+    <string name="perfil_nombre_hint">Nombre</string>
+    <string name="perfil_telefono_hint">Teléfono</string>
+    <string name="perfil_email_label">Correo</string>
+    <string name="perfil_tipo_label">Tipo de cuenta</string>
+    <string name="perfil_guardar">Guardar</string>
+    <string name="perfil_ok">Perfil actualizado</string>
+    <string name="perfil_error">No se pudo guardar tu perfil: %1$s</string>
+    <string name="perfil_nombre_requerido">Escribí tu nombre</string>
+    <string name="perfil_foto_agregar">Agregar foto</string>
+    <string name="perfil_foto_error">No se pudo cargar la imagen</string>
+
+    <string-array name="tipos_usuario">
+        <item>Propietario(a)</item>
+        <item>Inquilino(a)</item>
+        <item>Publico y busco</item>
+    </string-array>
+
+    <!-- Visor de fotos a pantalla completa -->
+    <string name="foto_zoom_cerrar">Cerrar</string>
+    <string name="foto_zoom_indicador">Foto %1$d de %2$d</string>
 </resources>
