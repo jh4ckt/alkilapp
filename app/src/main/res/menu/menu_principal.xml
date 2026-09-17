@@ -6,7 +6,4 @@
     <item
         android:id="@+id/menuChat"
         android:title="@string/chat_btn" />
-    <item
-        android:id="@+id/menuFiltros"
-        android:title="@string/filtros_btn" />
 </menu>

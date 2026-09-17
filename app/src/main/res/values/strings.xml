@@ -1,6 +1,6 @@
 <resources>
     <string name="app_name">AlkilApp</string>
-    <string name="search_hint">Buscar departamentos…</string>
+    <string name="search_hint">Buscar por inmueble, distrito o zona…</string>
     <string name="nearby_title">Inmuebles Cercanos</string>
     <string name="my_location_title">Tu Ubicación</string>
     <string name="mi_ubicacion_btn">Mi ubicación</string>
@@ -108,7 +108,7 @@
     <string name="filtros_btn_activo">Filtros: %1$s</string>
     <string name="filtros_sin_resultados">No hay inmuebles que coincidan con el filtro</string>
     <string name="filtros_scope_info">Por ahora se filtra solo Lima (Perú). Más departamentos próximamente.</string>
-    <string name="menu_principal_cd">Menú principal: perfil, chat y filtros</string>
+    <string name="menu_principal_cd">Menú principal: perfil y chat</string>
 
     <string-array name="departamentos_peru">
         <item>Lima</item>

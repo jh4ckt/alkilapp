@@ -162,7 +162,7 @@ class PropiedadAdapter(
         items.clear()
         val filtradas = fullList.filter { p ->
             val buscaOk = query.isEmpty() ||
-                listOf(p.titulo, p.direccion, p.barrio)
+                listOf(p.titulo, p.direccion, p.barrio, p.tipo, p.ciudad)
                     .any { it.lowercase().contains(query) }
             val deptoOk = filtroDepartamento == null ||
                 p.ciudad.equals(filtroDepartamento, ignoreCase = true)

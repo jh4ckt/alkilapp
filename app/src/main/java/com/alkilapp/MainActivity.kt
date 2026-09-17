@@ -3,6 +3,7 @@ package com.alkilapp
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.content.res.ColorStateList
 import android.content.res.Resources
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
@@ -62,6 +63,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
 
     private var filtroDepartamento: String? = null
     private var filtroDistrito: String? = null
+    private var busquedaActual: String = ""
     private var ultimaUbicacion: LatLng? = null
 
     private val googleSignInClient by lazy {
@@ -131,6 +133,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         setupBotones()
         configurarMenu()
         configurarBottomSheet()
+        actualizarBotonFiltros()
     }
 
     /** El FAB "mi ubicación" sube junto con el bottomSheet para nunca quedar sobre el listado. */
@@ -159,7 +162,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             when (item.itemId) {
                 R.id.menuPerfil -> onBotonAuth()
                 R.id.menuChat -> abrirChat()
-                R.id.menuFiltros -> abrirDialogoFiltros()
             }
             true
         }
@@ -185,8 +187,11 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         binding.rvDepartamentos.adapter = adapter
 
         binding.etBusqueda.doAfterTextChanged { texto ->
-            adapter.filter(texto?.toString().orEmpty())
+            busquedaActual = texto?.toString().orEmpty()
+            adapter.filter(busquedaActual)
+            actualizarZonaMapa(false)
         }
+        binding.btnFiltroBuscar.setOnClickListener { abrirDialogoFiltros() }
     }
 
     private fun setupBotones() {
@@ -286,6 +291,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             .setNeutralButton(R.string.filtros_limpiar) { _, _ ->
                 filtroDepartamento = null
                 filtroDistrito = null
+                binding.etBusqueda.setText("")
                 adapter.setFiltros(null, null)
                 actualizarBotonFiltros()
                 actualizarZonaMapa()
@@ -295,8 +301,10 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     }
 
     private fun actualizarBotonFiltros() {
-        val activo = filtroDistrito ?: filtroDepartamento
-        // El FAB de filtros se movió a la barra lateral; no se actualiza texto aquí.
+        val activo = (filtroDistrito ?: filtroDepartamento) != null || busquedaActual.isNotBlank()
+        binding.btnFiltroBuscar.imageTintList = ColorStateList.valueOf(
+            getColor(if (activo) R.color.alkil_primary else R.color.text_secondary)
+        )
     }
 
     /** Escucha en vivo los inmuebles guardados en Firestore (colección "propiedades"). */
@@ -349,10 +357,13 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     private fun actualizarBadges(lista: List<Propiedad>) {
         binding.overlayBadges.removeAllViews()
         val zonaActiva = filtroDistrito ?: filtroDepartamento
-        val filtrada = if (zonaActiva != null) {
-            lista.filter {
-                it.barrio.equals(zonaActiva, ignoreCase = true) ||
-                it.ciudad.equals(zonaActiva, ignoreCase = true)
+        val filtrada = if (busquedaActual.isNotBlank() || zonaActiva != null) {
+            lista.filter { p ->
+                val buscaOk = propiedadCoincideTexto(p, busquedaActual)
+                val zonaOk = zonaActiva == null ||
+                    p.barrio.equals(zonaActiva, ignoreCase = true) ||
+                    p.ciudad.equals(zonaActiva, ignoreCase = true)
+                buscaOk && zonaOk
             }
         } else lista
         val porZona = filtrada.groupBy { it.barrio.ifEmpty { it.ciudad } }
@@ -369,6 +380,14 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             binding.overlayBadges.addView(badge)
         }
         binding.overlayBadges.post { posicionarBadges() }
+    }
+
+    /** ¿El inmueble coincide con la búsqueda por texto? (mismos campos que el adapter). */
+    private fun propiedadCoincideTexto(p: Propiedad, texto: String): Boolean {
+        val q = texto.trim().lowercase()
+        if (q.isEmpty()) return true
+        return listOf(p.titulo, p.direccion, p.barrio, p.tipo, p.ciudad)
+            .any { it.lowercase().contains(q) }
     }
 
     private fun posicionarBadges() {
@@ -504,18 +523,20 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(punto, DEFAULT_CAMERA_ZOOM))
     }
 
-    /** Escucha en vivo los inmuebles guardados en Firestore (colección "propiedades"). */
-    private fun actualizarZonaMapa() {
+    /** Centra el mapa en los inmuebles visibles tras aplicar búsqueda o filtros. */
+    private fun actualizarZonaMapa(conMensaje: Boolean = true) {
         limpiarMarcadores()
-        val hayFiltro = filtroDistrito != null || filtroDepartamento != null
+        val hayFiltro = filtroDistrito != null || filtroDepartamento != null ||
+            busquedaActual.isNotBlank()
         if (!hayFiltro) {
             if (ultimaUbicacion != null) centrarEn(ultimaUbicacion!!, true)
             return
         }
         val visibles = adapter.visibles().filter { it.lat != 0.0 || it.lng != 0.0 }
         if (visibles.isEmpty()) {
-            Toast.makeText(this, R.string.filtros_sin_resultados, Toast.LENGTH_LONG).show()
-            if (ultimaUbicacion != null) centrarEn(ultimaUbicacion!!, true)
+            if (conMensaje) {
+                Toast.makeText(this, R.string.filtros_sin_resultados, Toast.LENGTH_LONG).show()
+            }
             return
         }
         val builder = LatLngBounds.Builder()
