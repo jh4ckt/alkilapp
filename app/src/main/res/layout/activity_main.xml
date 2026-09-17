@@ -20,31 +20,37 @@
         android:clipChildren="false"
         android:clipToPadding="false" />
 
-    <!-- 3. Botón de menú (perfil, chat, filtros) en la esquina superior -->
-    <ImageButton
-        android:id="@+id/btnMenu"
-        android:layout_width="46dp"
-        android:layout_height="46dp"
-        android:layout_gravity="start|top"
-        android:layout_marginStart="12dp"
-        android:layout_marginTop="8dp"
-        android:background="@drawable/bg_sidebar"
-        android:contentDescription="@string/menu_principal_cd"
-        android:importantForAutofill="no"
-        android:padding="11dp"
-        android:src="@drawable/ic_hamburger"
-        app:tint="@color/alkil_primary" />
-
-    <!-- 4. Barra de búsqueda (debajo de la barra superior) -->
-    <com.google.android.material.card.MaterialCardView
-        android:id="@+id/cardBusqueda"
+    <!-- 3. Fila superior: menú (hamburguesa) + barra de búsqueda/filtro, alineados -->
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginStart="16dp"
+        android:layout_gravity="top"
+        android:layout_marginStart="12dp"
+        android:layout_marginTop="30dp"
         android:layout_marginEnd="16dp"
-        android:layout_marginTop="66dp"
-        app:cardCornerRadius="24dp"
-        app:cardElevation="6dp">
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <ImageButton
+            android:id="@+id/btnMenu"
+            android:layout_width="46dp"
+            android:layout_height="46dp"
+            android:background="@drawable/bg_sidebar"
+            android:contentDescription="@string/menu_principal_cd"
+            android:importantForAutofill="no"
+            android:padding="11dp"
+            android:src="@drawable/ic_hamburger"
+            app:tint="@color/alkil_primary" />
+
+        <!-- 4. Barra de búsqueda y filtro (junto al menú) -->
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/cardBusqueda"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="10dp"
+            android:layout_weight="1"
+            app:cardCornerRadius="24dp"
+            app:cardElevation="6dp">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -81,7 +87,8 @@
                 app:tint="@color/text_secondary" />
 
         </LinearLayout>
-    </com.google.android.material.card.MaterialCardView>
+        </com.google.android.material.card.MaterialCardView>
+    </LinearLayout>
 
     <!-- 5. Botón flotante para publicar (debajo de la búsqueda, sin solaparla) -->
     <com.google.android.material.floatingactionbutton.FloatingActionButton
