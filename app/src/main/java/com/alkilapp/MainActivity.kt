@@ -3,7 +3,6 @@ package com.alkilapp
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.content.res.ColorStateList
 import android.content.res.Resources
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
@@ -39,6 +38,7 @@ import com.google.android.gms.maps.model.LatLngBounds
 import com.google.android.gms.maps.model.Marker
 import com.google.android.gms.maps.model.MarkerOptions
 import com.google.android.material.button.MaterialButton
+import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
@@ -129,13 +129,41 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
 
         setupListaDepartamentos()
         setupBotones()
-        configurarSidebar()
+        configurarMenu()
+        configurarBottomSheet()
     }
 
-    private fun configurarSidebar() {
-        binding.btnSidebarPerfil.setOnClickListener { onBotonAuth() }
-        binding.btnSidebarChat.setOnClickListener { abrirChat() }
-        binding.btnSidebarFiltros.setOnClickListener { abrirDialogoFiltros() }
+    /** El FAB "mi ubicación" sube junto con el bottomSheet para nunca quedar sobre el listado. */
+    private fun configurarBottomSheet() {
+        val sheet = binding.bottomSheet
+        val behavior = BottomSheetBehavior.from(sheet)
+        behavior.addBottomSheetCallback(object : BottomSheetBehavior.BottomSheetCallback() {
+            override fun onStateChanged(sheet: View, newState: Int) = Unit
+
+            override fun onSlide(sheet: View, slideOffset: Float) {
+                val delta = sheet.height - behavior.peekHeight
+                binding.fabMiUbicacion.translationY = -slideOffset * delta
+            }
+        })
+    }
+
+    /** Botón de menú en la esquina superior: despliega perfil / chat / filtros. */
+    private fun configurarMenu() {
+        binding.btnMenu.setOnClickListener { mostrarMenuPrincipal() }
+    }
+
+    private fun mostrarMenuPrincipal() {
+        val popup = android.widget.PopupMenu(this, binding.btnMenu)
+        popup.menuInflater.inflate(R.menu.menu_principal, popup.menu)
+        popup.setOnMenuItemClickListener { item ->
+            when (item.itemId) {
+                R.id.menuPerfil -> onBotonAuth()
+                R.id.menuChat -> abrirChat()
+                R.id.menuFiltros -> abrirDialogoFiltros()
+            }
+            true
+        }
+        popup.show()
     }
 
     override fun onStart() {
@@ -408,7 +436,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     override fun onMapReady(googleMap: GoogleMap) {
         mMap = googleMap
         mMap.uiSettings.isZoomControlsEnabled = true
-        mMap.uiSettings.isMyLocationButtonEnabled = true
+        mMap.uiSettings.isMyLocationButtonEnabled = false
         configurarBadges()
         verificarPermisosUbicacion()
     }
@@ -510,6 +538,9 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     }
 
     private fun abrirDetallePropiedad(propiedad: Propiedad) {
+        if (::mMap.isInitialized) {
+            mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(propiedad.ubicacion, 16f))
+        }
         val intent = Intent(this, PropiedadDetalleActivity::class.java).apply {
             putExtra(PropiedadDetalleActivity.EXTRA_ID, propiedad.id)
             putExtra(PropiedadDetalleActivity.EXTRA_TITULO, propiedad.titulo)
@@ -687,10 +718,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     }
 
     private fun actualizarUiSesion() {
-        val sesion = auth.currentUser != null
-        binding.btnSidebarPerfil.imageTintList = ColorStateList.valueOf(
-            if (sesion) getColor(R.color.alkil_primary) else getColor(R.color.text_secondary)
-        )
+        // El botón de menú no muestra estado de sesión.
     }
 }
 

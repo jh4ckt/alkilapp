@@ -1,0 +1,29 @@
+﻿{
+  "project_info": {
+    "project_number": "288429280561",
+    "project_id": "gen-lang-client-0040505884",
+    "storage_bucket": "gen-lang-client-0040505884.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:288429280561:android:25ba424b59e765e06c3410",
+        "android_client_info": {
+          "package_name": "com.alkilapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCidZ9XXN69qaqa_TdLhv1YTLYE-1AWsCs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

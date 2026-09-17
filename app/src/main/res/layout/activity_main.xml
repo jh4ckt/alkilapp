@@ -20,12 +20,29 @@
         android:clipChildren="false"
         android:clipToPadding="false" />
 
-    <!-- 3. Barra superior: solo búsqueda -->
+    <!-- 3. Botón de menú (perfil, chat, filtros) en la esquina superior -->
+    <ImageButton
+        android:id="@+id/btnMenu"
+        android:layout_width="46dp"
+        android:layout_height="46dp"
+        android:layout_gravity="start|top"
+        android:layout_marginStart="12dp"
+        android:layout_marginTop="8dp"
+        android:background="@drawable/bg_sidebar"
+        android:contentDescription="@string/menu_principal_cd"
+        android:importantForAutofill="no"
+        android:padding="11dp"
+        android:src="@drawable/ic_hamburger"
+        app:tint="@color/alkil_primary" />
+
+    <!-- 4. Barra de búsqueda (debajo de la barra superior) -->
     <com.google.android.material.card.MaterialCardView
         android:id="@+id/cardBusqueda"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_margin="16dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginTop="66dp"
         app:cardCornerRadius="24dp"
         app:cardElevation="6dp">
 
@@ -55,113 +72,16 @@
         </LinearLayout>
     </com.google.android.material.card.MaterialCardView>
 
-    <!-- 4a. Botón flotante para publicar -->
+    <!-- 5. Botón flotante para publicar (debajo de la búsqueda, sin solaparla) -->
     <com.google.android.material.floatingactionbutton.FloatingActionButton
         android:id="@+id/fabAgregar"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginEnd="24dp"
-        android:layout_marginBottom="12dp"
+        android:layout_gravity="end|top"
+        android:layout_marginEnd="20dp"
+        android:layout_marginTop="124dp"
         android:contentDescription="@string/prop_agregar_titulo"
-        android:src="@drawable/ic_add"
-        app:layout_anchor="@id/cardBusqueda"
-        app:layout_anchorGravity="bottom|end" />
-
-    <!-- 4b. Botón "mi ubicación" -->
-    <com.google.android.material.floatingactionbutton.FloatingActionButton
-        android:id="@+id/fabMiUbicacion"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="bottom|end"
-        android:layout_marginEnd="24dp"
-        android:layout_marginBottom="120dp"
-        android:contentDescription="@string/mi_ubicacion_btn"
-        android:src="@android:drawable/ic_menu_mylocation" />
-
-    <!-- 5. Barra lateral izquierda: perfil, chat, filtros -->
-    <LinearLayout
-        android:id="@+id/sidebar"
-        android:layout_width="52dp"
-        android:layout_height="wrap_content"
-        android:layout_gravity="start|bottom"
-        android:layout_marginStart="12dp"
-        android:layout_marginBottom="124dp"
-        android:orientation="vertical"
-        android:gravity="center_horizontal"
-        android:paddingTop="10dp"
-        android:paddingBottom="10dp"
-        android:background="@drawable/bg_sidebar"
-        android:clipChildren="false">
-
-        <ImageButton
-            android:id="@+id/btnSidebarPerfil"
-            android:layout_width="36dp"
-            android:layout_height="36dp"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:contentDescription="@string/perfil_foto_cd"
-            android:src="@drawable/ic_person"
-            app:tint="@color/alkil_primary"
-            android:importantForAutofill="no" />
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="2dp"
-            android:text="@string/perfil_nombre_hint"
-            android:textColor="@color/text_secondary"
-            android:textSize="9sp" />
-
-        <View
-            android:layout_width="20dp"
-            android:layout_height="1dp"
-            android:layout_marginTop="6dp"
-            android:layout_marginBottom="6dp"
-            android:background="@color/divider" />
-
-        <ImageButton
-            android:id="@+id/btnSidebarChat"
-            android:layout_width="36dp"
-            android:layout_height="36dp"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:contentDescription="@string/chat_titulo_bandeja"
-            android:src="@drawable/ic_chat"
-            app:tint="@color/alkil_primary"
-            android:importantForAutofill="no" />
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="2dp"
-            android:text="@string/chat_btn"
-            android:textColor="@color/text_secondary"
-            android:textSize="9sp" />
-
-        <View
-            android:layout_width="20dp"
-            android:layout_height="1dp"
-            android:layout_marginTop="6dp"
-            android:layout_marginBottom="6dp"
-            android:background="@color/divider" />
-
-        <ImageButton
-            android:id="@+id/btnSidebarFiltros"
-            android:layout_width="36dp"
-            android:layout_height="36dp"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:contentDescription="@string/filtros_titulo"
-            android:src="@android:drawable/ic_menu_sort_by_size"
-            app:tint="@color/alkil_primary"
-            android:importantForAutofill="no" />
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="2dp"
-            android:text="@string/filtros_btn"
-            android:textColor="@color/text_secondary"
-            android:textSize="9sp" />
-
-    </LinearLayout>
+        android:src="@drawable/ic_add" />
 
     <!-- 6. Panel inferior deslizable (BottomSheet) -->
     <LinearLayout
@@ -194,5 +114,16 @@
             android:layout_height="match_parent" />
 
     </LinearLayout>
+
+    <!-- 7. Botón "mi ubicación" (se posiciona justo sobre el bottomSheet y sube con él vía código) -->
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/fabMiUbicacion"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|end"
+        android:layout_marginEnd="20dp"
+        android:layout_marginBottom="108dp"
+        android:contentDescription="@string/mi_ubicacion_btn"
+        android:src="@android:drawable/ic_menu_mylocation" />
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>
