@@ -8,14 +8,18 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.view.View
+import android.widget.EditText
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import com.alkilapp.data.Propiedad
 import com.alkilapp.databinding.ActivityPerfilPropietarioBinding
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
 import java.net.HttpURLConnection
@@ -68,6 +72,13 @@ class PerfilPropietarioActivity : AppCompatActivity() {
             binding.btnPerfilChat.visibility = View.GONE
         } else {
             binding.btnPerfilChat.setOnClickListener { abrirChat() }
+        }
+
+        if (esMio || uid.isBlank()) {
+            binding.btnPerfilResena.visibility = View.GONE
+        } else {
+            binding.btnPerfilResena.visibility = View.VISIBLE
+            binding.btnPerfilResena.setOnClickListener { abrirResena() }
         }
 
         if (uid.isBlank()) {
@@ -290,6 +301,128 @@ class PerfilPropietarioActivity : AppCompatActivity() {
         cont.background = getDrawable(R.drawable.bg_input_detalle)
         cont.setPadding(12.dp, 10.dp, 12.dp, 10.dp)
         return cont
+    }
+
+    // ---- Dejar reseña ----------------------------------------------------
+
+    private fun abrirResena() {
+        val miUid = auth.currentUser?.uid
+        if (miUid == null) {
+            Toast.makeText(this, R.string.resena_sesion, Toast.LENGTH_SHORT).show()
+            return
+        }
+        if (uid.isBlank() || uid == miUid) return
+
+        val vista = layoutInflater.inflate(R.layout.dialog_resena, null)
+        val contEstrellas = vista.findViewById<LinearLayout>(R.id.llResenaEstrellas)
+        val etComentario = vista.findViewById<EditText>(R.id.etResenaComentario)
+
+        var seleccion = 0
+        val estrellas = ArrayList<ImageView>()
+        for (i in 1..5) {
+            val img = ImageView(this)
+            val tam = 38.dp
+            img.layoutParams = LinearLayout.LayoutParams(tam, tam)
+            img.setImageResource(R.drawable.ic_star)
+            img.contentDescription = getString(R.string.resena_estrella_cd, i)
+            img.setOnClickListener {
+                seleccion = i
+                pintarEstrellas(estrellas, seleccion)
+            }
+            contEstrellas.addView(img)
+            estrellas.add(img)
+        }
+        pintarEstrellas(estrellas, seleccion)
+
+        val dialogo = MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.resena_titulo)
+            .setView(vista)
+            .setNegativeButton(R.string.resena_cancelar, null)
+            .setPositiveButton(R.string.resena_enviar, null)
+            .create()
+
+        dialogo.setOnShowListener {
+            dialogo.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                if (seleccion <= 0) {
+                    Toast.makeText(this, R.string.resena_falta_rating, Toast.LENGTH_SHORT).show()
+                    return@setOnClickListener
+                }
+                dialogo.dismiss()
+                guardarResena(miUid, seleccion, etComentario.text.toString().trim())
+            }
+        }
+        dialogo.show()
+    }
+
+    private fun pintarEstrellas(estrellas: List<ImageView>, seleccion: Int) {
+        estrellas.forEachIndexed { indice, img ->
+            img.imageTintList = ColorStateList.valueOf(
+                if (indice < seleccion) getColor(R.color.alkil_gold)
+                else getColor(R.color.divider)
+            )
+        }
+    }
+
+    /**
+     * Guarda la reseña en usuarios/{uid}/reviews/{miUid} (una por usuario;
+     * volver a calificar la actualiza) y recalcula el promedio en el doc del
+     * propietario (campos "rating" y "totalRatings").
+     */
+    private fun guardarResena(miUid: String, estrellas: Int, comentario: String) {
+        val usuario = auth.currentUser
+        val nombre = usuario?.displayName?.takeIf { it.isNotBlank() }
+            ?: usuario?.email?.substringBefore("@")
+            ?: getString(R.string.perfil_rol_propietario)
+
+        db.collection("usuarios").document(uid).collection("reviews").get()
+            .addOnSuccessListener { snap ->
+                var suma = 0.0
+                var total = 0
+                snap.documents.forEach { doc ->
+                    if (doc.id.equals(miUid, ignoreCase = true)) return@forEach
+                    suma += (doc["rating"] as? Number)?.toDouble() ?: 0.0
+                    total++
+                }
+                suma += estrellas
+                total++
+                val promedio = Math.round(suma / total * 10.0) / 10.0
+
+                val lote = db.batch()
+                lote.set(
+                    db.collection("usuarios").document(uid)
+                        .collection("reviews").document(miUid),
+                    hashMapOf(
+                        "authorId" to miUid,
+                        "authorName" to nombre,
+                        "rating" to estrellas,
+                        "comment" to comentario,
+                        "listingId" to listingId,
+                        "createdAt" to FieldValue.serverTimestamp()
+                    )
+                )
+                lote.update(
+                    db.collection("usuarios").document(uid),
+                    mapOf("rating" to promedio, "totalRatings" to total)
+                )
+                lote.commit()
+                    .addOnSuccessListener {
+                        Toast.makeText(this, R.string.resena_ok, Toast.LENGTH_SHORT).show()
+                    }
+                    .addOnFailureListener { e ->
+                        Toast.makeText(
+                            this,
+                            getString(R.string.resena_error, e.localizedMessage ?: "?"),
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
+            }
+            .addOnFailureListener { e ->
+                Toast.makeText(
+                    this,
+                    getString(R.string.resena_error, e.localizedMessage ?: "?"),
+                    Toast.LENGTH_LONG
+                ).show()
+            }
     }
 
     // ---- Inmuebles que publicó este usuario ------------------------------

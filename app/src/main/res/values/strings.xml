@@ -252,6 +252,19 @@
     <string name="perfil_foto_ok">¿Qué mejora?</string>
     <string name="perfil_inmuebles">Inmuebles publicados</string>
     <string name="perfil_inmuebles_vacio">Todavía no publicó inmuebles.</string>
+
+    <!-- Dejar reseña -->
+    <string name="resena_btn">Escribir reseña</string>
+    <string name="resena_titulo">Dejá tu reseña</string>
+    <string name="resena_subtitulo">Tocá las estrellas para calificar (1 a 5).</string>
+    <string name="resena_comentario_hint">Contá tu experiencia (opcional)</string>
+    <string name="resena_enviar">Publicar reseña</string>
+    <string name="resena_cancelar">Cancelar</string>
+    <string name="resena_falta_rating">Elegí una calificación de 1 a 5 estrellas</string>
+    <string name="resena_sesion">Iniciá sesión para dejar una reseña</string>
+    <string name="resena_ok">¡Gracias! Tu reseña se publicó</string>
+    <string name="resena_error">No se pudo publicar: %1$s</string>
+    <string name="resena_estrella_cd">Calificación %1$d de 5</string>
     <string name="prop_estado_disponible">Disponible</string>
     <string name="prop_estado_finalizado">Finalizado</string>
     <string name="prop_estado_revision">En revisión</string>
