@@ -193,6 +193,11 @@
     <string name="detalle_chatear">Chatear con el Propietario</string>
     <string name="detalle_chatear_sesion">Iniciá sesión para chatear</string>
     <string name="detalle_es_tuyo">Este inmueble es tuyo</string>
+    <string name="detalle_ver_mapa">Ver ubicación en mapa</string>
+    <string name="ubicacion_titulo">Ubicación</string>
+    <string name="ubicacion_como_llegar">Cómo llegar</string>
+    <string name="ubicacion_sin_coordenadas">Este inmueble no tiene ubicación registrada</string>
+    <string name="ubicacion_navegacion_error">No se pudo abrir el mapa de navegación</string>
     <string name="detalle_chat_error">No se pudo abrir el chat: %1$s</string>
     <string name="detalle_amb">%1$d hab.</string>
     <string name="detalle_superficie">%1$s m²</string>

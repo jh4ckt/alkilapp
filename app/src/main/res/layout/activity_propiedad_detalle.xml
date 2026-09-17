@@ -254,6 +254,28 @@
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
+            <!-- VER UBICACIÓN EN MAPA -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnVerMapa"
+                android:layout_width="match_parent"
+                android:layout_height="52dp"
+                android:layout_marginStart="16dp"
+                android:layout_marginTop="16dp"
+                android:layout_marginEnd="16dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:paddingStart="14dp"
+                android:paddingEnd="14dp"
+                android:text="@string/detalle_ver_mapa"
+                android:textColor="@color/white"
+                android:textSize="15sp"
+                android:textStyle="bold"
+                app:backgroundTint="@color/alkil_primary"
+                app:cornerRadius="14dp"
+                app:icon="@drawable/ic_location"
+                app:iconGravity="textStart"
+                app:iconTint="@color/white" />
+
             <!-- CHAT CON EL PROPIETARIO -->
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnChatPropietario"

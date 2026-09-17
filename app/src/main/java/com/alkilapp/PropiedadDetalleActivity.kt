@@ -104,6 +104,13 @@ class PropiedadDetalleActivity : AppCompatActivity() {
         armarGaleria()
         binding.ivPreview.setOnClickListener { abrirZoomFoto(indiceActual) }
 
+        // Ubicación en el mapa
+        binding.btnVerMapa.setOnClickListener { abrirUbicacionMapa() }
+        binding.btnVerMapa.visibility =
+            if (intent.getDoubleExtra(EXTRA_LAT, 0.0) == 0.0 &&
+                intent.getDoubleExtra(EXTRA_LNG, 0.0) == 0.0
+            ) View.GONE else View.VISIBLE
+
         // Chat con el propietario
         binding.btnChatPropietario.setOnClickListener { abrirChatPropietario() }
         val miUid = auth.currentUser?.uid
@@ -316,6 +323,29 @@ class PropiedadDetalleActivity : AppCompatActivity() {
                     Toast.LENGTH_LONG
                 ).show()
             }
+    }
+
+    // ======================================================================
+    // Ubicación en el mapa
+    // ======================================================================
+
+    private fun abrirUbicacionMapa() {
+        val lat = intent.getDoubleExtra(EXTRA_LAT, 0.0)
+        val lng = intent.getDoubleExtra(EXTRA_LNG, 0.0)
+        if (lat == 0.0 && lng == 0.0) {
+            Toast.makeText(this, R.string.ubicacion_sin_coordenadas, Toast.LENGTH_SHORT).show()
+            return
+        }
+        startActivity(
+            Intent(this, UbicacionInmuebleActivity::class.java).apply {
+                putExtra(UbicacionInmuebleActivity.EXTRA_LAT, lat)
+                putExtra(UbicacionInmuebleActivity.EXTRA_LNG, lng)
+                putExtra(
+                    UbicacionInmuebleActivity.EXTRA_TITULO,
+                    direccionCompleta()
+                )
+            }
+        )
     }
 
     private fun abrirConversacion(chatId: String) {
