@@ -20,6 +20,7 @@ data class Propiedad(
     val contacto: String = "",
     val estado: String = "disponible",
     val ambientes: Int = 0,
+    val banios: Int = 0,
     val superficieM2: Double = 0.0,
     val comodidades: List<String> = emptyList(),
     val fotos: List<String> = emptyList(),
@@ -33,6 +34,17 @@ data class Propiedad(
     /** Destacado solo si la flag es true y la fecha de expiración aún no pasó. */
     val esDestacado: Boolean
         get() = isFeatured && (featuredUntil == 0L || featuredUntil > System.currentTimeMillis())
+
+    /**
+     * Estado canónico para la UI. El panel/web puede guardar "publicado" o
+     * dejarlo vacío; la app usa "disponible" para todo lo que está activo
+     * (es lo que habilita el chat con el propietario y el seguimiento).
+     */
+    val estadoNormalizado: String
+        get() = when (estado.trim().lowercase()) {
+            "", "publicado", "activo" -> "disponible"
+            else -> estado.trim().lowercase()
+        }
 
     val precioFormateado: String
         get() {
@@ -70,6 +82,8 @@ data class Propiedad(
                 contacto = s("contacto"),
                 estado = s("estado"),
                 ambientes = n("ambientes").toInt(),
+                banios = (d["banios"] as? Number)?.toInt()
+                    ?: (d["bathrooms"] as? Number)?.toInt() ?: 0,
                 superficieM2 = n("superficieM2"),
                 comodidades = l("comodidades"),
                 fotos = (d["fotos"] as? List<*>)?.filterIsInstance<String>() ?: emptyList(),

@@ -18,6 +18,7 @@ import com.alkilapp.data.PerfilUsuario
 import com.alkilapp.databinding.ActivityPropiedadDetalleBinding
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.SetOptions
 import java.net.HttpURLConnection
 import java.net.URL
@@ -50,7 +51,10 @@ class PropiedadDetalleActivity : AppCompatActivity() {
         propId = intent.getStringExtra(EXTRA_ID).orEmpty()
         listingTitle = intent.getStringExtra(EXTRA_TITULO).orEmpty()
         idPropietario = intent.getStringExtra(EXTRA_ID_PROPIETARIO).orEmpty()
-        val estado = intent.getStringExtra(EXTRA_ESTADO) ?: "disponible"
+        val estado = when (val e = intent.getStringExtra(EXTRA_ESTADO)?.trim()?.lowercase()) {
+            null, "", "publicado", "activo" -> "disponible"
+            else -> e
+        }
         val moneda = intent.getStringExtra(EXTRA_MONEDA) ?: "USD"
         val op = intent.getStringExtra(EXTRA_OPERACION) ?: "alquiler"
 
@@ -100,8 +104,13 @@ class PropiedadDetalleActivity : AppCompatActivity() {
             if (descripcion.isNotBlank()) View.VISIBLE else View.GONE
         binding.tvDetDescripcion.text = descripcion
 
-        // Galería
-        armarGaleria()
+        // Galería (las fotos base64 ya no viajan por el intent: superaban el
+        // límite de Binder y causaban TransactionTooLargeException. Se cargan por ID.)
+        if (fotos.isEmpty() && fotosUrl.isEmpty() && propId.isNotBlank()) {
+            cargarFotosDesdeFirestore()
+        } else {
+            armarGaleria()
+        }
         binding.ivPreview.setOnClickListener { abrirZoomFoto(indiceActual) }
 
         // Ubicación en el mapa
@@ -129,6 +138,11 @@ class PropiedadDetalleActivity : AppCompatActivity() {
         if (estado == "finalizado") {
             binding.tvDetFinalizado.visibility = View.VISIBLE
             binding.btnChatPropietario.visibility = View.GONE
+        }
+
+        // Publicación en revisión: banner de aviso
+        if (estado == "under_review") {
+            binding.tvDetRevision.visibility = View.VISIBLE
         }
 
         // Finalizar la publicación (solo el dueño y mientras esté disponible)
@@ -174,7 +188,23 @@ class PropiedadDetalleActivity : AppCompatActivity() {
      *  decodificado en el caso de base64 (la URL se descarga aparte). */
     private class FotoLista(val fuente: String, val bmp: Bitmap?)
 
+    /** Carga las fotos del inmueble desde Firestore usando solo el ID, evitando
+     *  enviar base64 (potencialmente >1MB) por el intent. */
+    private fun cargarFotosDesdeFirestore() {
+        db.collection("propiedades").document(propId).get()
+            .addOnSuccessListener { doc ->
+                val d = doc.data
+                fotos = (d?.get("fotos") as? List<*>)?.filterIsInstance<String>() ?: emptyList()
+                fotosUrl = (d?.get("photos") as? List<*>)?.filterIsInstance<String>() ?: emptyList()
+                armarGaleria()
+            }
+            .addOnFailureListener { armarGaleria() }
+    }
+
     private fun armarGaleria() {
+        fuentes.clear()
+        binding.llThumbs.removeAllViews()
+        binding.tvSinFotos.visibility = View.GONE
         val items = mutableListOf<FotoLista>()
         for (foto in fotos) {
             items.add(FotoLista("b64:$foto", decodificarBase64(foto)))
@@ -276,10 +306,10 @@ class PropiedadDetalleActivity : AppCompatActivity() {
     }
 
     private fun abrirZoomFoto(posicion: Int) {
-        if (fuentes.isEmpty()) return
+        if (fuentes.isEmpty() || propId.isBlank()) return
         startActivity(
             Intent(this, FotoZoomActivity::class.java).apply {
-                putExtra(FotoZoomActivity.EXTRA_FUENTES, ArrayList(fuentes))
+                putExtra(FotoZoomActivity.EXTRA_PROPIEDAD_ID, propId)
                 putExtra(
                     FotoZoomActivity.EXTRA_POSICION,
                     posicion.coerceIn(0, fuentes.size - 1)
@@ -459,7 +489,6 @@ class PropiedadDetalleActivity : AppCompatActivity() {
                 putExtra(PerfilPropietarioActivity.EXTRA_UID, idPropietario)
                 putExtra(PerfilPropietarioActivity.EXTRA_LISTING_ID, propId)
                 putExtra(PerfilPropietarioActivity.EXTRA_LISTING_TITULO, listingTitle)
-                putExtra(PerfilPropietarioActivity.EXTRA_CONTACTO, intent.getStringExtra(EXTRA_CONTACTO))
             }
         )
     }
@@ -487,8 +516,6 @@ class PropiedadDetalleActivity : AppCompatActivity() {
                 binding.tvDetOwnerRating.text = String.format("%.1f", perfil.rating)
                 binding.tvDetOwnerRating.visibility = View.VISIBLE
             }
-            val contacto = intent.getStringExtra(EXTRA_CONTACTO).orEmpty()
-            binding.tvDetOwnerContacto.text = contacto
         }
     }
 
@@ -509,7 +536,6 @@ class PropiedadDetalleActivity : AppCompatActivity() {
         const val EXTRA_LAT = "det_lat"
         const val EXTRA_LNG = "det_lng"
         const val EXTRA_ID_PROPIETARIO = "det_id_propietario"
-        const val EXTRA_CONTACTO = "det_contacto"
         const val EXTRA_AMBIENTES = "det_ambientes"
         const val EXTRA_SUPERFICIE = "det_superficie"
         const val EXTRA_COMODIDADES = "det_comodidades"

@@ -2,6 +2,7 @@ package com.alkilapp
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.content.Intent
 import android.graphics.ImageDecoder
 import android.net.Uri
 import android.os.Build

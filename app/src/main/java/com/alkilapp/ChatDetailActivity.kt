@@ -59,6 +59,7 @@ class ChatDetailActivity : AppCompatActivity() {
 
     override fun onStart() {
         super.onStart()
+        ChatVista.actual = chatId
         escucharMensajes()
         escucharChat()
         marcarLeido()
@@ -66,6 +67,7 @@ class ChatDetailActivity : AppCompatActivity() {
 
     override fun onStop() {
         super.onStop()
+        ChatVista.actual = ""
         escuchaMensajes?.remove()
         escuchaChat?.remove()
     }

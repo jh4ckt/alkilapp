@@ -65,7 +65,11 @@ class PerfilPropietarioActivity : AppCompatActivity() {
             coloresAvatar[Math.floorMod(uid.hashCode(), coloresAvatar.size)]
         )
 
-        binding.btnPerfilBack.setOnClickListener { finish() }
+        // Cerrar al tocar overlay o botón cerrar
+        binding.viewOverlay.setOnClickListener { finish() }
+        binding.btnPerfilClose.setOnClickListener { finish() }
+        // Evitar que click en la tarjeta cierre
+        binding.cardPerfil.setOnClickListener { }
 
         val esMio = auth.currentUser?.uid == uid
         if (esMio || listingId.isBlank()) {
@@ -140,16 +144,10 @@ class PerfilPropietarioActivity : AppCompatActivity() {
                     binding.tvPerfilRating.visibility = View.VISIBLE
                 }
 
-                val telefono = (d["phoneNumber"] as? String) ?: (d["telefono"] as? String)
-                if (!telefono.isNullOrBlank()) {
-                    binding.tvPerfilTelefono.text = telefono
-                    binding.tvPerfilTelefono.visibility = View.VISIBLE
-                }
-                val email = (d["email"] as? String) ?: (d["correo"] as? String)
-                if (!email.isNullOrBlank()) {
-                    binding.tvPerfilEmail.text = email
-                    binding.tvPerfilEmail.visibility = View.VISIBLE
-                }
+                // Por privacidad no se muestran telefono ni correo del propietario:
+                // el contacto se hace por el chat interno.
+                binding.tvPerfilTelefono.visibility = View.GONE
+                binding.tvPerfilEmail.visibility = View.GONE
 
                 val creado = (d["createdAt"] as? com.google.firebase.Timestamp)?.toDate()
                 if (creado != null) {
@@ -489,7 +487,7 @@ class PerfilPropietarioActivity : AppCompatActivity() {
         fila.addView(chip)
         cont.addView(fila)
 
-        if (miUid == uid && p.estado == "disponible" && p.id.isNotBlank()) {
+        if (miUid == uid && p.estadoNormalizado == "disponible" && p.id.isNotBlank()) {
             val btn = com.google.android.material.button.MaterialButton(this).apply {
                 text = getString(R.string.prop_finalizar_btn)
                 textSize = 13f
@@ -506,6 +504,26 @@ class PerfilPropietarioActivity : AppCompatActivity() {
             ).apply { topMargin = 10.dp }
             btn.layoutParams = lpB
             cont.addView(btn)
+
+            // Botón "Destacar publicación" - solicita al admin
+            val btnDestacar = com.google.android.material.button.MaterialButton(this).apply {
+                text = getString(R.string.perfil_destacar_publicacion)
+                textSize = 13f
+                isAllCaps = false
+                insetTop = 0
+                insetBottom = 0
+                setTextColor(getColor(R.color.alkil_primary))
+                backgroundTintList = ColorStateList.valueOf(getColor(R.color.alkil_gold_soft))
+                strokeColor = ColorStateList.valueOf(getColor(R.color.alkil_gold))
+                strokeWidth = (1 * resources.displayMetrics.density).toInt()
+                setOnClickListener { solicitarDestacar(p) }
+            }
+            val lpD = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { topMargin = (6 * resources.displayMetrics.density).toInt() }
+            btnDestacar.layoutParams = lpD
+            cont.addView(btnDestacar)
         }
 
         card.addView(cont)
@@ -513,7 +531,7 @@ class PerfilPropietarioActivity : AppCompatActivity() {
     }
 
     private fun estadoChip(p: Propiedad): TextView {
-        val (etiqueta, colorText, colorBg) = when (p.estado) {
+        val (etiqueta, colorText, colorBg) = when (p.estadoNormalizado) {
             "disponible" -> Triple(
                 getString(R.string.prop_estado_disponible),
                 R.color.alkil_coral_dark,
@@ -526,7 +544,7 @@ class PerfilPropietarioActivity : AppCompatActivity() {
             )
             else -> Triple(
                 getString(R.string.prop_estado_revision),
-                R.color.alkil_gold,
+                R.color.gold_text,
                 R.color.alkil_gold_soft
             )
         }
@@ -563,6 +581,49 @@ class PerfilPropietarioActivity : AppCompatActivity() {
             .show()
     }
 
+    private fun solicitarDestacar(p: Propiedad) {
+        val etiquetas = arrayOf(
+            getString(R.string.perfil_destacar_dias, 7),
+            getString(R.string.perfil_destacar_dias, 15),
+            getString(R.string.perfil_destacar_dias, 30)
+        )
+        val valores = intArrayOf(7, 15, 30)
+        var seleccion = 2
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.perfil_destacar_publicacion)
+            .setMessage(R.string.perfil_destacar_mensaje)
+            .setSingleChoiceItems(etiquetas, seleccion) { _, cual -> seleccion = cual }
+            .setNegativeButton(R.string.resena_cancelar, null)
+            .setPositiveButton(R.string.perfil_destacar_solicitar) { _, _ ->
+                enviarSolicitudDestacar(p, valores[seleccion])
+            }
+            .show()
+    }
+
+    private fun enviarSolicitudDestacar(p: Propiedad, dias: Int) {
+        val datos = mutableMapOf<String, Any>()
+        datos["solicitudDestacar"] = true
+        datos["destacadoDias"] = dias
+        datos["solicitudDestacarEn"] = FieldValue.serverTimestamp()
+        datos["solicitudDestacarPor"] = auth.currentUser?.uid ?: ""
+        db.collection("propiedades").document(p.id)
+            .update(datos)
+            .addOnSuccessListener {
+                Toast.makeText(
+                    this,
+                    getString(R.string.perfil_destacar_solicitud_enviada, dias),
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+            .addOnFailureListener { e ->
+                Toast.makeText(
+                    this,
+                    getString(R.string.perfil_destacar_error, e.localizedMessage ?: "?"),
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+    }
+
     /** Abre la ficha del inmueble con las mismas extras que el listado principal. */
     private fun abrirDetalle(p: Propiedad) {
         startActivity(
@@ -580,14 +641,14 @@ class PerfilPropietarioActivity : AppCompatActivity() {
                 putExtra(PropiedadDetalleActivity.EXTRA_LAT, p.lat)
                 putExtra(PropiedadDetalleActivity.EXTRA_LNG, p.lng)
                 putExtra(PropiedadDetalleActivity.EXTRA_ID_PROPIETARIO, p.idPropietario)
-                putExtra(PropiedadDetalleActivity.EXTRA_CONTACTO, p.contacto)
                 putExtra(PropiedadDetalleActivity.EXTRA_AMBIENTES, p.ambientes)
                 putExtra(PropiedadDetalleActivity.EXTRA_SUPERFICIE, p.superficieM2)
                 putStringArrayListExtra(
                     PropiedadDetalleActivity.EXTRA_COMODIDADES,
                     ArrayList(p.comodidades)
                 )
-                putStringArrayListExtra(PropiedadDetalleActivity.EXTRA_FOTOS, ArrayList(p.fotos))
+                // Las fotos base64 NO viajan por el intent (TransactionTooLargeException).
+                // PropiedadDetalleActivity las carga por ID desde Firestore.
                 putStringArrayListExtra(
                     PropiedadDetalleActivity.EXTRA_FOTOS_URL,
                     ArrayList(p.photosUrl)
@@ -635,7 +696,6 @@ class PerfilPropietarioActivity : AppCompatActivity() {
         const val EXTRA_UID = "perf_uid"
         const val EXTRA_LISTING_ID = "perf_listing_id"
         const val EXTRA_LISTING_TITULO = "perf_listing_titulo"
-        const val EXTRA_CONTACTO = "perf_contacto"
     }
 }
 

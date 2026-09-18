@@ -91,7 +91,7 @@
             android:textColor="@color/white"
             android:textSize="15sp"
             android:textStyle="bold"
-            app:backgroundTint="@color/alkil_coral"
+            app:backgroundTint="@color/brand_accent_deep"
             app:cornerRadius="0dp"
             app:icon="@drawable/ic_location"
             app:iconGravity="textStart"

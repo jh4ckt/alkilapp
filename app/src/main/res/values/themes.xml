@@ -1,13 +1,53 @@
 <resources>
-    <style name="Theme.AlkilApp" parent="Theme.Material3.DayNight.NoActionBar">
-        <item name="colorPrimary">@color/alkil_primary</item>
+    <style name="Theme.AlkilApp" parent="Theme.Material3.Light.NoActionBar">
+        <!-- La app tiene un diseno claro fijo: si el telefono esta en modo oscuro,
+             Material3 cambiaba los colores por defecto (dialogs, hints, menus) y
+             habia texto que se confundia con el fondo. -->
+        <item name="android:forceDarkAllowed">false</item>
+
+        <!-- Estructura: encabezados, navbar, iconos activos -->
+        <item name="colorPrimary">@color/brand_primary</item>
         <item name="colorOnPrimary">@color/white</item>
-        <item name="android:statusBarColor">@color/alkil_primary</item>
-        <item name="android:windowBackground">@color/bg_soft</item>
+        <item name="colorPrimaryContainer">@color/brand_primary</item>
+        <item name="colorOnPrimaryContainer">@color/white</item>
+
+        <!-- Acento: CTAs, estados activos, favoritos -->
+        <item name="colorSecondary">@color/brand_accent</item>
+        <item name="colorOnSecondary">@color/white</item>
+        <item name="colorSecondaryContainer">@color/brand_accent_soft</item>
+        <item name="colorOnSecondaryContainer">@color/brand_accent_dark</item>
+        <item name="colorTertiary">@color/brand_accent</item>
+
+        <!-- Superficies -->
+        <item name="android:colorBackground">@color/bg_main</item>
+        <item name="colorSurface">@color/surface_card</item>
+        <item name="colorOnSurface">@color/text_primary</item>
+        <item name="colorOnBackground">@color/text_primary</item>
+        <item name="colorSurfaceVariant">@color/brand_primary_soft</item>
+        <item name="colorOnSurfaceVariant">@color/text_secondary</item>
+        <item name="colorOutline">@color/border_subtle</item>
+        <item name="colorOutlineVariant">@color/border_subtle</item>
+        <item name="colorSurfaceContainer">@color/surface_card</item>
+        <item name="colorSurfaceContainerLow">@color/surface_card</item>
+        <item name="colorSurfaceContainerHigh">@color/brand_primary_soft</item>
+        <item name="colorSurfaceContainerHighest">@color/brand_primary_light</item>
+        <item name="colorSurfaceInverse">@color/brand_primary</item>
+        <item name="colorOnSurfaceInverse">@color/white</item>
+
+        <!-- Hints de los campos: legibles sobre blanco -->
+        <item name="android:textColorHint">@color/text_hint</item>
+
+        <item name="android:statusBarColor">@color/brand_primary</item>
+        <item name="android:windowBackground">@color/bg_main</item>
     </style>
 
     <style name="AlkilAppCircle" parent="">
         <item name="cornerFamily">rounded</item>
         <item name="cornerSize">50%</item>
+    </style>
+
+    <style name="AlkilAppRounded" parent="">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">14dp</item>
     </style>
 </resources>

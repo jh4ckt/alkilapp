@@ -86,7 +86,7 @@ class RegistrarPropiedadActivity : AppCompatActivity() {
     companion object {
         const val EXTRA_LAT = "extra_lat"
         const val EXTRA_LNG = "extra_lng"
-        private const val MAX_FOTOS = 3
+        private const val MAX_FOTOS = 7
         private const val LADO_PREVIEW_PX = 128
     }
 
@@ -392,8 +392,7 @@ class RegistrarPropiedadActivity : AppCompatActivity() {
             "imagenUrl" to emptyList<String>(),
             "fotos" to fotosFormulario.toList(),
             "idPropietario" to u.uid,
-            "contacto" to (u.email ?: ""),
-            "estado" to "disponible",
+            "estado" to "under_review",
             "ambientes" to (binding.etPropAmbientes.text.toString().trim().toLongOrNull() ?: 0L),
             "superficieM2" to (binding.etPropSuperficie.text.toString().trim().toDoubleOrNull()
                 ?: 0.0),

@@ -15,6 +15,13 @@
     <string name="auth_password">Contraseña</string>
     <string name="auth_sesion_iniciada">Sesión iniciada como %1$s</string>
     <string name="auth_cerrar_sesion">Cerrar sesión</string>
+    <string name="ver_mis_publicaciones">Ver mis publicaciones</string>
+    <string name="titulo_mis_publicaciones">Mis publicaciones</string>
+    <string name="mis_pub_sesion">Inicia sesion para ver tus publicaciones</string>
+    <string name="mis_pub_cargando">Cargando tus publicaciones...</string>
+    <string name="mis_pub_vacio">Aun no has publicado inmuebles</string>
+    <string name="mis_pub_cuenta">Cuenta: %1$s</string>
+    <string name="mis_pub_error">No se pudo cargar tus publicaciones (%1$s)</string>
     <string name="auth_sesion_cerrada">Sesión cerrada</string>
     <string name="auth_email_invalido">Ingresá un correo válido</string>
     <string name="auth_password_corta">La contraseña debe tener al menos 6 caracteres</string>
@@ -44,15 +51,15 @@
     <string name="prop_tipo_label">Tipo</string>
     <string name="prop_operacion_label">Operación</string>
     <string name="prop_titulo_requerido">El título es obligatorio</string>
-    <string name="prop_ok_guardado">¡Inmueble publicado!</string>
+    <string name="prop_ok_guardado">¡Inmueble enviado! Un administrador lo revisará antes de publicarse.</string>
     <string name="prop_error_guardado">No se pudo publicar: %1$s</string>
     <string name="prop_error_cargar">No se pudieron cargar los inmuebles: %1$s</string>
 
     <!-- Fotos e inmuebles cercanos -->
-    <string name="prop_fotos_label">Fotos (máximo 3)</string>
+    <string name="prop_fotos_label">Fotos (máximo 7)</string>
     <string name="prop_fotos_agregar">Agregar foto</string>
     <string name="prop_fotos_error">No se pudo cargar la imagen</string>
-    <string name="prop_fotos_llena">Máximo 3 fotos por inmueble</string>
+    <string name="prop_fotos_llena">Máximo 7 fotos por inmueble</string>
     <string name="prop_foto_thumb_cd">Foto del inmueble</string>
     <string name="prop_distancia_km">%1$s km</string>
     <string name="prop_distancia_m">%1$s m</string>
@@ -61,11 +68,6 @@
         <item>departamento</item>
         <item>casa</item>
         <item>habitacion</item>
-        <item>cochera</item>
-        <item>deposito</item>
-        <item>local</item>
-        <item>oficina</item>
-        <item>terreno</item>
         <item>otro</item>
     </string-array>
     <string-array name="operaciones">
@@ -179,6 +181,11 @@
     <string name="chat_atras">Volver</string>
     <string name="chat_identidad_verificada">Identidad verificada</string>
 
+    <!-- Notificaciones de chats nuevos -->
+    <string name="notif_canal_chats">Chats nuevos</string>
+    <string name="notif_titulo_nuevo">Nuevo mensaje</string>
+    <string name="notif_desde_campo">Inmueble: %1$s</string>
+
     <!-- Destacado + Verificación de confianza -->
     <string name="destacado_etiqueta">Destacado</string>
     <string name="verificado_chip">Verificado por Alkilapp</string>
@@ -192,6 +199,9 @@
     <string name="detalle_no_fotos">Sin fotos disponibles</string>
     <string name="detalle_chatear">Chatear con el Propietario</string>
     <string name="detalle_chatear_sesion">Iniciá sesión para chatear</string>
+    <string name="detalle_solicitar_alquiler">Solicitar alquiler</string>
+    <string name="detalle_solicitud_enviada">Solicitud de alquiler enviada al propietario</string>
+    <string name="detalle_solicitud_error">No se pudo enviar la solicitud: %1$s</string>
     <string name="detalle_es_tuyo">Este inmueble es tuyo</string>
     <string name="detalle_ver_mapa">Ver ubicación en mapa</string>
     <string name="ubicacion_titulo">Ubicación</string>
@@ -211,6 +221,7 @@
     <string name="detalle_finalizar_ok">Publicación finalizada</string>
     <string name="detalle_finalizar_error">No se pudo finalizar la publicación: %1$s</string>
     <string name="detalle_finalizado_banner">Publicación finalizada — este inmueble ya fue alquilado</string>
+    <string name="detalle_revision_banner">En revisión - un administrador está revisando este inmueble</string>
 
     <!-- Denuncia -->
     <string name="denuncia_btn">Denunciar anuncio</string>
@@ -269,6 +280,12 @@
     <string name="prop_estado_finalizado">Finalizado</string>
     <string name="prop_estado_revision">En revisión</string>
     <string name="prop_finalizar_btn">Ya lo alquilé</string>
+    <string name="perfil_destacar_publicacion">Destacar publicación</string>
+    <string name="perfil_destacar_solicitud_enviada">Solicitud enviada al administrador para %1$d días</string>
+    <string name="perfil_destacar_error">No se pudo enviar la solicitud: %1$s</string>
+    <string name="perfil_destacar_mensaje">Elegí cuántos días querés destacar la publicación. Tendrá prioridad en el listado y un borde dorado.</string>
+    <string name="perfil_destacar_dias">%1$d días</string>
+    <string name="perfil_destacar_solicitar">Solicitar</string>
 
     <!-- Mi perfil (cabecera y datos personales) -->
     <string name="mi_perfil_titulo">Mi perfil</string>
@@ -292,4 +309,63 @@
     <!-- Visor de fotos a pantalla completa -->
     <string name="foto_zoom_cerrar">Cerrar</string>
     <string name="foto_zoom_indicador">Foto %1$d de %2$d</string>
+
+    <!-- Property Card (design system) -->
+    <string name="prop_ver_detalles">Ver detalles</string>
+    <string name="prop_favorito_cd">Favorito</string>
+    <string name="prop_ambientes_cd">Habitaciones</string>
+    <string name="prop_superficie_cd">Superficie</string>
+    <string name="prop_ambientes">%1$d hab</string>
+    <string name="prop_superficie">%1$s m2</string>
+
+    <!-- Pantalla de autenticacion -->
+    <string name="auth_subtitulo">Alquila y publica inmuebles cerca de ti</string>
+    <string name="auth_tab_crear">Crear cuenta</string>
+    <string name="auth_crear_cuenta">Crear cuenta</string>
+    <string name="auth_nombre">Nombre completo</string>
+    <string name="auth_confirmar">Repetir contrasena</string>
+    <string name="auth_olvide">Olvide mi contrasena</string>
+    <string name="auth_o">o</string>
+    <string name="auth_procesando">Un momento...</string>
+    <string name="auth_nombre_requerido">Escribi tu nombre</string>
+    <string name="auth_pass_no_coincide">Las contrasenas no coinciden</string>
+    <string name="auth_reset_falta_email">Escribi tu correo primero</string>
+    <string name="auth_reset_enviado">Te enviamos un correo para restablecer tu contrasena</string>
+    <string name="auth_legal">Al continuar aceptas los terminos y la politica de privacidad de AlkilApp.</string>
+
+    <!-- Verificacion de identidad -->
+    <string name="verif_titulo">Verificar identidad</string>
+    <string name="verif_subtitulo">Subi una foto de tu documento para obtener la insignia verificada.</string>
+    <string name="verif_tipo_documento">Tipo de documento</string>
+    <string name="verif_numero">Numero de documento</string>
+    <string name="verif_numero_requerido">Ingresa el numero de tu documento</string>
+    <string name="verif_foto_label">Foto del documento</string>
+    <string name="verif_foto_elegir">Elegir foto</string>
+    <string name="verif_foto_falta">Adjunta una foto de tu documento</string>
+    <string name="verif_enviar">Enviar a revision</string>
+    <string name="verif_ok">Documento enviado. Revisaremos tu identidad pronto.</string>
+    <string name="verif_error">No se pudo enviar: %1$s</string>
+    <string name="verif_sesion_requerida">Inicia sesion para verificar tu identidad</string>
+    <string name="verif_estado_pendiente">Tu verificacion esta en revision.</string>
+    <string name="verif_estado_verificado">Tu identidad ya esta verificada.</string>
+    <string name="verif_estado_rechazado">Tu verificacion fue rechazada: %1$s</string>
+
+    <!-- Menu lateral -->
+    <string name="nav_invitado">Sin sesion</string>
+    <string name="nav_invitado_hint">Toca para ingresar o crear tu cuenta</string>
+    <string name="nav_chats">Mis chats</string>
+    <string name="nav_filtros">Filtros</string>
+    <string name="nav_cerrar_sesion">Cerrar sesion</string>
+    <string name="nav_footer">AlkilApp</string>
+    <string name="nav_verificar_identidad">Verificar identidad</string>
+    <string name="favoritos_requiere_sesion">Inicia sesion para guardar favoritos</string>
+    <string name="filtros_solo_favoritos">Solo favoritos</string>
+    <string name="filtros_tipo">Tipo de inmueble</string>
+    <string name="filtros_habitaciones">Cantidad de habitaciones</string>
+    <string-array name="opciones_habitaciones">
+        <item>1</item>
+        <item>2</item>
+        <item>3</item>
+        <item>4 o más</item>
+    </string-array>
 </resources>

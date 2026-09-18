@@ -1,0 +1,317 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Menu lateral (hamburguesa). Reemplaza el PopupMenu flotante del header.
+  Cabecera con el estado de sesion + accesos directos en filas con ripple.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/panelMenuRoot"
+    android:layout_width="300dp"
+    android:layout_height="match_parent"
+    android:background="@drawable/bg_panel_menu"
+    android:clipToPadding="false"
+    android:elevation="16dp"
+    android:orientation="vertical">
+
+    <!-- ===== Cabecera: quien esta conectado ===== -->
+    <LinearLayout
+        android:id="@+id/llNavHeader"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@drawable/bg_nav_header"
+        android:clickable="true"
+        android:focusable="true"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="20dp"
+        android:paddingTop="24dp"
+        android:paddingEnd="20dp"
+        android:paddingBottom="22dp">
+
+        <TextView
+            android:id="@+id/tvNavAvatar"
+            android:layout_width="54dp"
+            android:layout_height="54dp"
+            android:background="@drawable/bg_nav_avatar"
+            android:gravity="center"
+            android:textColor="@color/white"
+            android:textSize="22sp"
+            android:textStyle="bold" />
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="14dp"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/tvNavNombre"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:textColor="@color/white"
+                android:textSize="17sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/tvNavEmail"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:textColor="@color/on_dark_soft"
+                android:textSize="12sp" />
+
+            <TextView
+                android:id="@+id/tvNavSesionHint"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:text="@string/nav_invitado_hint"
+                android:textColor="@color/on_dark_soft"
+                android:textSize="12sp" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:orientation="vertical">
+
+        <!-- ===== Mi perfil ===== -->
+        <LinearLayout
+            android:id="@+id/btnNavPerfil"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:background="?attr/selectableItemBackground"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="20dp"
+            android:paddingEnd="20dp">
+
+            <ImageView
+                android:layout_width="22dp"
+                android:layout_height="22dp"
+                android:contentDescription="@string/mi_perfil_titulo"
+                android:src="@drawable/ic_person"
+                android:tint="@color/brand_primary" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="16dp"
+                android:text="@string/mi_perfil_titulo"
+                android:textColor="@color/text_primary"
+                android:textSize="15sp" />
+        </LinearLayout>
+
+        <!-- ===== Mis chats ===== -->
+        <LinearLayout
+            android:id="@+id/btnNavChat"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:background="?attr/selectableItemBackground"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="20dp"
+            android:paddingEnd="20dp">
+
+            <ImageView
+                android:layout_width="22dp"
+                android:layout_height="22dp"
+                android:contentDescription="@string/chat_btn"
+                android:src="@drawable/ic_chat"
+                android:tint="@color/brand_primary" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="16dp"
+                android:text="@string/nav_chats"
+                android:textColor="@color/text_primary"
+                android:textSize="15sp" />
+        </LinearLayout>
+
+        <!-- ===== Filtros ===== -->
+        <LinearLayout
+            android:id="@+id/btnNavFiltros"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:background="?attr/selectableItemBackground"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="20dp"
+            android:paddingEnd="20dp">
+
+            <ImageView
+                android:layout_width="22dp"
+                android:layout_height="22dp"
+                android:contentDescription="@string/filtros_titulo"
+                android:src="@drawable/ic_filter"
+                android:tint="@color/brand_primary" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="16dp"
+                android:text="@string/nav_filtros"
+                android:textColor="@color/text_primary"
+                android:textSize="15sp" />
+        </LinearLayout>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_marginStart="20dp"
+            android:layout_marginTop="8dp"
+            android:layout_marginEnd="20dp"
+            android:layout_marginBottom="8dp"
+            android:background="@color/divider" />
+
+        <!-- ===== Publicar inmueble (accion principal) ===== -->
+        <LinearLayout
+            android:id="@+id/btnNavPublicar"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:background="?attr/selectableItemBackground"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="20dp"
+            android:paddingEnd="20dp">
+
+            <ImageView
+                android:layout_width="22dp"
+                android:layout_height="22dp"
+                android:contentDescription="@string/prop_agregar_titulo"
+                android:src="@drawable/ic_add"
+                android:tint="@color/coral_text" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="16dp"
+                android:text="@string/prop_agregar_titulo"
+                android:textColor="@color/coral_text"
+                android:textSize="15sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <!-- ===== Ver mis publicaciones ===== -->
+        <LinearLayout
+            android:id="@+id/btnNavMisPublicaciones"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:background="?attr/selectableItemBackground"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="20dp"
+            android:paddingEnd="20dp">
+
+            <ImageView
+                android:layout_width="22dp"
+                android:layout_height="22dp"
+                android:contentDescription="@string/ver_mis_publicaciones"
+                android:src="@drawable/ic_lista"
+                android:tint="@color/coral_text" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="16dp"
+                android:text="@string/ver_mis_publicaciones"
+                android:textColor="@color/coral_text"
+                android:textSize="15sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <!-- ===== Verificar identidad ===== -->
+        <LinearLayout
+            android:id="@+id/btnNavVerificar"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:background="?attr/selectableItemBackground"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="20dp"
+            android:paddingEnd="20dp">
+
+            <ImageView
+                android:layout_width="22dp"
+                android:layout_height="22dp"
+                android:contentDescription="@string/verif_titulo"
+                android:src="@drawable/ic_verificado_escudo"
+                android:tint="@color/coral_text" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="16dp"
+                android:text="@string/nav_verificar_identidad"
+                android:textColor="@color/coral_text"
+                android:textSize="15sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1" />
+
+    <!-- ===== Cerrar sesion (solo con sesion activa) ===== -->
+    <LinearLayout
+        android:id="@+id/btnNavSalir"
+        android:layout_width="match_parent"
+        android:layout_height="52dp"
+        android:background="?attr/selectableItemBackground"
+        android:clickable="true"
+        android:focusable="true"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="20dp"
+        android:paddingEnd="20dp"
+        android:visibility="gone">
+
+        <ImageView
+            android:layout_width="22dp"
+            android:layout_height="22dp"
+            android:contentDescription="@string/auth_cerrar_sesion"
+            android:src="@drawable/ic_logout"
+            android:tint="@color/alkil_rojo" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:text="@string/nav_cerrar_sesion"
+            android:textColor="@color/alkil_rojo"
+            android:textSize="15sp" />
+    </LinearLayout>
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingStart="20dp"
+        android:paddingTop="10dp"
+        android:paddingEnd="20dp"
+        android:paddingBottom="18dp"
+        android:text="@string/nav_footer"
+        android:textColor="@color/text_muted"
+        android:textSize="12sp" />
+</LinearLayout>

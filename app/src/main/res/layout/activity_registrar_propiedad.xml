@@ -293,7 +293,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="20dp"
-                android:backgroundTint="@color/alkil_coral"
+                android:backgroundTint="@color/brand_accent_deep"
                 android:insetTop="0dp"
                 android:insetBottom="0dp"
                 android:text="@string/prop_guardar"

@@ -1,43 +1,98 @@
 <resources>
-    <!-- Marca: azul moderno (confianza) -->
-    <color name="alkil_primary">#1D4ED8</color>
-    <color name="alkil_primary_dark">#1E40AF</color>
-    <color name="alkil_primary_light">#DBEAFE</color>
-    <color name="alkil_primary_soft">#EFF6FF</color>
 
-    <!-- Estado -->
-    <color name="alkil_mint">#16A34A</color>
-    <color name="alkil_mint_soft">#DCFCE7</color>
+    <!-- ============================================================= -->
+    <!-- Design tokens (semanticos)                                    -->
+    <!-- Regla 60-30-10:                                              -->
+    <!--   60% superficie neutra  -> bg_main + surface_card            -->
+    <!--   30% estructura/lectura -> brand_primary + text_muted        -->
+    <!--   10% accion prioritaria -> brand_accent                      -->
+    <!-- ============================================================= -->
+
+    <!-- brand-accent: CTAs, estados activos, favoritos, pines del mapa -->
+    <color name="brand_accent">#FF6B5E</color>
+    <color name="brand_accent_dark">#E85548</color>
+    <color name="brand_accent_soft">#FFE4E1</color>
+
+    <!-- brand-primary: encabezados, navbar, titulos, iconos activos -->
+    <color name="brand_primary">#1E293B</color>
+    <color name="brand_primary_dark">#0F172A</color>
+    <color name="brand_primary_light">#E2E8F0</color>
+    <color name="brand_primary_soft">#F1F5F9</color>
+
+    <!-- background / card -->
+    <color name="bg_main">#F8FAFC</color>
+    <color name="surface_card">#FFFFFF</color>
+
+    <!-- border-subtle: bordes de cards e inputs -->
+    <color name="border_subtle">#E2E8F0</color>
+
+    <!-- text-muted: metraje, habitaciones, ubicacion, labels -->
+    <color name="text_muted">#64748B</color>
+
+    <!-- text-hint: placeholders de inputs (legibles sobre blanco) -->
+    <color name="text_hint">#64748B</color>
+
+    <!-- on-dark-soft: texto secundario sobre fondo brand_primary -->
+    <color name="on_dark_soft">#CBD5E1</color>
+
+    <!-- Variantes para TEXTO: los tonos de marca no alcanzan 4.5:1 sobre blanco -->
+    <color name="gold_text">#8A6A00</color>
+    <color name="success_text">#1F7A57</color>
+    <color name="coral_text">#C0392B</color>
+
+    <!-- Coral profundo: fondo de botones/CTA con TEXTO BLANCO (#FF6B5E daba 2.7:1) -->
+    <color name="brand_accent_deep">#D24534</color>
+
+    <!-- status-success: "Disponible", anfitrion verificado -->
+    <color name="status_success">#3AA37B</color>
+    <color name="status_success_dark">#237A58</color>
+    <color name="status_success_soft">#E4F3EC</color>
+
+    <!-- brand-gold: publicaciones destacadas / premium -->
+    <color name="brand_gold">#D4A017</color>
+    <color name="brand_gold_soft">#FBF1D6</color>
+
+    <!-- ============================================================= -->
+    <!-- Compatibilidad con nombres previos (layouts existentes)       -->
+    <!-- ============================================================= -->
+
+    <color name="alkil_primary">#1E293B</color>
+    <color name="alkil_primary_dark">#0F172A</color>
+    <color name="alkil_primary_light">#E2E8F0</color>
+    <color name="alkil_primary_soft">#F1F5F9</color>
+
+    <color name="alkil_coral">#FF6B5E</color>
+    <color name="alkil_coral_dark">#E85548</color>
+    <color name="alkil_coral_soft">#FFE4E1</color>
+
+    <color name="alkil_mint">#3AA37B</color>
+    <color name="alkil_mint_soft">#E4F3EC</color>
     <color name="alkil_amber">#D97706</color>
     <color name="alkil_amber_soft">#FEF3C7</color>
-    <color name="alkil_gray">#6B7280</color>
-    <color name="alkil_gray_soft">#F3F4F6</color>
+    <color name="alkil_gray">#64748B</color>
+    <color name="alkil_gray_soft">#F1F5F9</color>
 
-    <!-- Neutros -->
-    <color name="bg_soft">#FFFFFF</color>
+    <color name="bg_soft">#F8FAFC</color>
     <color name="surface">#FFFFFF</color>
-    <color name="text_primary">#111827</color>
-    <color name="text_secondary">#4B5563</color>
-    <color name="bubble_otro">#F3F4F6</color>
-    <color name="divider">#E5E7EB</color>
+    <color name="text_primary">#1E293B</color>
+    <color name="text_secondary">#64748B</color>
+    <color name="bubble_otro">#F1F5F9</color>
+    <color name="divider">#E2E8F0</color>
 
     <color name="white">#FFFFFF</color>
-    <color name="ic_launcher_background">#1D4ED8</color>
+    <color name="ic_launcher_background">#1E293B</color>
     <color name="sheet_handle">#CBD5E1</color>
 
-    <!-- Alias de compatibilidad con layouts previos (paleta azul/blanco/oscurita) -->
-    <color name="alkil_coral">#2563EB</color>
-    <color name="alkil_coral_dark">#1D4ED8</color>
-    <color name="alkil_coral_soft">#DBEAFE</color>
     <color name="alkil_rojo">#DC2626</color>
-    <color name="alkil_gold">#D97706</color>
-    <color name="alkil_gold_soft">#FEF3C7</color>
-    <color name="alkil_gold_fondo">#FEF3C7</color>
+    <color name="alkil_gold">#D4A017</color>
+    <color name="alkil_gold_soft">#FBF1D6</color>
+    <color name="alkil_gold_fondo">#FBF1D6</color>
 
     <!-- Colores para avatares (tint por uid) -->
-    <color name="avatar_1">#1D4ED8</color>
-    <color name="avatar_2">#4F46E5</color>
-    <color name="avatar_3">#0D9488</color>
-    <color name="avatar_4">#0891B2</color>
-    <color name="avatar_5">#6366F1</color>
+    <color name="avatar_1">#1E293B</color>
+    <color name="avatar_2">#FF6B5E</color>
+    <color name="avatar_3">#3AA37B</color>
+    <color name="avatar_4">#64748B</color>
+    <color name="avatar_5">#334155</color>
+
 </resources>

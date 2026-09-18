@@ -9,6 +9,14 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
 
+    <ProgressBar
+        android:id="@+id/pbZoom"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:layout_gravity="center"
+        android:indeterminateTint="@android:color/white"
+        android:visibility="gone" />
+
     <ImageButton
         android:id="@+id/btnZoomCerrar"
         android:layout_width="44dp"

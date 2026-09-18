@@ -83,7 +83,7 @@
                         android:layout_marginStart="4dp"
                         android:drawableStart="@drawable/ic_star"
                         android:drawablePadding="2dp"
-                        android:textColor="@color/alkil_coral_dark"
+                        android:textColor="@color/coral_text"
                         android:textSize="12sp"
                         android:textStyle="bold"
                         android:visibility="gone" />
@@ -108,7 +108,7 @@
                     android:drawablePadding="4dp"
                     android:gravity="center_vertical"
                     android:text="@string/chat_verificado_linea"
-                    android:textColor="@color/alkil_mint"
+                    android:textColor="@color/success_text"
                     android:textSize="11sp"
                     android:visibility="gone" />
             </LinearLayout>

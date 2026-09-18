@@ -17,5 +17,7 @@ class App : Application() {
         } catch (_: Exception) {
             // Sin Places no hay autocomplete de direcciones; el alta manual sigue funcionando.
         }
+        // Aviso de chats nuevos mientras la app este viva (canal + escucha Firestore).
+        MonitorChats.iniciar(this)
     }
 }

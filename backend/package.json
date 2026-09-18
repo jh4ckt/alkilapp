@@ -1,14 +1,20 @@
 {
   "name": "alkilapp-backend",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "description": "Backend auxiliar de AlkilApp: seed y utilidades sobre Firestore (alkilappdb)",
   "main": "seed.js",
   "scripts": {
+    "start": "node admin/server.js",
     "seed": "node seed.js",
     "query-demo": "node queries.js",
     "verificar-demo": "node verificacion.js",
-    "reportes-demo": "node moderacion.js"
+    "reportes-demo": "node moderacion.js",
+    "aprobacion": "node aprobacion.js",
+    "destacar": "node destacar.js",
+    "expirar": "node expirar.js",
+    "reglas": "node reglas.js",
+    "admin": "node admin/server.js"
   },
   "dependencies": {
     "@google-cloud/firestore": "^7.11.0"

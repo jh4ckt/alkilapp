@@ -5,13 +5,18 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.ColorStateList
 import android.content.res.Resources
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.drawable.GradientDrawable
+import android.os.Build
 import android.os.Bundle
+import android.util.Base64
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ArrayAdapter
 import android.widget.EditText
 import android.widget.FrameLayout
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.Spinner
 import android.widget.TextView
@@ -20,10 +25,14 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.core.view.GravityCompat
+import androidx.core.view.ViewCompat
 import androidx.core.widget.doAfterTextChanged
 import androidx.recyclerview.widget.LinearLayoutManager
+import com.alkilapp.data.Favoritos
 import com.alkilapp.data.Propiedad
 import com.alkilapp.databinding.ActivityMainBinding
+import com.alkilapp.ui.InsetsUtils
 import com.alkilapp.ui.PropiedadAdapter
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
@@ -34,13 +43,15 @@ import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.OnMapReadyCallback
 import com.google.android.gms.maps.SupportMapFragment
+import com.google.android.gms.maps.model.BitmapDescriptor
+import com.google.android.gms.maps.model.BitmapDescriptorFactory
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.LatLngBounds
 import com.google.android.gms.maps.model.Marker
 import com.google.android.gms.maps.model.MarkerOptions
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.bottomsheet.BottomSheetBehavior
-import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.firestore.FieldValue
@@ -56,6 +67,9 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     private lateinit var adapter: PropiedadAdapter
 
     private val marcadores = mutableListOf<Marker>()
+    private var marcadorSeleccionado: Marker? = null
+    private lateinit var iconoDefault: BitmapDescriptor
+    private lateinit var iconoSeleccionado: BitmapDescriptor
 
     private val auth by lazy { FirebaseAuth.getInstance() }
     private val db by lazy { FirebaseFirestore.getInstance("alkilappdb") }
@@ -63,7 +77,11 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
 
     private var filtroDepartamento: String? = null
     private var filtroDistrito: String? = null
+    private var filtroTipo: String? = null
+    private var filtroHabitaciones: Int? = null
     private var busquedaActual: String = ""
+    private var soloFavoritos = false
+    private var favoritosSet: Set<String> = emptySet()
     private var ultimaUbicacion: LatLng? = null
 
     private val googleSignInClient by lazy {
@@ -115,6 +133,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
 
     companion object {
         private const val LOCATION_PERMISSION_REQUEST_CODE = 1000
+        private const val NOTIFICATIONS_PERMISSION_REQUEST_CODE = 1001
         private const val DEFAULT_CAMERA_ZOOM = 15f
     }
 
@@ -125,6 +144,17 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
 
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
 
+        if (Build.VERSION.SDK_INT >= 33 &&
+            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
+            != PackageManager.PERMISSION_GRANTED
+        ) {
+            ActivityCompat.requestPermissions(
+                this,
+                arrayOf(Manifest.permission.POST_NOTIFICATIONS),
+                NOTIFICATIONS_PERMISSION_REQUEST_CODE
+            )
+        }
+
         val mapFragment = supportFragmentManager
             .findFragmentById(R.id.mapFragment) as SupportMapFragment
         mapFragment.getMapAsync(this)
@@ -132,45 +162,146 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         setupListaDepartamentos()
         setupBotones()
         configurarMenu()
-        configurarBottomSheet()
+        configurarPanelFijoInferior()
+        configurarInsetsSistema()
         actualizarBotonFiltros()
     }
 
-    /** El FAB "mi ubicación" sube junto con el bottomSheet para nunca quedar sobre el listado. */
-    private fun configurarBottomSheet() {
+    /**
+     * Configura el panel fijo inferior al 60% de la pantalla (no deslizable).
+     */
+    private fun configurarPanelFijoInferior() {
         val sheet = binding.bottomSheet
-        val behavior = BottomSheetBehavior.from(sheet)
-        behavior.addBottomSheetCallback(object : BottomSheetBehavior.BottomSheetCallback() {
-            override fun onStateChanged(sheet: View, newState: Int) = Unit
+        val altoPantalla = resources.displayMetrics.heightPixels
+        val altura = (altoPantalla * 0.6f).toInt()
 
-            override fun onSlide(sheet: View, slideOffset: Float) {
-                val delta = sheet.height - behavior.peekHeight
-                binding.fabMiUbicacion.translationY = -slideOffset * delta
+        sheet.layoutParams = sheet.layoutParams.apply { height = altura }
+
+        // FAB "mi ubicación" justo encima del panel fijo
+        binding.fabMiUbicacion.layoutParams =
+            (binding.fabMiUbicacion.layoutParams as ViewGroup.MarginLayoutParams).apply {
+                bottomMargin = altura + 16.dp
             }
-        })
     }
 
-    /** Botón de menú en la esquina superior: despliega perfil / chat / filtros. */
-    private fun configurarMenu() {
-        binding.btnMenu.setOnClickListener { mostrarMenuPrincipal() }
-    }
+    /**
+     * Insets de las barras del sistema: la fila superior (menú + búsqueda + botón publicar)
+     * queda por debajo de la barra de estado, y el bottomSheet reserva el espacio de la barra
+     * de navegación para que sus últimos controles se puedan presionar.
+     */
+    private fun configurarInsetsSistema() {
+        ViewCompat.setOnApplyWindowInsetsListener(binding.root) { _, insets ->
+            val arriba = InsetsUtils.arriba(insets)
+            val abajo = InsetsUtils.abajo(insets)
 
-    private fun mostrarMenuPrincipal() {
-        val popup = android.widget.PopupMenu(this, binding.btnMenu)
-        popup.menuInflater.inflate(R.menu.menu_principal, popup.menu)
-        popup.setOnMenuItemClickListener { item ->
-            when (item.itemId) {
-                R.id.menuPerfil -> onBotonAuth()
-                R.id.menuChat -> abrirChat()
-            }
-            true
+            binding.filaTop.layoutParams =
+                (binding.filaTop.layoutParams as ViewGroup.MarginLayoutParams).apply {
+                    topMargin = 8.dp + arriba
+                }
+            binding.bottomSheet.setPadding(0, 0, 0, abajo)
+
+            // El panel lateral se dibuja detras de la barra de estado: solo se
+            // desplaza el contenido (cabecera y filas) para no taparlo.
+            binding.panelMenu.panelMenuRoot.setPadding(0, 0, 0, abajo)
+            binding.panelMenu.llNavHeader.setPadding(20.dp, 24.dp + arriba, 20.dp, 22.dp)
+
+            insets
         }
-        popup.show()
+        ViewCompat.requestApplyInsets(binding.root)
+    }
+
+    /** Botón de menú en la esquina superior: abre el panel lateral. */
+    private fun configurarMenu() {
+        binding.btnMenu.setOnClickListener {
+            binding.drawerLayout.openDrawer(GravityCompat.START)
+        }
+        val panel = binding.panelMenu
+        panel.llNavHeader.setOnClickListener {
+            binding.drawerLayout.closeDrawers()
+            onBotonAuth()
+        }
+        panel.btnNavPerfil.setOnClickListener {
+            binding.drawerLayout.closeDrawers()
+            onBotonAuth()
+        }
+        panel.btnNavChat.setOnClickListener {
+            binding.drawerLayout.closeDrawers()
+            abrirChat()
+        }
+        panel.btnNavFiltros.setOnClickListener {
+            binding.drawerLayout.closeDrawers()
+            abrirDialogoFiltros()
+        }
+        panel.btnNavPublicar.setOnClickListener {
+            binding.drawerLayout.closeDrawers()
+            abrirRegistrarPropiedad()
+        }
+        panel.btnNavMisPublicaciones.setOnClickListener {
+            binding.drawerLayout.closeDrawers()
+            val uid = auth.currentUser?.uid
+            if (uid == null) {
+                Toast.makeText(this, R.string.mis_pub_sesion, Toast.LENGTH_LONG).show()
+                abrirDialogoAutenticar()
+                return@setOnClickListener
+            }
+            startActivity(Intent(this, MisPublicacionesActivity::class.java))
+        }
+        panel.btnNavVerificar.setOnClickListener {
+            binding.drawerLayout.closeDrawers()
+            if (auth.currentUser == null) {
+                Toast.makeText(this, R.string.verif_sesion_requerida, Toast.LENGTH_LONG).show()
+                abrirDialogoAutenticar()
+                return@setOnClickListener
+            }
+            startActivity(Intent(this, VerificacionActivity::class.java))
+        }
+        panel.btnNavSalir.setOnClickListener {
+            binding.drawerLayout.closeDrawers()
+            cerrarSesion()
+        }
+    }
+
+    private fun cerrarSesion() {
+        auth.signOut()
+        favoritosSet = Favoritos.locales(this)
+        soloFavoritos = false
+        adapter.setFavoritos(favoritosSet)
+        adapter.setSoloFavoritos(false)
+        actualizarUiSesion()
+        Toast.makeText(this, R.string.auth_sesion_cerrada, Toast.LENGTH_SHORT).show()
+    }
+
+    /** Carga los favoritos: de la nube si hay sesion, si no usa el cache local. */
+    private fun cargarFavoritos() {
+        val uid = auth.currentUser?.uid
+        if (uid != null) {
+            Favoritos.sincronizar(this, uid) { ids ->
+                favoritosSet = ids
+                if (::adapter.isInitialized) adapter.setFavoritos(ids)
+            }
+        } else {
+            favoritosSet = Favoritos.locales(this)
+            if (::adapter.isInitialized) adapter.setFavoritos(favoritosSet)
+        }
+    }
+
+    /** Corazon de la tarjeta: requiere sesion, persiste local + Firestore. */
+    private fun alternarFavorito(p: Propiedad) {
+        val uid = auth.currentUser?.uid
+        if (uid == null) {
+            Toast.makeText(this, R.string.favoritos_requiere_sesion, Toast.LENGTH_LONG).show()
+            abrirDialogoAutenticar()
+            return
+        }
+        val nuevo = Favoritos.alternar(this, uid, p.id)
+        favoritosSet = if (nuevo) favoritosSet + p.id else favoritosSet - p.id
+        adapter.setFavoritos(favoritosSet)
     }
 
     override fun onStart() {
         super.onStart()
         actualizarUiSesion()
+        cargarFavoritos()
         escucharPropiedades()
     }
 
@@ -180,9 +311,10 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     }
 
     private fun setupListaDepartamentos() {
-        adapter = PropiedadAdapter { propiedad ->
-            abrirDetallePropiedad(propiedad)
-        }
+        adapter = PropiedadAdapter(
+            onClick = { propiedad -> abrirDetallePropiedad(propiedad) },
+            onAlternarFavorito = { p -> alternarFavorito(p) }
+        )
         binding.rvDepartamentos.layoutManager = LinearLayoutManager(this)
         binding.rvDepartamentos.adapter = adapter
 
@@ -251,21 +383,33 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     // ======================================================================
 
     private fun abrirDialogoFiltros() {
-        val vista = layoutInflater.inflate(R.layout.dialog_filtros, null)
+        val sheet = BottomSheetDialog(this)
+        val vista = layoutInflater.inflate(R.layout.bottom_sheet_filtros, null)
+        sheet.setContentView(vista)
+        sheet.dismissWithAnimation = true
         val spinnerDep = vista.findViewById<Spinner>(R.id.spFiltroDepartamento)
         val spinnerDis = vista.findViewById<Spinner>(R.id.spFiltroDistrito)
+        val spinnerTipo = vista.findViewById<Spinner>(R.id.spFiltroTipo)
+        val spinnerHab = vista.findViewById<Spinner>(R.id.spFiltroHabitaciones)
+        val cbFavoritos = vista.findViewById<android.widget.CheckBox>(R.id.cbSoloFavoritos)
+        cbFavoritos.isChecked = soloFavoritos
 
         val todos = getString(R.string.filtros_todos)
         val departamentos = resources.getStringArray(R.array.departamentos_peru).toList()
         val distritos = resources.getStringArray(R.array.distritos_lima).toList()
         val distritosConTodos = listOf(todos) + distritos
+        val tipos = resources.getStringArray(R.array.tipos_inmueble)
+        val opcionesHab = listOf(todos) + resources.getStringArray(R.array.opciones_habitaciones).toList()
 
-        spinnerDep.adapter = ArrayAdapter(
-            this, android.R.layout.simple_spinner_item, listOf(todos) + departamentos
-        ).apply { setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
-        spinnerDis.adapter = ArrayAdapter(
-            this, android.R.layout.simple_spinner_item, distritosConTodos
-        ).apply { setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
+        fun llenar(sp: Spinner, opciones: List<String>) {
+            sp.adapter = ArrayAdapter(
+                this, android.R.layout.simple_spinner_item, opciones
+            ).apply { setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
+        }
+        llenar(spinnerDep, listOf(todos) + departamentos)
+        llenar(spinnerDis, distritosConTodos)
+        llenar(spinnerTipo, listOf(todos) + tipos)
+        llenar(spinnerHab, opcionesHab)
 
         val depActual = filtroDepartamento ?: todos
         spinnerDep.setSelection(
@@ -275,33 +419,67 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         spinnerDis.setSelection(
             distritosConTodos.indexOfFirst { it.lowercase() == disActual.lowercase() }.coerceAtLeast(0)
         )
+        val tipoActual = filtroTipo ?: todos
+        spinnerTipo.setSelection(
+            (todos + tipos).indexOfFirst { it.lowercase() == tipoActual.lowercase() }.coerceAtLeast(0)
+        )
+        val habPorMostrar = filtroHabitaciones?.let { if (it == 4) "4 o más" else it.toString() } ?: todos
+        spinnerHab.setSelection(opcionesHab.indexOfFirst { it == habPorMostrar }.coerceAtLeast(0))
 
-        MaterialAlertDialogBuilder(this)
-            .setTitle(R.string.filtros_titulo)
-            .setView(vista)
-            .setPositiveButton(R.string.filtros_aplicar) { _, _ ->
-                val dep = spinnerDep.selectedItem as String
-                val dis = spinnerDis.selectedItem as String
-                filtroDepartamento = dep.takeUnless { it == todos }
-                filtroDistrito = dis.takeUnless { it == todos }
-                adapter.setFiltros(filtroDepartamento, filtroDistrito)
-                actualizarBotonFiltros()
-                actualizarZonaMapa()
+        val aplicar = View.OnClickListener {
+            val dep = spinnerDep.selectedItem as String
+            val dis = spinnerDis.selectedItem as String
+            val tipo = spinnerTipo.selectedItem as String
+            val habSel = spinnerHab.selectedItem as String
+            val quiereFavoritos = cbFavoritos.isChecked
+            if (quiereFavoritos && auth.currentUser == null) {
+                soloFavoritos = false
+                Toast.makeText(
+                    this, R.string.favoritos_requiere_sesion, Toast.LENGTH_LONG
+                ).show()
+            } else {
+                soloFavoritos = quiereFavoritos
             }
-            .setNeutralButton(R.string.filtros_limpiar) { _, _ ->
-                filtroDepartamento = null
-                filtroDistrito = null
-                binding.etBusqueda.setText("")
-                adapter.setFiltros(null, null)
-                actualizarBotonFiltros()
-                actualizarZonaMapa()
+            filtroDepartamento = dep.takeUnless { it == todos }
+            filtroDistrito = dis.takeUnless { it == todos }
+            filtroTipo = tipo.takeUnless { it == todos }
+            filtroHabitaciones = when (habSel) {
+                todos -> null
+                "4 o más" -> 4
+                else -> habSel.toIntOrNull()
             }
-            .setNegativeButton(android.R.string.cancel, null)
-            .show()
+            adapter.setFiltros(
+                filtroDepartamento, filtroDistrito, filtroTipo, filtroHabitaciones
+            )
+            adapter.setSoloFavoritos(soloFavoritos)
+            actualizarBotonFiltros()
+            actualizarZonaMapa()
+            sheet.dismiss()
+        }
+
+        val limpiar = View.OnClickListener {
+            filtroDepartamento = null
+            filtroDistrito = null
+            filtroTipo = null
+            filtroHabitaciones = null
+            soloFavoritos = false
+            binding.etBusqueda.setText("")
+            adapter.setFiltros(null, null)
+            adapter.setSoloFavoritos(false)
+            actualizarBotonFiltros()
+            actualizarZonaMapa()
+            sheet.dismiss()
+        }
+
+        vista.findViewById<MaterialButton>(R.id.btnFiltrosAplicar).setOnClickListener(aplicar)
+        vista.findViewById<MaterialButton>(R.id.btnFiltrosLimpiar).setOnClickListener(limpiar)
+        sheet.show()
     }
 
     private fun actualizarBotonFiltros() {
-        val activo = (filtroDistrito ?: filtroDepartamento) != null || busquedaActual.isNotBlank()
+        val activo = (filtroDistrito ?: filtroDepartamento) != null ||
+            (filtroTipo != null) || (filtroHabitaciones != null) ||
+            soloFavoritos || busquedaActual.isNotBlank()
         binding.btnFiltroBuscar.imageTintList = ColorStateList.valueOf(
             getColor(if (activo) R.color.alkil_primary else R.color.text_secondary)
         )
@@ -339,7 +517,13 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             db.collection("usuarios").document(uid).get()
                 .addOnCompleteListener { tarea ->
                     val ok = tarea.isSuccessful && tarea.result?.exists() == true
-                    if (ok) mapa[uid] = tarea.result?.get("verificationBadge") == true
+                    if (ok) {
+                        val d = tarea.result
+                        val identidadVerificada =
+                            (d?.get("verification") as? Map<*, *>)?.get("identityVerified") == true
+                        val badge = d?.get("verificationBadge") == true
+                        mapa[uid] = badge || identidadVerificada
+                    }
                     pendientes--
                     if (pendientes <= 0) adapter.setPropietariosVerificados(mapa)
                 }
@@ -351,7 +535,47 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     // ======================================================================
 
     private fun configurarBadges() {
-        mMap.setOnCameraIdleListener { posicionarBadges() }
+        mMap.setOnCameraIdleListener {
+            posicionarBadges()
+            actualizarMarcadoresEnZonaVisible()
+        }
+    }
+
+    private fun initIconosMarcadores() {
+        iconoDefault = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED)
+        iconoSeleccionado = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN)
+    }
+
+    /** Añade/actualiza marcadores solo para inmuebles dentro de la vista actual del mapa. */
+    private fun actualizarMarcadoresEnZonaVisible() {
+        if (!::mMap.isInitialized) return
+        if (!::iconoDefault.isInitialized) initIconosMarcadores()
+        val bounds = mMap.projection.visibleRegion.latLngBounds
+        limpiarMarcadores()
+        val visibles = adapter.visibles().filter { p ->
+            p.lat != 0.0 && p.lng != 0.0 && bounds.contains(p.ubicacion)
+        }
+        visibles.forEach { p ->
+            val marker = mMap.addMarker(
+                MarkerOptions()
+                    .position(p.ubicacion)
+                    .title(p.titulo)
+                    .snippet(p.precioFormateado)
+                    .icon(iconoDefault)
+            )!!
+            marker.tag = p.id
+            marcadores.add(marker)
+        }
+        mMap.setOnMarkerClickListener { marker ->
+            // Resetear el anterior
+            marcadorSeleccionado?.setIcon(iconoDefault)
+            // Seleccionar el nuevo
+            marker.setIcon(iconoSeleccionado)
+            marcadorSeleccionado = marker
+            // Mostrar info window (se queda abierto hasta click en otro lado)
+            marker.showInfoWindow()
+            true // consumimos el click
+        }
     }
 
     private fun actualizarBadges(lista: List<Propiedad>) {
@@ -456,8 +680,92 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         mMap = googleMap
         mMap.uiSettings.isZoomControlsEnabled = true
         mMap.uiSettings.isMyLocationButtonEnabled = false
-        configurarBadges()
+
+        // Padding para que el mapa visible quede en el 40% superior (arriba del panel 60%)
+        mMap.setOnMapLoadedCallback {
+            val topInset = binding.filaTop.measuredHeight + 16.dp
+            val bottomInset = (resources.displayMetrics.heightPixels * 0.6f).toInt() + 16.dp
+            mMap.setPadding(0, topInset, 0, bottomInset)
+        }
+
+        // InfoWindow estilo Booking con precio
+        mMap.setInfoWindowAdapter(object : GoogleMap.InfoWindowAdapter {
+            override fun getInfoWindow(marker: Marker): View {
+                val p = propiedadDesdeMarcador(marker) ?: return View(this@MainActivity)
+                return construirInfoWindow(p)
+            }
+
+            override fun getInfoContents(marker: Marker): View? = null
+        })
+        mMap.setOnInfoWindowClickListener { marker ->
+            propiedadDesdeMarcador(marker)?.let { abrirDetallePropiedad(it) }
+        }
+configurarBadges()
         verificarPermisosUbicacion()
+    }
+
+    /** Busca la propiedad asociada a un marcador (etiquetado con su id). */
+    private fun propiedadDesdeMarcador(marker: Marker): Propiedad? {
+        val id = marker.tag as? String ?: return null
+        if (id.isBlank()) return null
+        return adapter.visibles().firstOrNull { it.id == id }
+    }
+
+    /** Normaliza el tipo a 4 opciones: habitacion, departamento, casa u otros. */
+    private fun tipoMostrable(tipo: String): String = when (tipo.trim().lowercase()) {
+        "habitacion", "habitación", "cuarto" -> "Habitacion"
+        "departamento", "depto" -> "Departamento"
+        "casa" -> "Casa"
+        else -> "Otros"
+    }
+
+    /** Construye el InfoWindow estilo Booking con foto, título, precio y botón ver. */
+    private fun construirInfoWindow(p: Propiedad): View {
+        val card = com.google.android.material.card.MaterialCardView(this).apply {
+            radius = (12.dp).toFloat()
+            cardElevation = (4.dp).toFloat()
+            setCardBackgroundColor(getColor(R.color.white))
+        }
+        val root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(12.dp, 10.dp, 12.dp, 10.dp)
+        }
+        // Tipo de inmueble (pedido del padre: en el popup se ve el tipo, no el titulo)
+        root.addView(TextView(this).apply {
+            text = tipoMostrable(p.tipo)
+            textSize = 14f
+            setTypeface(null, android.graphics.Typeface.BOLD)
+            setTextColor(getColor(R.color.text_primary))
+        })
+        // Precio grande
+        root.addView(TextView(this).apply {
+            text = p.precioFormateado
+            textSize = 18f
+            setTypeface(null, android.graphics.Typeface.BOLD)
+            setTextColor(getColor(R.color.alkil_primary))
+        })
+        // Zona
+        root.addView(TextView(this).apply {
+            text = p.barrio.ifEmpty { p.ciudad }
+            textSize = 12f
+            setTextColor(getColor(R.color.text_secondary))
+        })
+        // Botón "Ver"
+        root.addView(com.google.android.material.button.MaterialButton(this).apply {
+            text = "Ver propiedad"
+            textSize = 12f
+            insetTop = 0.dp
+            insetBottom = 0.dp
+            backgroundTintList = ColorStateList.valueOf(getColor(R.color.alkil_primary))
+            setTextColor(getColor(R.color.white))
+            setOnClickListener { abrirDetallePropiedad(p) }
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { topMargin = 8.dp }
+        })
+        card.addView(root)
+        return card
     }
 
     private fun verificarPermisosUbicacion() {
@@ -527,7 +835,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     private fun actualizarZonaMapa(conMensaje: Boolean = true) {
         limpiarMarcadores()
         val hayFiltro = filtroDistrito != null || filtroDepartamento != null ||
-            busquedaActual.isNotBlank()
+            soloFavoritos || busquedaActual.isNotBlank()
         if (!hayFiltro) {
             if (ultimaUbicacion != null) centrarEn(ultimaUbicacion!!, true)
             return
@@ -545,9 +853,9 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
                 mMap.addMarker(
                     MarkerOptions()
                         .position(p.ubicacion)
-                        .title(p.titulo)
+                        .title(p.tipo)
                         .snippet(p.precioFormateado)
-                )!!
+                )!!.apply { tag = p.id }
             )
             builder.include(p.ubicacion)
         }
@@ -559,8 +867,12 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     }
 
     private fun abrirDetallePropiedad(propiedad: Propiedad) {
-        if (::mMap.isInitialized) {
-            mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(propiedad.ubicacion, 16f))
+        try {
+            if (::mMap.isInitialized && propiedad.lat != 0.0 && propiedad.lng != 0.0) {
+                mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(propiedad.ubicacion, 16f))
+            }
+        } catch (e: Exception) {
+            // Ignorar errores de animación del mapa
         }
         val intent = Intent(this, PropiedadDetalleActivity::class.java).apply {
             putExtra(PropiedadDetalleActivity.EXTRA_ID, propiedad.id)
@@ -576,14 +888,14 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             putExtra(PropiedadDetalleActivity.EXTRA_LAT, propiedad.lat)
             putExtra(PropiedadDetalleActivity.EXTRA_LNG, propiedad.lng)
             putExtra(PropiedadDetalleActivity.EXTRA_ID_PROPIETARIO, propiedad.idPropietario)
-            putExtra(PropiedadDetalleActivity.EXTRA_CONTACTO, propiedad.contacto)
             putExtra(PropiedadDetalleActivity.EXTRA_AMBIENTES, propiedad.ambientes)
             putExtra(PropiedadDetalleActivity.EXTRA_SUPERFICIE, propiedad.superficieM2)
             putStringArrayListExtra(
                 PropiedadDetalleActivity.EXTRA_COMODIDADES,
                 ArrayList(propiedad.comodidades)
             )
-            putStringArrayListExtra(PropiedadDetalleActivity.EXTRA_FOTOS, ArrayList(propiedad.fotos))
+            // NO pasar fotos base64 por el intent: supera el límite de Binder
+            // (TransactionTooLargeException). El detalle las carga por ID desde Firestore.
             putStringArrayListExtra(
                 PropiedadDetalleActivity.EXTRA_FOTOS_URL,
                 ArrayList(propiedad.photosUrl)
@@ -628,29 +940,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     }
 
     private fun abrirDialogoAutenticar() {
-        val vista = layoutInflater.inflate(R.layout.dialog_auth, null)
-        val etEmail = vista.findViewById<EditText>(R.id.etAuthEmail)
-        val etPassword = vista.findViewById<EditText>(R.id.etAuthPassword)
-        val dialogoSesion = MaterialAlertDialogBuilder(this)
-            .setTitle(R.string.auth_titulo)
-            .setView(vista)
-            .setPositiveButton(R.string.auth_ingresar) { _, _ ->
-                val email = etEmail.text.toString().trim()
-                val pass = etPassword.text.toString()
-                if (validarCredenciales(email, pass)) inicioSesion(email, pass)
-            }
-            .setNeutralButton(R.string.auth_registrarse) { _, _ ->
-                val email = etEmail.text.toString().trim()
-                val pass = etPassword.text.toString()
-                if (validarCredenciales(email, pass)) registrarUsuario(email, pass)
-            }
-            .setNegativeButton(android.R.string.cancel, null)
-            .show()
-
-        vista.findViewById<MaterialButton>(R.id.btnGoogleAuth).setOnClickListener {
-            dialogoSesion.dismiss()
-            iniciarSesionGoogle()
-        }
+        startActivity(Intent(this, AuthActivity::class.java))
     }
 
     private fun iniciarSesionGoogle() {
@@ -739,7 +1029,25 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     }
 
     private fun actualizarUiSesion() {
-        // El botón de menú no muestra estado de sesión.
+        val usuario = auth.currentUser
+        val panel = binding.panelMenu
+        if (usuario != null) {
+            val nombre = usuario.displayName?.takeIf { it.isNotBlank() }
+                ?: usuario.email?.substringBefore('@').orEmpty()
+            panel.tvNavNombre.text = nombre
+            panel.tvNavEmail.text = usuario.email.orEmpty()
+            panel.tvNavAvatar.text = nombre.take(1).uppercase()
+            panel.tvNavSesionHint.visibility = View.GONE
+            panel.tvNavEmail.visibility = View.VISIBLE
+            panel.btnNavSalir.visibility = View.VISIBLE
+        } else {
+            panel.tvNavNombre.text = getString(R.string.nav_invitado)
+            panel.tvNavEmail.text = ""
+            panel.tvNavEmail.visibility = View.GONE
+            panel.tvNavAvatar.text = "?"
+            panel.tvNavSesionHint.visibility = View.VISIBLE
+            panel.btnNavSalir.visibility = View.GONE
+        }
     }
 }
 

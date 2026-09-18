@@ -7,6 +7,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.util.Base64
+import android.view.View
 import android.view.ViewGroup
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.RecyclerView
@@ -14,18 +15,22 @@ import androidx.viewpager2.widget.ViewPager2
 import androidx.viewpager2.widget.ViewPager2.OnPageChangeCallback
 import com.alkilapp.databinding.ActivityFotoZoomBinding
 import com.alkilapp.ui.ZoomImageView
+import com.google.firebase.firestore.FirebaseFirestore
 import java.net.HttpURLConnection
 import java.net.URL
 import java.util.concurrent.Executors
+import kotlin.math.max
 
 /** Visor de fotos a pantalla completa con zoom (pellizco / doble toque / arrastre). */
 class FotoZoomActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityFotoZoomBinding
+    private val db by lazy { FirebaseFirestore.getInstance("alkilappdb") }
     private val cargadorImagenes = Executors.newSingleThreadExecutor()
     private val handlerUi = Handler(Looper.getMainLooper())
 
     private var fuentes: List<String> = emptyList()
+    private var registroPagina: OnPageChangeCallback? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -35,36 +40,65 @@ class FotoZoomActivity : AppCompatActivity() {
         window.statusBarColor = Color.BLACK
         window.navigationBarColor = Color.BLACK
 
-        fuentes = intent.getStringArrayListExtra(EXTRA_FUENTES) ?: emptyList()
+        binding.btnZoomCerrar.setOnClickListener { finish() }
+
+        cargarFuentes()
+    }
+
+    /**
+     * Las fotos se cargan desde Firestore por ID: enviar los base64 por el
+     * intent superaba el limite de Binder (1 MB) y cerraba la app.
+     */
+    private fun cargarFuentes() {
+        val propId = intent.getStringExtra(EXTRA_PROPIEDAD_ID).orEmpty()
+        if (propId.isBlank()) {
+            finish()
+            return
+        }
+        binding.pbZoom.visibility = View.VISIBLE
+        db.collection("propiedades").document(propId).get()
+            .addOnSuccessListener { doc ->
+                val base64 = (doc.get("fotos") as? List<*>)?.filterIsInstance<String>()
+                    ?: emptyList()
+                val urls = (doc.get("photos") as? List<*>)?.filterIsInstance<String>()
+                    ?: emptyList()
+                fuentes = base64.filter { it.isNotBlank() }.map { "$PREFIJO_B64$it" } +
+                    urls.filter { it.isNotBlank() }
+                mostrar()
+            }
+            .addOnFailureListener { finish() }
+    }
+
+    private fun mostrar() {
+        binding.pbZoom.visibility = View.GONE
         if (fuentes.isEmpty()) {
             finish()
             return
         }
-
+        val posicion = intent.getIntExtra(EXTRA_POSICION, 0).coerceIn(0, fuentes.size - 1)
         binding.vpFotos.adapter = AdaptadorFotos()
         binding.vpFotos.offscreenPageLimit = 1
-        binding.vpFotos.setCurrentItem(
-            intent.getIntExtra(EXTRA_POSICION, 0).coerceIn(0, fuentes.size - 1),
-            false
-        )
-        actualizarIndicador(binding.vpFotos.currentItem)
+        binding.vpFotos.setCurrentItem(posicion, false)
+        actualizarIndicador(posicion)
 
-        binding.vpFotos.registerOnPageChangeCallback(object : OnPageChangeCallback() {
+        val callback = object : OnPageChangeCallback() {
             override fun onPageSelected(position: Int) {
-                binding.tvZoomIndicador.text = getString(R.string.foto_zoom_indicador, position + 1, fuentes.size)
+                actualizarIndicador(position)
             }
-        })
-
-        binding.btnZoomCerrar.setOnClickListener { finish() }
+        }
+        registroPagina = callback
+        binding.vpFotos.registerOnPageChangeCallback(callback)
     }
 
     override fun onDestroy() {
+        registroPagina?.let { binding.vpFotos.unregisterOnPageChangeCallback(it) }
         cargadorImagenes.shutdownNow()
         super.onDestroy()
     }
 
     private fun actualizarIndicador(posicion: Int) {
-        binding.tvZoomIndicador.text = getString(R.string.foto_zoom_indicador, posicion + 1, fuentes.size)
+        binding.tvZoomIndicador.text =
+            getString(R.string.foto_zoom_indicador, posicion + 1, fuentes.size)
     }
 
     private inner class AdaptadorFotos : RecyclerView.Adapter<AdaptadorFotos.Holder>() {
@@ -83,14 +117,18 @@ class FotoZoomActivity : AppCompatActivity() {
 
         override fun onBindViewHolder(holder: Holder, position: Int) {
             val fuente = fuentes[position]
-            if (fuente.startsWith(PREFIJO_B64)) {
-                val bmp = decodificarBase64Completa(fuente.removePrefix(PREFIJO_B64))
-                if (bmp != null) holder.vista.setImageBitmap(bmp)
-            } else {
-                cargadorImagenes.execute {
-                    val bmp = descargarBitmap(fuente)
-                    handlerUi.post {
-                        if (bmp != null) holder.vista.setImageBitmap(bmp)
+            holder.vista.setImageBitmap(null)
+            holder.vista.tag = position
+            val esBase64 = fuente.startsWith(PREFIJO_B64)
+            cargadorImagenes.execute {
+                val bmp = if (esBase64) {
+                    decodificarBase64(fuente.removePrefix(PREFIJO_B64))
+                } else {
+                    descargarBitmap(fuente)
+                }
+                handlerUi.post {
+                    if (bmp != null && holder.vista.tag == position) {
+                        holder.vista.setImageBitmap(bmp)
                     }
                 }
             }
@@ -99,14 +137,32 @@ class FotoZoomActivity : AppCompatActivity() {
         inner class Holder(val vista: ZoomImageView) : RecyclerView.ViewHolder(vista)
     }
 
-    /** Decodifica la foto en resolución completa (sin reducir) para hacer zoom real. */
-    private fun decodificarBase64Completa(b64: String): Bitmap? {
+    /**
+     * Decodifica en resolucion alta pero acotada (~2048px de lado mayor) para
+     * permitir zoom real sin arriesgar OutOfMemory con fotos muy grandes.
+     */
+    private fun decodificarBase64(b64: String): Bitmap? {
         return try {
             val bytes = Base64.decode(b64, Base64.NO_WRAP)
-            BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+            val opts = BitmapFactory.Options().apply {
+                inSampleSize = factorMuestra(bounds.outWidth, bounds.outHeight, LADO_MAX)
+            }
+            BitmapFactory.decodeByteArray(bytes, 0, bytes.size, opts)
         } catch (_: Exception) {
             null
         }
+    }
+
+    private fun factorMuestra(ancho: Int, alto: Int, objetivo: Int): Int {
+        var muestra = 1
+        var mayor = max(ancho, alto)
+        while (mayor / 2 >= objetivo) {
+            mayor /= 2
+            muestra *= 2
+        }
+        return muestra
     }
 
     private fun descargarBitmap(urlString: String): Bitmap? {
@@ -125,8 +181,9 @@ class FotoZoomActivity : AppCompatActivity() {
     }
 
     companion object {
-        const val EXTRA_FUENTES = "zoom_fuentes"
+        const val EXTRA_PROPIEDAD_ID = "zoom_propiedad_id"
         const val EXTRA_POSICION = "zoom_posicion"
         private const val PREFIJO_B64 = "b64:"
+        private const val LADO_MAX = 2048
     }
 }

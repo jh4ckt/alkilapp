@@ -37,11 +37,13 @@ class ChatListActivity : AppCompatActivity() {
 
     override fun onStart() {
         super.onStart()
+        ChatVista.actual = ChatVista.EN_LISTA
         escucharChats()
     }
 
     override fun onStop() {
         super.onStop()
+        ChatVista.actual = ""
         escuchaChats?.remove()
     }
 
