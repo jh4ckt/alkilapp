@@ -78,6 +78,7 @@ class MisPublicacionesActivity : AppCompatActivity() {
             cardElevation = 1.dp.toFloat()
             setCardBackgroundColor(getColor(R.color.surface))
             isClickable = true
+            isFocusable = true
             setOnClickListener { abrirDetalle(p) }
         }
 
@@ -158,6 +159,8 @@ class MisPublicacionesActivity : AppCompatActivity() {
     }
 
     private fun abrirDetalle(p: Propiedad) {
+        Log.i("AlkilApp", "MisPublicaciones: abriendo detalle id=${p.id} titulo=${p.titulo}")
+        Toast.makeText(this, "Abriendo ${p.titulo}", Toast.LENGTH_SHORT).show()
         Intent(this, PropiedadDetalleActivity::class.java).apply {
             putExtra(PropiedadDetalleActivity.EXTRA_ID, p.id)
             putExtra(PropiedadDetalleActivity.EXTRA_TITULO, p.titulo)

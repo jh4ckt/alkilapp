@@ -9,6 +9,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.util.Base64
+import android.util.Log
 import android.view.View
 import android.widget.ImageView
 import android.widget.LinearLayout
@@ -51,6 +52,12 @@ class PropiedadDetalleActivity : AppCompatActivity() {
         propId = intent.getStringExtra(EXTRA_ID).orEmpty()
         listingTitle = intent.getStringExtra(EXTRA_TITULO).orEmpty()
         idPropietario = intent.getStringExtra(EXTRA_ID_PROPIETARIO).orEmpty()
+        if (propId.isBlank()) {
+            Log.e("AlkilApp", "PropiedadDetalleActivity: EXTRA_ID vacío, cerrando")
+            Toast.makeText(this, "Error: ID de propiedad no recibido", Toast.LENGTH_LONG).show()
+            finish()
+            return
+        }
         val estado = when (val e = intent.getStringExtra(EXTRA_ESTADO)?.trim()?.lowercase()) {
             null, "", "publicado", "activo" -> "disponible"
             else -> e
@@ -58,8 +65,11 @@ class PropiedadDetalleActivity : AppCompatActivity() {
         val moneda = intent.getStringExtra(EXTRA_MONEDA) ?: "USD"
         val op = intent.getStringExtra(EXTRA_OPERACION) ?: "alquiler"
 
-        fotos = intent.getStringArrayListExtra(EXTRA_FOTOS) ?: emptyList()
-        fotosUrl = intent.getStringArrayListExtra(EXTRA_FOTOS_URL) ?: emptyList()
+        // Recibir arrays de strings (pueden venir como String[] o ArrayList<String>)
+        val fotosArray = intent.getStringArrayExtra(EXTRA_FOTOS)
+        val fotosUrlArray = intent.getStringArrayExtra(EXTRA_FOTOS_URL)
+        fotos = if (fotosArray != null) fotosArray.toList() else intent.getStringArrayListExtra(EXTRA_FOTOS) ?: emptyList()
+        fotosUrl = if (fotosUrlArray != null) fotosUrlArray.toList() else intent.getStringArrayListExtra(EXTRA_FOTOS_URL) ?: emptyList()
         val isFeatured = intent.getBooleanExtra(EXTRA_FEATURED, false)
 
         binding.btnDetalleBack.setOnClickListener { finish() }
