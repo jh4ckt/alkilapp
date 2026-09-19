@@ -243,24 +243,8 @@ class MisPublicacionesActivity : AppCompatActivity() {
 
     private fun editarPublicacion(p: Propiedad) {
         Intent(this, RegistrarPropiedadActivity::class.java).apply {
-            putExtra("editMode", true)
-            putExtra("propiedadId", p.id)
-            putExtra(RegistrarPropiedadActivity.EXTRA_TITULO, p.titulo)
-            putExtra(RegistrarPropiedadActivity.EXTRA_DESCRIPCION, p.descripcion)
-            putExtra(RegistrarPropiedadActivity.EXTRA_TIPO, p.tipo)
-            putExtra(RegistrarPropiedadActivity.EXTRA_OPERACION, p.operacion)
-            putExtra(RegistrarPropiedadActivity.EXTRA_PRECIO, p.precio)
-            putExtra(RegistrarPropiedadActivity.EXTRA_MONEDA, p.moneda)
-            putExtra(RegistrarPropiedadActivity.EXTRA_DIRECCION, p.direccion)
-            putExtra(RegistrarPropiedadActivity.EXTRA_BARRIO, p.barrio)
-            putExtra(RegistrarPropiedadActivity.EXTRA_CIUDAD, p.ciudad)
-            putExtra(RegistrarPropiedadActivity.EXTRA_LAT, p.lat)
-            putExtra(RegistrarPropiedadActivity.EXTRA_LNG, p.lng)
-            putExtra(RegistrarPropiedadActivity.EXTRA_AMBIENTES, p.ambientes)
-            putExtra(RegistrarPropiedadActivity.EXTRA_SUPERFICIE, p.superficieM2)
-            putExtra(RegistrarPropiedadActivity.EXTRA_COMODIDADES, p.comodidades.toTypedArray())
-            putExtra(RegistrarPropiedadActivity.EXTRA_FOTOS, p.fotos.toTypedArray())
-            putExtra(RegistrarPropiedadActivity.EXTRA_FOTOS_URL, p.photosUrl.toTypedArray())
+            putExtra(RegistrarPropiedadActivity.EXTRA_EDIT_MODE, true)
+            putExtra(RegistrarPropiedadActivity.EXTRA_PROPIEDAD_ID, p.id)
         }.also { startActivity(it) }
     }
 
@@ -268,18 +252,47 @@ class MisPublicacionesActivity : AppCompatActivity() {
         if (p.esDestacado) {
             quitarDestacado(p)
         } else {
-            solicitarDestacado(p)
+            mostrarDialogoDestacar(p)
         }
     }
 
-    private fun solicitarDestacado(p: Propiedad) {
+    private fun mostrarDialogoDestacar(p: Propiedad) {
+        val opciones = arrayOf(
+            "7 días - S/ 6.90",
+            "15 días - S/ 12.90",
+            "30 días - S/ 24.90"
+        )
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("Destacar publicación")
+            .setMessage("Elige la duración del destacado:")
+            .setSingleChoiceItems(opciones, 2) { _, which ->
+                val dias = when (which) {
+                    0 -> 7
+                    1 -> 15
+                    else -> 30
+                }
+                val precio = when (which) {
+                    0 -> 6.90
+                    1 -> 12.90
+                    else -> 24.90
+                }
+                iniciarPagoDestacado(p, dias, precio)
+            }
+            .setNegativeButton("Cancelar", null)
+            .show()
+    }
+
+    private fun iniciarPagoDestacado(p: Propiedad, dias: Int, precio: Double) {
+        // TODO: Integrar Google Pay / Google Play Billing
+        // Por ahora guardamos la solicitud con los días seleccionados
         db.collection("propiedades").document(p.id)
             .set(mapOf(
                 "solicitudDestacar" to true,
-                "destacadoDias" to 30
+                "destacadoDias" to dias,
+                "destacadoPrecio" to precio
             ), SetOptions.merge())
             .addOnSuccessListener {
-                Toast.makeText(this, "Solicitud de destacado enviada (30 dias)", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Solicitud de destacado $dias días (S/ $precio) enviada. Pendiente pago.", Toast.LENGTH_LONG).show()
             }
             .addOnFailureListener { e ->
                 Toast.makeText(this, "Error: ${e.message}", Toast.LENGTH_SHORT).show()

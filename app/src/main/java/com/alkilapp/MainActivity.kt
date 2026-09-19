@@ -8,8 +8,10 @@ import android.content.res.Resources
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.drawable.GradientDrawable
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
 import android.util.Base64
 import android.view.View
 import android.view.ViewGroup
@@ -165,6 +167,35 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         configurarPanelFijoInferior()
         configurarInsetsSistema()
         actualizarBotonFiltros()
+
+        // Verificar permiso de ubicación para usuarios nuevos
+        verificarPermisoUbicacion()
+    }
+
+    private fun verificarPermisoUbicacion() {
+        val prefs = getSharedPreferences("alkilapp_prefs", MODE_PRIVATE)
+        val yaMostrado = prefs.getBoolean("location_permission_shown", false)
+        if (!yaMostrado) {
+            val fine = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
+            val coarse = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION)
+            if (fine != PackageManager.PERMISSION_GRANTED && coarse != PackageManager.PERMISSION_GRANTED) {
+                androidx.appcompat.app.AlertDialog.Builder(this)
+                    .setTitle("Activar ubicaci\u00F3n")
+                    .setMessage("AlkilApp necesita tu ubicaci\u00F3n para mostrar inmuebles cercanos, calcular distancias y centrar el mapa en tu zona. Por favor, activa el permiso de ubicaci\u00F3n en los ajustes.")
+                    .setPositiveButton("Activar ahora") { _, _ ->
+                        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                        intent.data = Uri.fromParts("package", packageName, null)
+                        startActivity(intent)
+                    }
+                    .setNegativeButton("M\u00E1s tarde", null)
+                    .setOnDismissListener {
+                        prefs.edit().putBoolean("location_permission_shown", true).apply()
+                    }
+                    .show()
+            } else {
+                prefs.edit().putBoolean("location_permission_shown", true).apply()
+            }
+        }
     }
 
     /**
