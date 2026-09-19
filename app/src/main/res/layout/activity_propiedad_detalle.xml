@@ -33,6 +33,15 @@
                 android:contentDescription="@string/chat_atras"
                 android:src="@drawable/ic_back" />
 
+            <ImageButton
+                android:id="@+id/btnDetalleCompartir"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_marginEnd="8dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/detalle_compartir"
+                android:src="@android:drawable/ic_menu_share" />
+
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"

@@ -381,6 +381,9 @@
     <string name="filtros_solo_favoritos">Solo favoritos</string>
     <string name="filtros_tipo">Tipo de inmueble</string>
     <string name="filtros_habitaciones">Cantidad de habitaciones</string>
+    <string name="detalle_compartir">Compartir publicación</string>
+    <string name="detalle_compartir_titulo">Compartir "%1$s"</string>
+    <string name="detalle_compartir_texto">Mirá esta publicación en AlkilApp: %1$s</string>
     <string-array name="opciones_habitaciones">
         <item>1</item>
         <item>2</item>

@@ -73,6 +73,7 @@ class PropiedadDetalleActivity : AppCompatActivity() {
         val isFeatured = intent.getBooleanExtra(EXTRA_FEATURED, false)
 
         binding.btnDetalleBack.setOnClickListener { finish() }
+        binding.btnDetalleCompartir.setOnClickListener { compartirPublicacion() }
 
         // Información principal
         binding.tvDetTitulo.text = listingTitle
@@ -537,6 +538,23 @@ class PropiedadDetalleActivity : AppCompatActivity() {
 
     private val Int.dp: Int
         get() = (this * resources.displayMetrics.density).toInt()
+
+    private fun compartirPublicacion() {
+        val url = "https://alkilapp.com/propiedad/$propId"
+        val titulo = getString(R.string.detalle_compartir_titulo, listingTitle)
+        val texto = getString(R.string.detalle_compartir_texto, url)
+        val intent = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_SUBJECT, titulo)
+            putExtra(Intent.EXTRA_TEXT, texto)
+        }
+        val chooser = Intent.createChooser(intent, getString(R.string.detalle_compartir))
+        try {
+            startActivity(chooser)
+        } catch (_: Exception) {
+            Toast.makeText(this, "No hay apps para compartir", Toast.LENGTH_SHORT).show()
+        }
+    }
 
     companion object {
         const val EXTRA_ID = "det_id"
