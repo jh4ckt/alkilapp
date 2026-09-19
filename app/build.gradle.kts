@@ -21,8 +21,8 @@ android {
         applicationId = "com.alkilapp"
         minSdk = 24
         targetSdk = 36
-versionCode = 17
-    versionName = "1.35"
+versionCode = 18
+    versionName = "1.36"
         manifestPlaceholders["MAPS_API_KEY"] = mapsApiKey
     }
 
