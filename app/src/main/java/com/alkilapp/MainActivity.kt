@@ -210,14 +210,22 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         val altoPantalla = resources.displayMetrics.heightPixels
         val alturaExpandida = (altoPantalla * 0.6f).toInt()
 
-        // Estados: COLLAPSED (peek 100dp) <-> EXPANDED (60%)
+        // Estados: COLLAPSED (peek 100dp) <-> EXPANDED (hasta 60% de la pantalla).
+        // fitToContents = false es el modo de render probado en vivo (v1.28). El tope
+        // del 60% se consigue limitando la altura del RecyclerView, no con maxHeight
+        // (que con fitToContents=false se ignora y con fitToContents=true dejaba el
+        // sheet colapsado fuera de pantalla).
         behavior.peekHeight = 100.dp
         behavior.isHideable = false
         behavior.isDraggable = true
-        behavior.isFitToContents = false // usamos altura fija cuando expandido
+        behavior.isFitToContents = false
 
-        // Altura del sheet cuando está expandido: 60% de la pantalla
-        sheet.layoutParams = sheet.layoutParams.apply { height = alturaExpandida }
+        // Tope del listado para que el contenido total del sheet sea ~60% de la pantalla
+        // (100dp de cabecera ≈ handle + titulo).
+        binding.rvDepartamentos.layoutParams =
+            (binding.rvDepartamentos.layoutParams as ViewGroup.LayoutParams).apply {
+                height = alturaExpandida - 76.dp
+            }
 
         // Callback para mover FAB y padding del mapa junto con el sheet
         behavior.addBottomSheetCallback(object : BottomSheetBehavior.BottomSheetCallback() {
@@ -244,6 +252,14 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
 
         // Estado inicial: colapsado (solo handle + título)
         behavior.state = BottomSheetBehavior.STATE_COLLAPSED
+
+        // Reaplicar el estado tras el primer layout: si el proceso se restaura desde
+        // un estado previo guardado (reinstalacion con install -r, cambio de configuracion),
+        // BottomSheetBehavior puede conservar un offset antiguo que deja el sheet fuera
+        // de pantalla. Forzar COLLAPSED en el primer layout lo recoloca en el peek.
+        sheet.post {
+            BottomSheetBehavior.from(sheet).state = BottomSheetBehavior.STATE_COLLAPSED
+        }
     }
 
     /**

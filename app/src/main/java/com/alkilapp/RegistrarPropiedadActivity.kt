@@ -1,10 +1,12 @@
 package com.alkilapp
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.ImageDecoder
+import android.location.Geocoder
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -37,6 +39,7 @@ import com.google.android.libraries.places.api.net.FetchPlaceRequest
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
+import java.util.Locale
 import kotlin.math.max
 
 /**
@@ -83,6 +86,25 @@ class RegistrarPropiedadActivity : AppCompatActivity() {
         renderizarPreviewsFotos(false)
     }
 
+    private val mapaSeleccionLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { resultado ->
+        if (resultado.resultCode != RESULT_OK) return@registerForActivityResult
+        val data = resultado.data ?: return@registerForActivityResult
+        val lat = data.getDoubleExtra(MapaSeleccionActivity.EXTRA_LAT_RESULTADO, 0.0)
+        val lng = data.getDoubleExtra(MapaSeleccionActivity.EXTRA_LNG_RESULTADO, 0.0)
+        if (lat != 0.0 || lng != 0.0) {
+            latAgregar = lat
+            lngAgregar = lng
+            binding.tvPropUbicacionInfo.text = getString(
+                R.string.prop_ubicacion_mapa_seleccionada,
+                "%.6f".format(lat),
+                "%.6f".format(lng)
+            )
+            rellenarDireccionDesdeMapa(lat, lng)
+        }
+    }
+
     companion object {
         const val EXTRA_LAT = "extra_lat"
         const val EXTRA_LNG = "extra_lng"
@@ -121,6 +143,13 @@ class RegistrarPropiedadActivity : AppCompatActivity() {
 
         binding.btnRegistrarBack.setOnClickListener { finish() }
         binding.btnRegistrarGuardar.setOnClickListener { guardarPropiedad(editMode, propiedadId) }
+        binding.btnPropElegirMapa.setOnClickListener {
+            val origen = Intent(this, MapaSeleccionActivity::class.java).apply {
+                putExtra(MapaSeleccionActivity.EXTRA_LAT_INICIAL, latAgregar)
+                putExtra(MapaSeleccionActivity.EXTRA_LNG_INICIAL, lngAgregar)
+            }
+            mapaSeleccionLauncher.launch(origen)
+        }
 
         val spinnerTipo = binding.spPropTipo
         val spinnerOperacion = binding.spPropOperacion
@@ -288,6 +317,30 @@ class RegistrarPropiedadActivity : AppCompatActivity() {
         val ime = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
         ime.hideSoftInputFromWindow(binding.root.windowToken, 0)
         binding.root.clearFocus()
+    }
+
+    /**
+     * Traduce las coordenadas elegidas en el mapa a una direccion (geocodificacion inversa)
+     * y la rellena en el campo de direccion si este sigue vacio.
+     */
+    private fun rellenarDireccionDesdeMapa(lat: Double, lng: Double) {
+        Thread {
+            val direccion = try {
+                Geocoder(this, Locale.getDefault())
+                    .getFromLocation(lat, lng, 1)
+                    ?.firstOrNull()
+                    ?.getAddressLine(0)
+            } catch (_: Exception) {
+                null
+            }
+            runOnUiThread {
+                if (!direccion.isNullOrBlank() &&
+                    binding.etPropDireccion.text?.toString()?.isBlank() != false
+                ) {
+                    binding.etPropDireccion.setText(direccion)
+                }
+            }
+        }.start()
     }
 
     /** Si hay permiso, refresca la ubicacion fresca del usuario (si falla, queda la pasada). */

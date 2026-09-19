@@ -48,6 +48,13 @@
     <string name="prop_comodidades_label">Comodidades</string>
     <string name="prop_hint_descripcion">Descripción</string>
     <string name="prop_ubicacion_info">La ubicación se toma de tu posición actual.</string>
+    <string name="prop_elegir_mapa">Elegir ubicacion en el mapa</string>
+    <string name="prop_ubicacion_mapa_seleccionada">Ubicacion elegida en el mapa: %1$s, %2$s</string>
+    <string name="mapa_seleccion_titulo">Elegir ubicacion</string>
+    <string name="mapa_seleccion_instrucciones">Toca el mapa para colocar el marcador con la ubicacion del inmueble</string>
+    <string name="mapa_seleccion_confirmar">Confirmar ubicacion</string>
+    <string name="mapa_seleccion_sin_punto">Toca el mapa para colocar el marcador</string>
+    <string name="mapa_seleccion_mi_ubicacion">Mi ubicacion</string>
     <string name="prop_tipo_label">Tipo</string>
     <string name="prop_operacion_label">Operación</string>
     <string name="prop_titulo_requerido">El título es obligatorio</string>

@@ -141,6 +141,19 @@
                     android:maxLines="1" />
             </com.google.android.material.textfield.TextInputLayout>
 
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnPropElegirMapa"
+                style="@style/Widget.Material3.Button.OutlinedButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="@string/prop_elegir_mapa"
+                android:textSize="14sp"
+                app:cornerRadius="10dp"
+                app:icon="@drawable/ic_location"
+                app:iconGravity="textStart"
+                app:iconTint="@color/brand_accent_deep" />
+
             <com.google.android.material.textfield.TextInputLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"

@@ -78,6 +78,10 @@
             android:name=".VerificacionActivity"
             android:exported="false"
             android:windowSoftInputMode="adjustResize" />
+
+        <activity
+            android:name=".MapaSeleccionActivity"
+            android:exported="false" />
     </application>
 
 </manifest>
