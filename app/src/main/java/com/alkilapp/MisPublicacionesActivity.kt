@@ -222,7 +222,8 @@ class MisPublicacionesActivity : AppCompatActivity() {
         menu.findItem(R.id.menu_reactivar).isVisible = estadoNorm == "pausada"
         // Marcar como alquilado: solo si disponible o pausada
         menu.findItem(R.id.menu_marcar_alquilado).isVisible = estadoNorm == "disponible" || estadoNorm == "pausada"
-        // Destacar: cambia título según estado
+        // Destacar: solo si la publicación no está finalizada; cambia título según estado
+        menu.findItem(R.id.menu_destacar).isVisible = estadoNorm != "finalizado"
         menu.findItem(R.id.menu_destacar).title = if (p.esDestacado) "Quitar destacado" else "Destacar publicacion"
         popup.setOnMenuItemClickListener { item ->
             when (item.itemId) {
