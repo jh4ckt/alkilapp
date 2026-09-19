@@ -28,15 +28,30 @@
         android:paddingEnd="20dp"
         android:paddingBottom="22dp">
 
-        <TextView
-            android:id="@+id/tvNavAvatar"
+        <FrameLayout
             android:layout_width="54dp"
-            android:layout_height="54dp"
-            android:background="@drawable/bg_nav_avatar"
-            android:gravity="center"
-            android:textColor="@color/white"
-            android:textSize="22sp"
-            android:textStyle="bold" />
+            android:layout_height="54dp">
+
+            <com.google.android.material.imageview.ShapeableImageView
+                android:id="@+id/ivNavFoto"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:contentDescription="@string/nav_foto_perfil"
+                android:scaleType="centerCrop"
+                android:src="@color/on_dark_soft"
+                android:visibility="gone"
+                app:shapeAppearanceOverlay="@style/AlkilAppCircle" />
+
+            <TextView
+                android:id="@+id/tvNavAvatar"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:background="@drawable/bg_nav_avatar"
+                android:gravity="center"
+                android:textColor="@color/white"
+                android:textSize="22sp"
+                android:textStyle="bold" />
+        </FrameLayout>
 
         <LinearLayout
             android:layout_width="0dp"
@@ -138,6 +153,21 @@
                 android:text="@string/nav_chats"
                 android:textColor="@color/text_primary"
                 android:textSize="15sp" />
+
+            <TextView
+                android:id="@+id/tvNavChatBadge"
+                android:layout_width="wrap_content"
+                android:layout_height="20dp"
+                android:layout_marginStart="8dp"
+                android:background="@drawable/bg_badge_no_leido"
+                android:gravity="center"
+                android:minWidth="20dp"
+                android:paddingStart="6dp"
+                android:paddingEnd="6dp"
+                android:textColor="@color/white"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                android:visibility="gone" />
         </LinearLayout>
 
         <!-- ===== Filtros ===== -->

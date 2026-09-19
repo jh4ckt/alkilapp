@@ -180,6 +180,8 @@
 
     <!-- Chat -->
     <string name="chat_btn">Chat</string>
+    <string name="nav_foto_perfil">Foto de perfil</string>
+    <string name="nav_chats_sin_leer">%1$d chats sin leer</string>
     <string name="chat_titulo_bandeja">Mensajes</string>
     <string name="chat_bandeja_vacia">Todavía no tenés conversaciones. Tocá un inmueble y escribí al propietario.</string>
     <string name="chat_requiere_sesion">Iniciá sesión para ver tus mensajes</string>
@@ -363,7 +365,8 @@
     <string name="nav_chats">Mis chats</string>
     <string name="nav_filtros">Filtros</string>
     <string name="nav_cerrar_sesion">Cerrar sesion</string>
-    <string name="nav_footer">AlkilApp</string>
+    <string name="nav_footer">AlkilApp by Jh4ckT</string>
+    <string name="auth_firma">AlkilApp by Jh4ckT</string>
     <string name="nav_verificar_identidad">Verificar identidad</string>
     <string name="favoritos_requiere_sesion">Inicia sesion para guardar favoritos</string>
     <string name="filtros_solo_favoritos">Solo favoritos</string>

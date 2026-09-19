@@ -14,6 +14,7 @@ import com.alkilapp.data.PerfilUsuario
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
+import java.util.concurrent.CopyOnWriteArrayList
 
 /** Pantallas en las que el usuario ya esta viendo chats (evita notificaciones duplicadas). */
 object ChatVista {
@@ -22,6 +23,34 @@ object ChatVista {
 
     @Volatile
     var actual: String = ""
+}
+
+/**
+ * Total de chats con mensajes sin leer para la sesion actual. Lo actualiza
+ * [MonitorChats] en cada snapshot y lo pueden leer MainActivity (badge del menu)
+ * o cualquier otra pantalla que quiera mostrar "tienes chats nuevos".
+ */
+object ChatNoLeidos {
+    @Volatile
+    private var total: Int = 0
+    private val escuchas = CopyOnWriteArrayList<(Int) -> Unit>()
+
+    fun actualizar(nuevoTotal: Int) {
+        total = nuevoTotal
+        for (e in escuchas) e(nuevoTotal)
+    }
+
+    fun totalActual(): Int = total
+
+    /** Se notifica en hilo de Firestore; el callback debe post al main si toca UI. */
+    fun suscribir(callback: (Int) -> Unit) {
+        escuchas.add(callback)
+        callback(total)
+    }
+
+    fun desuscribir(callback: (Int) -> Unit) {
+        escuchas.remove(callback)
+    }
 }
 
 /** Crea el canal de notificaciones y muestra el aviso de un chat nuevo. */
@@ -112,6 +141,7 @@ object MonitorChats {
         notificados.clear()
         nombres.clear()
         seedCompletado = false
+        ChatNoLeidos.actualizar(0)
     }
 
     private fun conectar(app: Application, uid: String) {
@@ -128,6 +158,7 @@ object MonitorChats {
                 if (error != null || snap == null) return@addSnapshotListener
 
                 val chats = snap.documents.mapNotNull { ChatAlkil.desde(it, uid) }
+                ChatNoLeidos.actualizar(chats.sumOf { it.unreadMio })
                 if (!seedCompletado) {
                     // Primera lectura: registra lo ya visto sin avisar (evita re-notificar
                     // chats viejos no leidos al abrir la app).

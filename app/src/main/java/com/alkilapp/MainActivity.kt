@@ -12,6 +12,8 @@ import android.net.Uri
 import android.os.Build
 import android.graphics.Canvas
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.provider.Settings
 import android.util.Base64
 import android.view.View
@@ -62,6 +64,9 @@ import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.SetOptions
+import java.net.HttpURLConnection
+import java.net.URL
+import java.util.concurrent.Executors
 
 class MainActivity : AppCompatActivity(), OnMapReadyCallback {
 
@@ -79,6 +84,10 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     private val auth by lazy { FirebaseAuth.getInstance() }
     private val db by lazy { FirebaseFirestore.getInstance("alkilappdb") }
     private var escuchaPropiedades: ListenerRegistration? = null
+
+    private val cargadorNavFoto by lazy { Executors.newSingleThreadExecutor() }
+    private val handlerMain = Handler(Looper.getMainLooper())
+    private var callbackChatNoLeidos: ((Int) -> Unit)? = null
 
     private var filtroDepartamento: String? = null
     private var filtroDistrito: String? = null
@@ -171,8 +180,19 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         configurarInsetsSistema()
         actualizarBotonFiltros()
 
+        // Badge de chats sin leer en el panel lateral.
+        callbackChatNoLeidos = { total -> runOnUiThread { actualizarBadgeChats(total) } }
+        ChatNoLeidos.suscribir(callbackChatNoLeidos!!)
+
         // Verificar permiso de ubicación para usuarios nuevos
         verificarPermisoUbicacion()
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        callbackChatNoLeidos?.let { ChatNoLeidos.desuscribir(it) }
+        callbackChatNoLeidos = null
+        cargadorNavFoto.shutdown()
     }
 
     private fun verificarPermisoUbicacion() {
@@ -1176,6 +1196,9 @@ private fun limpiarMarcadores() {
             panel.tvNavSesionHint.visibility = View.GONE
             panel.tvNavEmail.visibility = View.VISIBLE
             panel.btnNavSalir.visibility = View.VISIBLE
+            panel.ivNavFoto.visibility = View.GONE
+            panel.tvNavAvatar.visibility = View.VISIBLE
+            cargarFotoNav()
         } else {
             panel.tvNavNombre.text = getString(R.string.nav_invitado)
             panel.tvNavEmail.text = ""
@@ -1183,6 +1206,71 @@ private fun limpiarMarcadores() {
             panel.tvNavAvatar.text = "?"
             panel.tvNavSesionHint.visibility = View.VISIBLE
             panel.btnNavSalir.visibility = View.GONE
+            panel.ivNavFoto.visibility = View.GONE
+            panel.tvNavAvatar.visibility = View.VISIBLE
+        }
+        actualizarBadgeChats(ChatNoLeidos.totalActual())
+    }
+
+    /** Muestra la foto de perfil (fotoBase64 o profilePicture) en la cabecera del panel. */
+    private fun cargarFotoNav() {
+        val u = auth.currentUser ?: return
+        db.collection("usuarios").document(u.uid).get()
+            .addOnSuccessListener { doc ->
+                val d = doc.data ?: return@addOnSuccessListener
+                val b64 = d["fotoBase64"] as? String
+                val url = d["profilePicture"] as? String
+                cargadorNavFoto.execute {
+                    val bmp = when {
+                        !b64.isNullOrBlank() -> descodificarB64(b64)
+                        !url.isNullOrBlank() -> descargarBitmap(url)
+                        else -> null
+                    }
+                    handlerMain.post {
+                        if (bmp != null) {
+                            binding.panelMenu.ivNavFoto.setImageBitmap(bmp)
+                            binding.panelMenu.ivNavFoto.visibility = View.VISIBLE
+                            binding.panelMenu.tvNavAvatar.visibility = View.GONE
+                        }
+                    }
+                }
+            }
+            .addOnFailureListener { }
+    }
+
+    private fun descodificarB64(b64: String): Bitmap? {
+        val bytes = try {
+            Base64.decode(b64, Base64.NO_WRAP)
+        } catch (_: IllegalArgumentException) {
+            return null
+        }
+        return BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+    }
+
+    private fun descargarBitmap(urlString: String): Bitmap? {
+        return try {
+            val conexion = URL(urlString).openConnection() as HttpURLConnection
+            conexion.connectTimeout = 10000
+            conexion.readTimeout = 10000
+            val stream = conexion.inputStream
+            val bmp = BitmapFactory.decodeStream(stream)
+            stream.close()
+            conexion.disconnect()
+            bmp
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    /** Badge rojo de chats sin leer en la fila "Mis chats" del panel lateral. */
+    private fun actualizarBadgeChats(total: Int) {
+        val badge = binding.panelMenu.tvNavChatBadge
+        if (total > 0) {
+            badge.text = if (total > 99) "99+" else total.toString()
+            badge.contentDescription = getString(R.string.nav_chats_sin_leer, total)
+            badge.visibility = View.VISIBLE
+        } else {
+            badge.visibility = View.GONE
         }
     }
 }
