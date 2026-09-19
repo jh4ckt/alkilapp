@@ -70,6 +70,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
 
     private val marcadores = mutableListOf<Marker>()
     private var marcadorSeleccionado: Marker? = null
+    private var idMarcadorSeleccionado: String? = null
     private lateinit var iconoDefault: BitmapDescriptor
     private lateinit var iconoSeleccionado: BitmapDescriptor
 
@@ -201,36 +202,47 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     /**
      * Configura el Bottom Sheet colapsable/expandible.
      * peekHeight = 100dp (solo handle + título visible)
-     * expanded = fitToContents (altura del contenido)
+     * expanded   = 60% de la altura de la pantalla
      */
     private fun configurarBottomSheet() {
         val sheet = binding.bottomSheet
         val behavior = BottomSheetBehavior.from(sheet)
+        val altoPantalla = resources.displayMetrics.heightPixels
+        val alturaExpandida = (altoPantalla * 0.6f).toInt()
 
-        // Estados: COLLAPSED (peek 100dp) <-> EXPANDED
+        // Estados: COLLAPSED (peek 100dp) <-> EXPANDED (60%)
         behavior.peekHeight = 100.dp
         behavior.isHideable = false
         behavior.isDraggable = true
         behavior.isFitToContents = false // usamos altura fija cuando expandido
 
-        // Callback para mover FAB junto con el sheet
+        // Altura del sheet cuando está expandido: 60% de la pantalla
+        sheet.layoutParams = sheet.layoutParams.apply { height = alturaExpandida }
+
+        // Callback para mover FAB y padding del mapa junto con el sheet
         behavior.addBottomSheetCallback(object : BottomSheetBehavior.BottomSheetCallback() {
             override fun onStateChanged(bottomSheet: View, newState: Int) {
-                // Opcional: reaccionar a cambios de estado
+                // El padding del mapa y el FAB se ajustan en onSlide
             }
 
             override fun onSlide(bottomSheet: View, slideOffset: Float) {
-                // slideOffset: 0 = colapsado (peek), 1 = expandido
-                // Mover FAB hacia arriba cuando se expande
+                // slideOffset: 0 = colapsado (peek), 1 = expandido (60%)
                 val fab = binding.fabMiUbicacion
                 val params = fab.layoutParams as ViewGroup.MarginLayoutParams
-                val alturaExpandida = sheet.height - 100.dp // altura extra al expandir
-                params.bottomMargin = (108.dp + slideOffset * alturaExpandida).toInt()
+                params.bottomMargin =
+                    (108.dp + slideOffset * (alturaExpandida - 100.dp)).toInt()
                 fab.layoutParams = params
+
+                if (::mMap.isInitialized) {
+                    val topInset = binding.filaTop.measuredHeight + 16.dp
+                    val bottomInset =
+                        (100.dp + slideOffset * (alturaExpandida - 100.dp)) + 16.dp
+                    mMap.setPadding(0, topInset, 0, bottomInset.toInt())
+                }
             }
         })
 
-        // Estado inicial: colapsado
+        // Estado inicial: colapsado (solo handle + título)
         behavior.state = BottomSheetBehavior.STATE_COLLAPSED
     }
 
@@ -616,13 +628,27 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             marker.tag = p.id
             marcadores.add(marker)
         }
+        // Reaplicar la selección previa si el marcador sigue en la zona visible
+        if (idMarcadorSeleccionado != null && marcadorSeleccionado == null) {
+            val markerSel = marcadores.firstOrNull { it.tag == idMarcadorSeleccionado }
+            if (markerSel != null) {
+                markerSel.setIcon(iconoSeleccionado)
+                markerSel.showInfoWindow()
+                marcadorSeleccionado = markerSel
+            } else {
+                idMarcadorSeleccionado = null
+            }
+        }
         mMap.setOnMarkerClickListener { marker ->
             // Resetear el anterior
             marcadorSeleccionado?.setIcon(iconoDefault)
             // Seleccionar el nuevo
             marker.setIcon(iconoSeleccionado)
             marcadorSeleccionado = marker
-            // Mostrar info window (se queda abierto hasta click en otro lado)
+            idMarcadorSeleccionado = marker.tag as? String
+            // Centrar el mapa en el punto seleccionado (manteniendo el zoom)
+            mMap.animateCamera(CameraUpdateFactory.newLatLng(marker.position))
+            // Mostrar info window y mantenerla abierta
             marker.showInfoWindow()
             true // consumimos el click
         }
@@ -731,10 +757,12 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         mMap.uiSettings.isZoomControlsEnabled = true
         mMap.uiSettings.isMyLocationButtonEnabled = false
 
-        // Padding para que el mapa visible quede en el 40% superior (arriba del panel 60%)
+        // Padding para que el mapa visible quede arriba del bottom sheet.
+        // Inicialmente el sheet está colapsado (peek 100dp); al deslizarlo,
+        // onSlide() actualiza este padding en tiempo real.
         mMap.setOnMapLoadedCallback {
             val topInset = binding.filaTop.measuredHeight + 16.dp
-            val bottomInset = (resources.displayMetrics.heightPixels * 0.6f).toInt() + 16.dp
+            val bottomInset = 100.dp + 16.dp
             mMap.setPadding(0, topInset, 0, bottomInset)
         }
 
@@ -956,10 +984,13 @@ configurarBadges()
         startActivity(intent)
     }
 
-    private fun limpiarMarcadores() {
-        marcadores.forEach { it.remove() }
-        marcadores.clear()
-    }
+private fun limpiarMarcadores() {
+    marcadores.forEach { it.remove() }
+    marcadores.clear()
+    // Se limpia la referencia pero se conserva idMarcadorSeleccionado para
+    // poder volver a mostrarla cuando se reconstruyan los marcadores.
+    marcadorSeleccionado = null
+}
 
     override fun onRequestPermissionsResult(
         requestCode: Int,
