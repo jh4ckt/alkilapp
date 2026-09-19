@@ -137,6 +137,35 @@
                 android:text="@string/verif_foto_elegir"
                 android:textAllCaps="false" />
 
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:text="@string/verif_foto_reverso_label"
+                android:textColor="@color/text_primary"
+                android:textSize="14sp"
+                android:textStyle="bold" />
+
+            <com.google.android.material.imageview.ShapeableImageView
+                android:id="@+id/ivVerifDocReverso"
+                android:layout_width="match_parent"
+                android:layout_height="190dp"
+                android:layout_marginTop="10dp"
+                android:background="@color/bg_soft"
+                android:contentDescription="@string/verif_foto_reverso_label"
+                android:scaleType="centerCrop"
+                android:visibility="gone"
+                app:shapeAppearanceOverlay="@style/AlkilAppRounded" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnVerifFotoReverso"
+                style="@style/Widget.Material3.Button.OutlinedButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:text="@string/verif_foto_reverso_elegir"
+                android:textAllCaps="false" />
+
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnVerifEnviar"
                 android:layout_width="match_parent"

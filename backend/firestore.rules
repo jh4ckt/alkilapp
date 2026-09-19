@@ -106,13 +106,16 @@ service cloud.firestore {
     // VERIFICACION DE IDENTIDAD (documento): el doc usa como id el uid del usuario.
     // El usuario sube/lee/actualiza SOLO la suya; el panel admin (service account)
     // es quien cambia "estado" a aprobado/rechazado (el SA omite estas reglas).
+    // Se exigen las 2 fotos: "imagen" (frente) e "imagenReverso" (adverso).
     match /verificaciones/{uid} {
       allow read: if request.auth != null && request.auth.uid == uid;
       allow create: if request.auth != null
         && request.auth.uid == uid
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.imagen is string
-        && request.resource.data.imagen.size() <= 900000;
+        && request.resource.data.imagen.size() <= 900000
+        && request.resource.data.imagenReverso is string
+        && request.resource.data.imagenReverso.size() <= 900000;
       allow update: if request.auth != null
         && request.auth.uid == uid
         && request.resource.data.uid == request.auth.uid;

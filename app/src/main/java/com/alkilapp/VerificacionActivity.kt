@@ -33,6 +33,7 @@ class VerificacionActivity : AppCompatActivity() {
 
     private val tipos = arrayOf("DNI", "Carnet de extranjeria", "Pasaporte")
     private var documentoBase64: String? = null
+    private var documentoReversoBase64: String? = null
     private var yaVerificado = false
 
     private val fotoLauncher = registerForActivityResult(
@@ -53,6 +54,24 @@ class VerificacionActivity : AppCompatActivity() {
         }
     }
 
+    private val fotoReversoLauncher = registerForActivityResult(
+        ActivityResultContracts.PickVisualMedia()
+    ) { uri ->
+        if (uri == null) return@registerForActivityResult
+        val base64 = comprimirDocumento(uri)
+        if (base64 == null) {
+            Toast.makeText(this, R.string.perfil_foto_error, Toast.LENGTH_SHORT).show()
+        } else {
+            documentoReversoBase64 = base64
+            val bytes = Base64.decode(base64, Base64.NO_WRAP)
+            val bmp = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+            if (bmp != null) {
+                binding.ivVerifDocReverso.setImageBitmap(bmp)
+                binding.ivVerifDocReverso.visibility = View.VISIBLE
+            }
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityVerificacionBinding.inflate(layoutInflater)
@@ -60,6 +79,7 @@ class VerificacionActivity : AppCompatActivity() {
 
         binding.btnVerifBack.setOnClickListener { finish() }
         binding.btnVerifFoto.setOnClickListener { elegirFoto() }
+        binding.btnVerifFotoReverso.setOnClickListener { elegirFotoReverso() }
         binding.btnVerifEnviar.setOnClickListener { enviar() }
 
         binding.spVerifTipo.adapter = ArrayAdapter(
@@ -73,6 +93,14 @@ class VerificacionActivity : AppCompatActivity() {
 
     private fun elegirFoto() {
         fotoLauncher.launch(
+            PickVisualMediaRequest.Builder()
+                .setMediaType(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                .build()
+        )
+    }
+
+    private fun elegirFotoReverso() {
+        fotoReversoLauncher.launch(
             PickVisualMediaRequest.Builder()
                 .setMediaType(ActivityResultContracts.PickVisualMedia.ImageOnly)
                 .build()
@@ -136,6 +164,11 @@ class VerificacionActivity : AppCompatActivity() {
             Toast.makeText(this, R.string.verif_foto_falta, Toast.LENGTH_SHORT).show()
             return
         }
+        val docReverso = documentoReversoBase64
+        if (docReverso.isNullOrBlank()) {
+            Toast.makeText(this, R.string.verif_foto_reverso_falta, Toast.LENGTH_SHORT).show()
+            return
+        }
         val tipo = tipos[binding.spVerifTipo.selectedItemPosition]
 
         bloquearEnvio(true)
@@ -154,6 +187,7 @@ class VerificacionActivity : AppCompatActivity() {
             "tipoDocumento" to tipo,
             "numeroDocumento" to numero,
             "imagen" to doc,
+            "imagenReverso" to docReverso,
             "estado" to "pendiente",
             "createdAt" to FieldValue.serverTimestamp()
         )
@@ -183,6 +217,7 @@ class VerificacionActivity : AppCompatActivity() {
     private fun bloquearEnvio(bloqueado: Boolean) {
         binding.btnVerifEnviar.isEnabled = !bloqueado
         binding.btnVerifFoto.isEnabled = !bloqueado
+        binding.btnVerifFotoReverso.isEnabled = !bloqueado
         binding.btnVerifEnviar.text = if (bloqueado) {
             getString(R.string.auth_procesando)
         } else {

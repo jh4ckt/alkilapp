@@ -28,7 +28,6 @@ const PORT = Number(process.env.PORT || 8099);
 const opcionesDb = { projectId: PROJECT, databaseId: DATABASE };
 if (fs.existsSync(SA)) opcionesDb.keyFilename = SA;
 const db = new Firestore(opcionesDb);
-const sesiones = new Set();
 
 // ---------------------------------------------------------------------------
 // Utilidades
@@ -49,6 +48,7 @@ const mostrarCreado = (doc) => fecha(doc.createdAt || doc._creado);
 const ponerCreado = (d) => ({ id: d.id, ...d.data(), _creado: d.createTime ? d.createTime.toDate() : null });
 
 const firmar = (t) => crypto.createHmac('sha256', SECRET).update(t).digest('hex');
+const SESION_TTL = 24 * 60 * 60 * 1000; // 24h
 
 function cookies(req) {
     const out = {};
@@ -62,8 +62,14 @@ function cookies(req) {
 function autenticado(req) {
     const token = cookies(req).alkil_admin;
     if (!token) return false;
-    const [id, firma] = token.split('.');
-    return id && firma === firmar(id) && sesiones.has(id);
+    const [payload, firma] = token.split('.');
+    if (!payload || !firma) return false;
+    if (firma !== firmar(payload)) return false;
+    const [id, ts] = payload.split('|');
+    if (!id || !ts) return false;
+    const ahora = Date.now();
+    if (ahora - Number(ts) > SESION_TTL) return false;
+    return true;
 }
 
 function leerCuerpo(req) {
@@ -120,6 +126,8 @@ input[type=text],input[type=password]{width:100%;padding:10px;border:1px solid v
 border-radius:10px;font-size:15px;margin:6px 0 14px}
 .muted{color:var(--muted);font-size:12px}
 a.coral{color:var(--accent)}
+a.stat-link{text-decoration:none;color:inherit;display:block}
+a.stat-link:hover .stat{border-color:var(--accent);box-shadow:0 0 0 2px #ff6b5e40}
 </style></head><body>${cuerpo}</body></html>`);
 }
 
@@ -177,28 +185,24 @@ async function vistaResumen() {
         .where('estado', '==', 'under_review').get()).size;
     const pendRep = (await db.collection('reports')
         .where('estado', '==', 'pendiente').get()).size;
-    const stat = (n, t, extra = '') =>
-        `<div class="stat"><b>${n}</b><span>${t}</span>${extra}</div>`;
+    const statLink = (href, n, t, extra = '') =>
+        `<a href="${href}" class="stat-link"><div class="stat"><b>${n}</b><span>${t}</span>${extra}</div></a>`;
     return nav('/') + `<main><h2>Resumen</h2><div class="grid">
-${stat(prop.data().count, 'Inmuebles')}
-${stat(pendPub, 'Por aprobar', '<span class="muted">publicaciones en revision</span>')}
-${stat(verif.data().count, 'Verificaciones', `<span class="muted">${pendVerif} pendientes</span>`)}
-${stat(rep.data().count, 'Denuncias', `<span class="muted">${pendRep} pendientes</span>`)}
-${stat(usr.data().count, 'Usuarios')}
+${statLink('/verificaciones', verif.data().count, 'Verificaciones', `<span class="muted">${pendVerif} pendientes</span>`)}
+${statLink('/publicaciones', prop.data().count, 'Inmuebles', `<span class="muted">${pendPub} por aprobar</span>`)}
+${statLink('/reportes', rep.data().count, 'Denuncias', `<span class="muted">${pendRep} pendientes</span>`)}
+${statLink('/usuarios', usr.data().count, 'Usuarios')}
 </div></main>`;
 }
 
-async function vistaVerificaciones(avisoHtml, q = '') {
+async function vistaVerificaciones(avisoHtml, q = '', estadoFiltro = '') {
     let query = db.collection('verificaciones').limit(200);
-    if (q) {
-        // Buscar en email, nombre, numeroDocumento
-        // Nota: Firestore no soporta OR nativo, filtramos en memoria tras traer limit
-    }
     const snap = await query.get();
     const docs = snap.docs.map(ponerCreado)
         .filter((v) => !q || (v.email && v.email.toLowerCase().includes(q.toLowerCase())) ||
             (v.nombre && v.nombre.toLowerCase().includes(q.toLowerCase())) ||
             (v.numeroDocumento && v.numeroDocumento.toLowerCase().includes(q.toLowerCase())))
+        .filter((v) => !estadoFiltro || v.estado === estadoFiltro)
         .sort((a, b) => (mostrarCreado(b) > mostrarCreado(a) ? 1 : -1));
     const filas = docs.map((v) => {
         const pill = v.estado === 'aprobado' ? 'ok' : v.estado === 'rechazado' ? 'bad' : 'pend';
@@ -215,18 +219,36 @@ async function vistaVerificaciones(avisoHtml, q = '') {
 <span class="muted">${esc(v.email)}</span>
 </div>
 <div class="muted">${esc(v.tipoDocumento)} ${esc(v.numeroDocumento)} - enviado ${mostrarCreado(v)}</div>
-${v.imagen ? `<img class="doc" alt="documento" src="data:image/jpeg;base64,${esc(v.imagen)}">` : '<p class="muted">sin imagen</p>'}
+${v.imagen ? `<img class="doc" alt="frente" src="data:image/jpeg;base64,${esc(v.imagen)}">` : '<p class="muted">sin imagen</p>'}
+${v.imagenReverso ? `<img class="doc" alt="adverso" src="data:image/jpeg;base64,${esc(v.imagenReverso)}">` : '<p class="muted">sin imagen adverso</p>'}
 ${v.motivo ? `<p class="muted">motivo: ${esc(v.motivo)}</p>` : ''}
 <div style="margin-top:10px">${acciones}</div></div>`;
     }).join('');
+    const estados = ['', 'pendiente', 'aprobado', 'rechazado']
+        .map((e) => `<option value="${e}"${e === estadoFiltro ? ' selected' : ''}>${e || 'Todos'}</option>`)
+        .join('');
+    const filtroEstado = `<select name="estado" style="padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px">${estados}</select>`;
     return nav('/verificaciones') + `<main><h2>Verificaciones de identidad</h2>
-${buscarInput('q', q, 'Buscar email, nombre, documento...')}
+<form method="get" style="margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap">
+<input type="text" name="q" value="${esc(q)}" placeholder="Buscar email, nombre, documento..."
+style="flex:1;min-width:220px;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px">
+${filtroEstado}
+<button class="b-ok" type="submit" style="padding:8px 14px">Filtrar</button>
+${(q || estadoFiltro) ? `<a href="/verificaciones" class="b-grey" style="padding:8px 14px;text-decoration:none">Limpiar</a>` : ''}
+</form>
 ${avisoHtml || ''}${filas || '<div class="card">Sin solicitudes.</div>'}</main>`;
 }
 
-async function vistaPublicaciones(avisoHtml) {
+async function vistaPublicaciones(avisoHtml, q = '', estadoFiltro = '', destacadoFiltro = '') {
     const snap = await db.collection('propiedades').limit(200).get();
-    const docs = snap.docs.map(ponerCreado);
+    let docs = snap.docs.map(ponerCreado)
+        .filter((p) => !q || (p.titulo && p.titulo.toLowerCase().includes(q.toLowerCase())) ||
+            (p.direccion && p.direccion.toLowerCase().includes(q.toLowerCase())) ||
+            (p.barrio && p.barrio.toLowerCase().includes(q.toLowerCase())) ||
+            (p.idPropietario && p.idPropietario.toLowerCase().includes(q.toLowerCase())))
+        .filter((p) => !estadoFiltro || (p.estado || 'disponible') === estadoFiltro)
+        .filter((p) => !destacadoFiltro || (destacadoFiltro === 'si' ? p.isFeatured : !p.isFeatured))
+        .sort((a, b) => (mostrarCreado(b) > mostrarCreado(a) ? 1 : -1));
     const filas = docs.map((p) => {
         const estado = p.estado || 'disponible';
         const pill = estado === 'under_review' ? 'pend' : estado === 'finalizado' ? 'grey' : 'ok';
@@ -265,15 +287,35 @@ async function vistaPublicaciones(avisoHtml) {
 <td>${esc(p.idPropietario).slice(0, 10)}...</td>
 <td>${aprobar}${cambiarEstado}${destacar}${cerrar}${borrar}</td></tr>`;
     }).join('');
-    return nav('/publicaciones') + `<main><h2>Publicaciones</h2>${avisoHtml || ''}
+    const estados = ['', 'publicado', 'disponible', 'finalizado', 'under_review', 'pendiente']
+        .map((e) => `<option value="${e}"${e === estadoFiltro ? ' selected' : ''}>${e || 'Todos'}</option>`)
+        .join('');
+    const destacados = ['', 'si', 'no']
+        .map((e) => `<option value="${e}"${e === destacadoFiltro ? ' selected' : ''}>${e === 'si' ? 'Destacados' : e === 'no' ? 'Normales' : 'Todos'}</option>`)
+        .join('');
+    const filtroEstado = `<select name="estado" style="padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px">${estados}</select>`;
+    const filtroDestacado = `<select name="destacado" style="padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px">${destacados}</select>`;
+    return nav('/publicaciones') + `<main><h2>Publicaciones</h2>
+<form method="get" style="margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap">
+<input type="text" name="q" value="${esc(q)}" placeholder="Buscar titulo, direccion, barrio, dueno..."
+style="flex:1;min-width:220px;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px">
+${filtroEstado}${filtroDestacado}
+<button class="b-ok" type="submit" style="padding:8px 14px">Filtrar</button>
+${(q || estadoFiltro || destacadoFiltro) ? `<a href="/publicaciones" class="b-grey" style="padding:8px 14px;text-decoration:none">Limpiar</a>` : ''}
+</form>
+${avisoHtml || ''}
 <div class="card" style="overflow-x:auto"><table>
 <tr><th>Inmueble</th><th>Estado</th><th>Precio</th><th>Publicado</th><th>Dueno</th><th>Acciones</th></tr>
 ${filas || '<tr><td colspan="6">Sin inmuebles.</td></tr>'}</table></div></main>`;
 }
 
-async function vistaReportes(avisoHtml) {
+async function vistaReportes(avisoHtml, q = '', estadoFiltro = '') {
     const snap = await db.collection('reports').limit(200).get();
-    const docs = snap.docs.map(ponerCreado)
+    let docs = snap.docs.map(ponerCreado)
+        .filter((r) => !q || (r.motivo && r.motivo.toLowerCase().includes(q.toLowerCase())) ||
+            (r.listingId && r.listingId.toLowerCase().includes(q.toLowerCase())) ||
+            (r.reporterId && r.reporterId.toLowerCase().includes(q.toLowerCase())))
+        .filter((r) => !estadoFiltro || (r.estado || 'pendiente') === estadoFiltro)
         .sort((a, b) => (mostrarCreado(b) > mostrarCreado(a) ? 1 : -1));
     const filas = docs.map((r) => `<tr>
 <td><b>${esc(r.motivo || '-')}</b>
@@ -285,7 +327,19 @@ async function vistaReportes(avisoHtml) {
 <td>${r.estado === 'pendiente'
             ? `<form method="post" action="/reportes/${esc(r.id)}/resolver" style="display:inline"><button class="b-ok" type="submit">Resolver</button></form>`
             : ''}</td></tr>`).join('');
-    return nav('/reportes') + `<main><h2>Denuncias</h2>${avisoHtml || ''}
+    const estados = ['', 'pendiente', 'resuelto']
+        .map((e) => `<option value="${e}"${e === estadoFiltro ? ' selected' : ''}>${e || 'Todos'}</option>`)
+        .join('');
+    const filtroEstado = `<select name="estado" style="padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px">${estados}</select>`;
+    return nav('/reportes') + `<main><h2>Denuncias</h2>
+<form method="get" style="margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap">
+<input type="text" name="q" value="${esc(q)}" placeholder="Buscar motivo, inmueble, denunciante..."
+style="flex:1;min-width:220px;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px">
+${filtroEstado}
+<button class="b-ok" type="submit" style="padding:8px 14px">Filtrar</button>
+${(q || estadoFiltro) ? `<a href="/reportes" class="b-grey" style="padding:8px 14px;text-decoration:none">Limpiar</a>` : ''}
+</form>
+${avisoHtml || ''}
 <div class="card" style="overflow-x:auto"><table>
 <tr><th>Motivo</th><th>Inmueble</th><th>Creado</th><th>Denunciante</th><th>Estado</th><th></th></tr>
 ${filas || '<tr><td colspan="6">Sin denuncias.</td></tr>'}</table></div></main>`;
@@ -296,15 +350,35 @@ function estadoPillReporte(e) {
     return `<span class="pill ${cls}">${esc(e || 'pendiente')}</span>`;
 }
 
-async function vistaUsuarios(avisoHtml) {
+async function vistaUsuarios(avisoHtml, q = '', tipoFiltro = '', verifFiltro = '', trustFiltro = '') {
     const snap = await db.collection('usuarios').limit(300).get();
-    const filas = snap.docs.map((d) => {
-        const u = d.data();
+    let docs = snap.docs
+        .filter((d) => {
+            const u = d.data();
+            return !q || (u.nombre && u.nombre.toLowerCase().includes(q.toLowerCase())) ||
+                (u.email && u.email.toLowerCase().includes(q.toLowerCase())) ||
+                d.id.toLowerCase().includes(q.toLowerCase());
+        })
+        .filter((d) => !tipoFiltro || (d.data().tipoUsuario || d.data().role || '') === tipoFiltro)
+        .filter((d) => {
+            const u = d.data();
+            const verif = u.verification || {};
+            const ok = u.verificationBadge === true || verif.identityVerified === true;
+            const status = verif.status || '';
+            if (verifFiltro === 'verificado') return ok;
+            if (verifFiltro === 'pendiente') return status === 'pendiente';
+            if (verifFiltro === 'sin_verificar') return !ok && status !== 'pendiente';
+            return true;
+        })
+        .filter((d) => !trustFiltro || (d.data().trustLevel || 'nuevo') === trustFiltro)
+        .map((d) => ({ id: d.id, ...d.data(), _creado: d.createTime ? d.createTime.toDate() : null }))
+        .sort((a, b) => (mostrarCreado(b) > mostrarCreado(a) ? 1 : -1));
+    const filas = docs.map((u) => {
         const verif = u.verification || {};
         const ok = u.verificationBadge === true || verif.identityVerified === true;
         return `<tr>
 <td><b>${esc(u.nombre || '(sin nombre)')}</b>
-<div class="muted">${esc(u.email || d.id)}</div></td>
+<div class="muted">${esc(u.email || u.id)}</div></td>
 <td>${esc(u.tipoUsuario || u.role || '-')}</td>
 <td>${ok ? '<span class="pill ok">verificado</span>' : '<span class="pill grey">sin verificar</span>'}
 ${verif.status === 'pendiente' ? ' <span class="pill pend">en revision</span>' : ''}</td>
@@ -312,7 +386,27 @@ ${verif.status === 'pendiente' ? ' <span class="pill pend">en revision</span>' :
 <td class="muted">${mostrarCreado(u)}</td>
 <td>${u.rating != null ? esc(u.rating) : '-'}</td></tr>`;
     }).join('');
-    return nav('/usuarios') + `<main><h2>Usuarios</h2>${avisoHtml || ''}
+    const tipos = ['', 'dueno', 'inquilino', 'ambos']
+        .map((e) => `<option value="${e}"${e === tipoFiltro ? ' selected' : ''}>${e || 'Todos'}</option>`)
+        .join('');
+    const verifs = ['', 'verificado', 'pendiente', 'sin_verificar']
+        .map((e) => `<option value="${e}"${e === verifFiltro ? ' selected' : ''}>${e === 'verificado' ? 'Verificados' : e === 'pendiente' ? 'En revision' : e === 'sin_verificar' ? 'Sin verificar' : 'Todos'}</option>`)
+        .join('');
+    const trusts = ['', 'nuevo', 'basic', 'verified', 'premium']
+        .map((e) => `<option value="${e}"${e === trustFiltro ? ' selected' : ''}>${e || 'Todos'}</option>`)
+        .join('');
+    const filtroTipo = `<select name="tipo" style="padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px">${tipos}</select>`;
+    const filtroVerif = `<select name="verif" style="padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px">${verifs}</select>`;
+    const filtroTrust = `<select name="trust" style="padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px">${trusts}</select>`;
+    return nav('/usuarios') + `<main><h2>Usuarios</h2>
+<form method="get" style="margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap">
+<input type="text" name="q" value="${esc(q)}" placeholder="Buscar nombre, email, uid..."
+style="flex:1;min-width:220px;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px">
+${filtroTipo}${filtroVerif}${filtroTrust}
+<button class="b-ok" type="submit" style="padding:8px 14px">Filtrar</button>
+${(q || tipoFiltro || verifFiltro || trustFiltro) ? `<a href="/usuarios" class="b-grey" style="padding:8px 14px;text-decoration:none">Limpiar</a>` : ''}
+</form>
+${avisoHtml || ''}
 <div class="card" style="overflow-x:auto"><table>
 <tr><th>Usuario</th><th>Tipo</th><th>Identidad</th><th>Confianza</th><th>Alta</th><th>Rating</th></tr>
 ${filas || '<tr><td colspan="6">Sin usuarios.</td></tr>'}</table></div></main>`;
@@ -372,16 +466,16 @@ const servidor = http.createServer(async (req, res) => {
                 return html(res, vistaLogin('Password incorrecto'), 'Ingresar', 401);
             }
             const id = crypto.randomBytes(16).toString('hex');
-            sesiones.add(id);
+            const ts = Date.now().toString();
+            const payload = `${id}|${ts}`;
+            const firma = firmar(payload);
             res.writeHead(302, {
-                'Set-Cookie': `alkil_admin=${id}.${firmar(id)}; Path=/; HttpOnly; SameSite=Lax`,
+                'Set-Cookie': `alkil_admin=${payload}.${firma}; Path=/; HttpOnly; SameSite=Lax; Max-Age=86400`,
                 Location: '/',
             });
             return res.end();
         }
         if (ruta === '/logout') {
-            const token = cookies(req).alkil_admin;
-            if (token) sesiones.delete(token.split('.')[0]);
             res.writeHead(302, {
                 'Set-Cookie': 'alkil_admin=; Path=/; Max-Age=0',
                 Location: '/login',
@@ -407,10 +501,10 @@ const servidor = http.createServer(async (req, res) => {
         }
         if (req.method === 'GET') {
             if (ruta === '/') return html(res, await vistaResumen());
-            if (ruta === '/verificaciones') return html(res, await vistaVerificaciones());
-            if (ruta === '/publicaciones') return html(res, await vistaPublicaciones());
-            if (ruta === '/reportes') return html(res, await vistaReportes());
-            if (ruta === '/usuarios') return html(res, await vistaUsuarios());
+            if (ruta === '/verificaciones') return html(res, await vistaVerificaciones('', url.searchParams.get('q') || '', url.searchParams.get('estado') || ''));
+            if (ruta === '/publicaciones') return html(res, await vistaPublicaciones('', url.searchParams.get('q') || '', url.searchParams.get('estado') || '', url.searchParams.get('destacado') || ''));
+            if (ruta === '/reportes') return html(res, await vistaReportes('', url.searchParams.get('q') || '', url.searchParams.get('estado') || ''));
+            if (ruta === '/usuarios') return html(res, await vistaUsuarios('', url.searchParams.get('q') || '', url.searchParams.get('tipo') || '', url.searchParams.get('verif') || '', url.searchParams.get('trust') || ''));
             return html(res, nav('') + '<main><div class="card">No encontrado</div></main>', '404', 404);
         }
 

@@ -300,6 +300,8 @@
     <!-- Mi perfil (cabecera y datos personales) -->
     <string name="mi_perfil_titulo">Mi perfil</string>
     <string name="perfil_nombre_hint">Nombre</string>
+    <string name="perfil_nombre_label">Nombre</string>
+    <string name="perfil_datos_fijos">Tu nombre y correo no se pueden modificar.</string>
     <string name="perfil_telefono_hint">Teléfono</string>
     <string name="perfil_email_label">Correo</string>
     <string name="perfil_tipo_label">Tipo de cuenta</string>
@@ -333,6 +335,9 @@
     <string name="auth_tab_crear">Crear cuenta</string>
     <string name="auth_crear_cuenta">Crear cuenta</string>
     <string name="auth_nombre">Nombre completo</string>
+    <string name="auth_telefono">Celular</string>
+    <string name="auth_telefono_requerido">Escribi tu numero de celular</string>
+    <string name="auth_telefono_corto">Ingresa un numero de celular valido</string>
     <string name="auth_confirmar">Repetir contrasena</string>
     <string name="auth_olvide">Olvide mi contrasena</string>
     <string name="auth_o">o</string>
@@ -349,9 +354,12 @@
     <string name="verif_tipo_documento">Tipo de documento</string>
     <string name="verif_numero">Numero de documento</string>
     <string name="verif_numero_requerido">Ingresa el numero de tu documento</string>
-    <string name="verif_foto_label">Foto del documento</string>
-    <string name="verif_foto_elegir">Elegir foto</string>
-    <string name="verif_foto_falta">Adjunta una foto de tu documento</string>
+    <string name="verif_foto_label">Foto del frente del documento</string>
+    <string name="verif_foto_elegir">Elegir foto del frente</string>
+    <string name="verif_foto_falta">Adjunta la foto del frente de tu documento</string>
+    <string name="verif_foto_reverso_label">Foto del adverso (dorso) del documento</string>
+    <string name="verif_foto_reverso_elegir">Elegir foto del adverso</string>
+    <string name="verif_foto_reverso_falta">Adjunta la foto del adverso de tu documento</string>
     <string name="verif_enviar">Enviar a revision</string>
     <string name="verif_ok">Documento enviado. Revisaremos tu identidad pronto.</string>
     <string name="verif_error">No se pudo enviar: %1$s</string>

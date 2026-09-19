@@ -84,6 +84,7 @@ class AuthActivity : AppCompatActivity() {
     private fun aplicarModo(registro: Boolean) {
         modoRegistro = registro
         binding.tilAuthNombre.visibility = if (registro) View.VISIBLE else View.GONE
+        binding.tilAuthTelefono.visibility = if (registro) View.VISIBLE else View.GONE
         binding.tilAuthConfirmar.visibility = if (registro) View.VISIBLE else View.GONE
         binding.btnAuthAccion.setText(if (registro) R.string.auth_crear_cuenta else R.string.auth_ingresar)
         ocultarError()
@@ -106,11 +107,16 @@ class AuthActivity : AppCompatActivity() {
                 mostrarError(getString(R.string.auth_nombre_requerido))
                 return
             }
+            val telefono = binding.etAuthTelefono.text.toString().trim()
+            if (telefono.filter { it.isDigit() }.length < 9) {
+                mostrarError(getString(R.string.auth_telefono_requerido))
+                return
+            }
             if (binding.etAuthConfirmar.text.toString() != pass) {
                 mostrarError(getString(R.string.auth_pass_no_coincide))
                 return
             }
-            crearCuenta(email, pass, nombre)
+            crearCuenta(email, pass, nombre, telefono)
         } else {
             iniciarSesion(email, pass)
         }
@@ -132,7 +138,7 @@ class AuthActivity : AppCompatActivity() {
             }
     }
 
-    private fun crearCuenta(email: String, pass: String, nombre: String) {
+    private fun crearCuenta(email: String, pass: String, nombre: String, telefono: String) {
         ocultarError()
         bloquear(true)
         auth.createUserWithEmailAndPassword(email, pass)
@@ -146,7 +152,7 @@ class AuthActivity : AppCompatActivity() {
                     .setDisplayName(nombre)
                     .build()
                 task.result?.user?.updateProfile(perfil)
-                guardarUsuarioEnBase(nombre)
+                guardarUsuarioEnBase(nombre, telefono)
                 bloquear(false)
                 Toast.makeText(this, R.string.auth_ok_registro, Toast.LENGTH_SHORT).show()
                 finish()
@@ -178,7 +184,7 @@ class AuthActivity : AppCompatActivity() {
     }
 
     /** Crea/actualiza el documento del usuario sin pisar datos ya existentes. */
-    private fun guardarUsuarioEnBase(nombreNuevo: String? = null) {
+    private fun guardarUsuarioEnBase(nombreNuevo: String? = null, telefonoNuevo: String? = null) {
         val u = auth.currentUser ?: return
         val ref = db.collection("usuarios").document(u.uid)
         val base = hashMapOf(
@@ -199,8 +205,10 @@ class AuthActivity : AppCompatActivity() {
                     val nombreActual = (doc.data?.get("nombre") as? String).orEmpty()
                     // Si ya tenia nombre propio (o se acaba de escribir uno), no lo pisamos.
                     if (nombreActual.isNotBlank() && nombreNuevo == null) datos.remove("nombre")
+                    // El celular se setea en el registro; no se pisa con un login posterior.
+                    if (telefonoNuevo != null) datos["telefono"] = telefonoNuevo
                 } else {
-                    datos["telefono"] = ""
+                    datos["telefono"] = telefonoNuevo ?: ""
                     datos["tipoUsuario"] = "dueno"
                     datos["fechaRegistro"] = FieldValue.serverTimestamp()
                 }

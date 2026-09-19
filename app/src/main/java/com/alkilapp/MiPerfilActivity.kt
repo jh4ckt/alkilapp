@@ -80,7 +80,7 @@ class MiPerfilActivity : AppCompatActivity() {
             .addOnSuccessListener { doc ->
                 if (!doc.exists()) return@addOnSuccessListener
                 val d = doc.data ?: return@addOnSuccessListener
-                binding.etPerfilNombre.setText((d["nombre"] as? String).orEmpty())
+                binding.tvPerfilNombre.text = (d["nombre"] as? String).orEmpty()
                 binding.etPerfilTelefono.setText((d["telefono"] as? String).orEmpty())
                 val tipo = (d["tipoUsuario"] as? String) ?: "dueno"
                 binding.spPerfilTipo.setSelection(
@@ -108,14 +108,13 @@ class MiPerfilActivity : AppCompatActivity() {
 
     private fun guardarPerfil() {
         val u = auth.currentUser ?: run { finish(); return }
-        val nombre = binding.etPerfilNombre.text.toString().trim()
-        if (nombre.isBlank()) {
-            Toast.makeText(this, R.string.perfil_nombre_requerido, Toast.LENGTH_SHORT).show()
+        val telefono = binding.etPerfilTelefono.text.toString().trim()
+        if (telefono.filter { it.isDigit() }.length < 9) {
+            Toast.makeText(this, R.string.auth_telefono_requerido, Toast.LENGTH_SHORT).show()
             return
         }
         val datos = hashMapOf<String, Any>(
-            "nombre" to nombre,
-            "telefono" to binding.etPerfilTelefono.text.toString().trim(),
+            "telefono" to telefono,
             "tipoUsuario" to valoresTipo[binding.spPerfilTipo.selectedItemPosition]
         )
         fotoBase64?.let { datos["fotoBase64"] = it }
