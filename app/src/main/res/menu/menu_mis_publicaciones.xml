@@ -9,13 +9,17 @@
         android:title="Destacar publicacion"
         android:icon="@drawable/ic_star" />
     <item
-        android:id="@+id/menu_suspender"
-        android:title="Suspender publicacion"
+        android:id="@+id/menu_pausar"
+        android:title="Pausar publicacion"
         android:icon="@drawable/ic_pausa" />
     <item
         android:id="@+id/menu_reactivar"
         android:title="Reactivar publicacion"
         android:icon="@drawable/ic_play" />
+    <item
+        android:id="@+id/menu_marcar_alquilado"
+        android:title="Marcar como alquilado"
+        android:icon="@drawable/ic_check" />
     <item
         android:id="@+id/menu_eliminar"
         android:title="Eliminar publicacion"

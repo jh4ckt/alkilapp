@@ -90,6 +90,22 @@
                 android:textSize="13sp"
                 android:textStyle="bold"
                 android:visibility="gone" />
+            <TextView
+                android:id="@+id/tvDetPausada"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="12dp"
+                android:layout_marginTop="4dp"
+                android:layout_marginEnd="12dp"
+                android:background="@drawable/bg_chip_info"
+                android:backgroundTint="@color/alkil_coral_soft"
+                android:gravity="center"
+                android:padding="14dp"
+                android:text="Publicacion pausada - no se muestra en el listado"
+                android:textColor="@color/alkil_primary"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:visibility="gone" />
 
             <FrameLayout
                 android:layout_width="match_parent"

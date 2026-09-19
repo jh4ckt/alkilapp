@@ -487,8 +487,12 @@ class PerfilPropietarioActivity : AppCompatActivity() {
         fila.addView(chip)
         cont.addView(fila)
 
-        if (miUid == uid && p.estadoNormalizado == "disponible" && p.id.isNotBlank()) {
-            val btn = com.google.android.material.button.MaterialButton(this).apply {
+        val estadoNorm = p.estadoNormalizado
+        val esDisponible = estadoNorm == "disponible"
+        val esPausada = estadoNorm == "pausada"
+        if (miUid == uid && (esDisponible || esPausada) && p.id.isNotBlank()) {
+            // Botón "Marcar como alquilado" (disponible y pausada)
+            val btnFinalizar = com.google.android.material.button.MaterialButton(this).apply {
                 text = getString(R.string.prop_finalizar_btn)
                 textSize = 13f
                 isAllCaps = false
@@ -502,8 +506,46 @@ class PerfilPropietarioActivity : AppCompatActivity() {
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
             ).apply { topMargin = 10.dp }
-            btn.layoutParams = lpB
-            cont.addView(btn)
+            btnFinalizar.layoutParams = lpB
+            cont.addView(btnFinalizar)
+
+            if (esDisponible) {
+                // Botón "Pausar publicación" (solo disponible)
+                val btnPausar = com.google.android.material.button.MaterialButton(this).apply {
+                    text = "Pausar publicacion"
+                    textSize = 13f
+                    isAllCaps = false
+                    insetTop = 0
+                    insetBottom = 0
+                    setTextColor(getColor(R.color.alkil_primary))
+                    backgroundTintList = ColorStateList.valueOf(getColor(R.color.alkil_coral_soft))
+                    setOnClickListener { pausarPublicacion(p) }
+                }
+                val lpP = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                ).apply { topMargin = (6 * resources.displayMetrics.density).toInt() }
+                btnPausar.layoutParams = lpP
+                cont.addView(btnPausar)
+            } else if (esPausada) {
+                // Botón "Reactivar publicación" (solo pausada)
+                val btnReactivar = com.google.android.material.button.MaterialButton(this).apply {
+                    text = "Reactivar publicacion"
+                    textSize = 13f
+                    isAllCaps = false
+                    insetTop = 0
+                    insetBottom = 0
+                    setTextColor(getColor(R.color.alkil_primary))
+                    backgroundTintList = ColorStateList.valueOf(getColor(R.color.alkil_coral_soft))
+                    setOnClickListener { reactivarPublicacion(p) }
+                }
+                val lpR = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                ).apply { topMargin = (6 * resources.displayMetrics.density).toInt() }
+                btnReactivar.layoutParams = lpR
+                cont.addView(btnReactivar)
+            }
 
             // Botón "Destacar publicación" - solicita al admin
             val btnDestacar = com.google.android.material.button.MaterialButton(this).apply {
@@ -579,6 +621,35 @@ class PerfilPropietarioActivity : AppCompatActivity() {
                     }
             }
             .show()
+    }
+
+    private fun pausarPublicacion(p: Propiedad) {
+        MaterialAlertDialogBuilder(this)
+            .setTitle("Pausar publicacion")
+            .setMessage("La publicacion dejara de mostrarse en el listado. Podras reactivarla cuando quieras.")
+            .setPositiveButton("Pausar") { _, _ ->
+                db.collection("propiedades").document(p.id)
+                    .set(mapOf("estado" to "pausada"), SetOptions.merge())
+                    .addOnSuccessListener {
+                        Toast.makeText(this, "Publicacion pausada", Toast.LENGTH_SHORT).show()
+                    }
+                    .addOnFailureListener { e ->
+                        Toast.makeText(this, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+                    }
+            }
+            .setNegativeButton("Cancelar", null)
+            .show()
+    }
+
+    private fun reactivarPublicacion(p: Propiedad) {
+        db.collection("propiedades").document(p.id)
+            .set(mapOf("estado" to "disponible"), SetOptions.merge())
+            .addOnSuccessListener {
+                Toast.makeText(this, "Publicacion reactivada (disponible)", Toast.LENGTH_SHORT).show()
+            }
+            .addOnFailureListener { e ->
+                Toast.makeText(this, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
     }
 
     private fun solicitarDestacar(p: Propiedad) {

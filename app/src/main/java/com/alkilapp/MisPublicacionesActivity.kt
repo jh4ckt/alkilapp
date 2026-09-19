@@ -210,8 +210,13 @@ class MisPublicacionesActivity : AppCompatActivity() {
         val menu = popup.menu
         val estadoNorm = p.estadoNormalizado
         // Mostrar/ocultar opciones según estado
-        menu.findItem(R.id.menu_suspender).isVisible = estadoNorm == "disponible"
-        menu.findItem(R.id.menu_reactivar).isVisible = estadoNorm == "under_review" || estadoNorm == "pendiente"
+        // Pausar: solo si disponible
+        menu.findItem(R.id.menu_pausar).isVisible = estadoNorm == "disponible"
+        // Reactivar: solo si pausada por usuario (estado "pausada")
+        menu.findItem(R.id.menu_reactivar).isVisible = estadoNorm == "pausada"
+        // Marcar como alquilado: solo si disponible o pausada
+        menu.findItem(R.id.menu_marcar_alquilado).isVisible = estadoNorm == "disponible" || estadoNorm == "pausada"
+        // Destacar: cambia título según estado
         menu.findItem(R.id.menu_destacar).title = if (p.esDestacado) "Quitar destacado" else "Destacar publicacion"
         popup.setOnMenuItemClickListener { item ->
             when (item.itemId) {
@@ -223,12 +228,16 @@ class MisPublicacionesActivity : AppCompatActivity() {
                     toggleDestacado(p)
                     true
                 }
-                R.id.menu_suspender -> {
-                    suspenderPublicacion(p)
+                R.id.menu_pausar -> {
+                    pausarPublicacion(p)
                     true
                 }
                 R.id.menu_reactivar -> {
                     reactivarPublicacion(p)
+                    true
+                }
+                R.id.menu_marcar_alquilado -> {
+                    marcarComoAlquilado(p)
                     true
                 }
                 R.id.menu_eliminar -> {
@@ -265,7 +274,7 @@ class MisPublicacionesActivity : AppCompatActivity() {
         androidx.appcompat.app.AlertDialog.Builder(this)
             .setTitle("Destacar publicación")
             .setMessage("Elige la duración del destacado:")
-            .setSingleChoiceItems(opciones, 2) { _, which ->
+            .setItems(opciones) { _, which ->
                 val dias = when (which) {
                     0 -> 7
                     1 -> 15
@@ -316,15 +325,22 @@ class MisPublicacionesActivity : AppCompatActivity() {
             }
     }
 
-    private fun suspenderPublicacion(p: Propiedad) {
-        db.collection("propiedades").document(p.id)
-            .set(mapOf("estado" to "under_review"), SetOptions.merge())
-            .addOnSuccessListener {
-                Toast.makeText(this, "Publicacion suspendida (en revision)", Toast.LENGTH_SHORT).show()
+    private fun pausarPublicacion(p: Propiedad) {
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("Pausar publicacion")
+            .setMessage("La publicacion dejara de mostrarse en el listado. Podras reactivarla cuando quieras.")
+            .setPositiveButton("Pausar") { _, _ ->
+                db.collection("propiedades").document(p.id)
+                    .set(mapOf("estado" to "pausada"), SetOptions.merge())
+                    .addOnSuccessListener {
+                        Toast.makeText(this, "Publicacion pausada", Toast.LENGTH_SHORT).show()
+                    }
+                    .addOnFailureListener { e ->
+                        Toast.makeText(this, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+                    }
             }
-            .addOnFailureListener { e ->
-                Toast.makeText(this, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
-            }
+            .setNegativeButton("Cancelar", null)
+            .show()
     }
 
     private fun reactivarPublicacion(p: Propiedad) {
@@ -336,6 +352,24 @@ class MisPublicacionesActivity : AppCompatActivity() {
             .addOnFailureListener { e ->
                 Toast.makeText(this, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
             }
+    }
+
+    private fun marcarComoAlquilado(p: Propiedad) {
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("Marcar como alquilado")
+            .setMessage("La publicacion pasara a estado 'Finalizado' y no se mostrara en el listado. ¿Confirmar?")
+            .setPositiveButton("Si, alquilado") { _, _ ->
+                db.collection("propiedades").document(p.id)
+                    .set(mapOf("estado" to "finalizado"), SetOptions.merge())
+                    .addOnSuccessListener {
+                        Toast.makeText(this, "Publicacion finalizada", Toast.LENGTH_SHORT).show()
+                    }
+                    .addOnFailureListener { e ->
+                        Toast.makeText(this, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+                    }
+            }
+            .setNegativeButton("Cancelar", null)
+            .show()
     }
 
     private fun confirmarEliminar(p: Propiedad) {

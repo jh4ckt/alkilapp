@@ -150,14 +150,20 @@ class PropiedadDetalleActivity : AppCompatActivity() {
             binding.btnChatPropietario.visibility = View.GONE
         }
 
-        // Publicación en revisión: banner de aviso
+        // Publicación en revisión (por admin): banner de aviso, no se puede reactivar desde la app
         if (estado == "under_review") {
             binding.tvDetRevision.visibility = View.VISIBLE
         }
 
-        // Finalizar la publicación (solo el dueño y mientras esté disponible)
+        // Publicación pausada (por usuario): se muestra como disponible para el dueño pero sin chat
+        if (estado == "pausada") {
+            binding.tvDetPausada.visibility = View.VISIBLE
+            binding.btnChatPropietario.visibility = View.GONE
+        }
+
+        // Finalizar la publicación (solo el dueño y mientras esté disponible o pausada)
         binding.btnFinalizarPub.visibility =
-            if (esMio && estado == "disponible") View.VISIBLE else View.GONE
+            if (esMio && (estado == "disponible" || estado == "pausada")) View.VISIBLE else View.GONE
         binding.btnFinalizarPub.setOnClickListener { confirmarFinalizar() }
 
         // Tarjeta del propietario → perfil completo
