@@ -16,7 +16,9 @@ import com.alkilapp.data.Propiedad
 import com.alkilapp.databinding.ActivityMisPublicacionesBinding
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.SetOptions
+import java.util.HashMap
 
 /** Pantalla estática "Mis publicaciones": lista los inmuebles del usuario con su estado. */
 class MisPublicacionesActivity : AppCompatActivity() {
@@ -24,6 +26,7 @@ class MisPublicacionesActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMisPublicacionesBinding
     private val auth = FirebaseAuth.getInstance()
     private val db by lazy { FirebaseFirestore.getInstance("alkilappdb") }
+    private val billingManager by lazy { com.alkilapp.billing.BillingManager(this) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -31,6 +34,9 @@ class MisPublicacionesActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         binding.btnMisPubBack.setOnClickListener { finish() }
+
+        // Inicializar Billing Manager
+        billingManager.initialize { Log.d("AlkilAppBilling", "Billing listo en MisPublicaciones") }
 
         val uid = auth.currentUser?.uid
         if (uid.isNullOrBlank()) {
@@ -292,19 +298,63 @@ class MisPublicacionesActivity : AppCompatActivity() {
     }
 
     private fun iniciarPagoDestacado(p: Propiedad, dias: Int, precio: Double) {
-        // TODO: Integrar Google Pay / Google Play Billing
-        // Por ahora guardamos la solicitud con los días seleccionados
+        val sku = when (dias) {
+            7 -> com.alkilapp.billing.BillingManager.SKU_DESTACAR_7D
+            15 -> com.alkilapp.billing.BillingManager.SKU_DESTACAR_15D
+            else -> com.alkilapp.billing.BillingManager.SKU_DESTACAR_30D
+        }
+
+        // Primero guardamos la solicitud pendiente en Firestore
         db.collection("propiedades").document(p.id)
             .set(mapOf(
                 "solicitudDestacar" to true,
                 "destacadoDias" to dias,
-                "destacadoPrecio" to precio
+                "destacadoPrecio" to precio,
+                "destacadoSku" to sku,
+                "solicitudDestacarEn" to com.google.firebase.firestore.FieldValue.serverTimestamp()
             ), SetOptions.merge())
             .addOnSuccessListener {
-                Toast.makeText(this, "Solicitud de destacado $dias días (S/ $precio) enviada. Pendiente pago.", Toast.LENGTH_LONG).show()
+                // Lanzar flujo de compra de Google Play Billing
+                billingManager.launchPurchaseFlow(sku, object : com.alkilapp.billing.BillingManager.PurchaseCallback {
+                    override fun onSuccess(productId: String, purchaseToken: String, orderId: String?) {
+                        // Compra exitosa: activar destacado en Firestore
+                        val hasta = java.util.Date(System.currentTimeMillis() + dias * 24L * 3600 * 1000)
+                        val datosDestacado = HashMap<String, Any>().apply {
+                                put("isFeatured", true)
+                                put("featuredUntil", hasta)
+                                put("destacadoDias", dias)
+                                put("destacadoDiasRestantes", dias)
+                                put("destacadoEstado", "aprobado")
+                                put("solicitudDestacar", false)
+                                put("destacadoAprobadoEn", com.google.firebase.firestore.FieldValue.serverTimestamp())
+                                put("destacadoAprobadoPor", "google-play-billing")
+                                put("purchaseToken", purchaseToken)
+                                put("orderId", orderId ?: "")
+                            }
+                            db.collection("propiedades").document(p.id)
+                                .set(datosDestacado, SetOptions.merge())
+                            .addOnSuccessListener {
+                                Toast.makeText(this@MisPublicacionesActivity, "¡Destacado activado por $dias días!", Toast.LENGTH_LONG).show()
+                            }
+                            .addOnFailureListener { e ->
+                                Toast.makeText(this@MisPublicacionesActivity, "Compra OK pero error guardando: ${e.message}", Toast.LENGTH_LONG).show()
+                            }
+                    }
+
+                    override fun onError(message: String) {
+                        // Error en compra: limpiar solicitud pendiente
+                        val datosLimpieza = HashMap<String, Any?>().apply {
+                            put("solicitudDestacar", false)
+                            put("destacadoSku", null)
+                        }
+                        db.collection("propiedades").document(p.id)
+                            .set(datosLimpieza, SetOptions.merge())
+                        Toast.makeText(this@MisPublicacionesActivity, "Error en compra: $message", Toast.LENGTH_LONG).show()
+                    }
+                })
             }
             .addOnFailureListener { e ->
-                Toast.makeText(this, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Error guardando solicitud: ${e.message}", Toast.LENGTH_SHORT).show()
             }
     }
 
