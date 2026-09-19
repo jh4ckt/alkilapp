@@ -14,6 +14,7 @@ import android.os.Bundle
 import android.provider.Settings
 import android.util.Base64
 import android.view.View
+import android.view.MotionEvent
 import android.view.ViewGroup
 import android.widget.ArrayAdapter
 import android.widget.EditText
@@ -52,7 +53,6 @@ import com.google.android.gms.maps.model.LatLngBounds
 import com.google.android.gms.maps.model.Marker
 import com.google.android.gms.maps.model.MarkerOptions
 import com.google.android.material.button.MaterialButton
-import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
@@ -200,65 +200,92 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     }
 
     /**
-     * Configura el Bottom Sheet colapsable/expandible.
-     * peekHeight = 100dp (solo handle + título visible)
-     * expanded   = 60% de la altura de la pantalla
+     * Configura el Bottom Sheet colapsable/expandible SIN BottomSheetBehavior
+     * (la biblioteca dejaba el sheet fuera de pantalla por offsets/saved-state
+     * que sobrevivían al install -r). Implementacion manual: el sheet tiene una
+     * altura fija = 60% de la pantalla y se minimiza desplazándolo hacia abajo
+     * con translationY (solo queda visible el peek de 100dp = handle + título).
      */
     private fun configurarBottomSheet() {
         val sheet = binding.bottomSheet
-        val behavior = BottomSheetBehavior.from(sheet)
         val altoPantalla = resources.displayMetrics.heightPixels
         val alturaExpandida = (altoPantalla * 0.6f).toInt()
+        val peek = 100.dp
+        val maxOffset = (alturaExpandida - peek).toFloat()
 
-        // Estados: COLLAPSED (peek 100dp) <-> EXPANDED (hasta 60% de la pantalla).
-        // fitToContents = false es el modo de render probado en vivo (v1.28). El tope
-        // del 60% se consigue limitando la altura del RecyclerView, no con maxHeight
-        // (que con fitToContents=false se ignora y con fitToContents=true dejaba el
-        // sheet colapsado fuera de pantalla).
-        behavior.peekHeight = 100.dp
-        behavior.isHideable = false
-        behavior.isDraggable = true
-        behavior.isFitToContents = false
+        // Altura total del sheet = contenido expandido (60%). El RecyclerView
+        // llena el resto con layout_weight.
+        sheet.layoutParams = (sheet.layoutParams as ViewGroup.LayoutParams).apply {
+            height = alturaExpandida
+        }
 
-        // Tope del listado para que el contenido total del sheet sea ~60% de la pantalla
-        // (100dp de cabecera ≈ handle + titulo).
-        binding.rvDepartamentos.layoutParams =
-            (binding.rvDepartamentos.layoutParams as ViewGroup.LayoutParams).apply {
-                height = alturaExpandida - 76.dp
+        fun progreso(): Float = 1f - sheet.translationY / maxOffset
+
+        fun actualizarOverlays(p: Float) {
+            // p: 0 = minimizado (peek), 1 = expandido (60%)
+            val fab = binding.fabMiUbicacion
+            val params = fab.layoutParams as ViewGroup.MarginLayoutParams
+            params.bottomMargin = (108.dp + p * (alturaExpandida - 100.dp)).toInt()
+            fab.layoutParams = params
+
+            if (::mMap.isInitialized) {
+                val topInset = binding.filaTop.measuredHeight + 16.dp
+                val bottomInset = (100.dp + p * (alturaExpandida - 100.dp)) + 16.dp
+                mMap.setPadding(0, topInset, 0, bottomInset.toInt())
             }
+        }
 
-        // Callback para mover FAB y padding del mapa junto con el sheet
-        behavior.addBottomSheetCallback(object : BottomSheetBehavior.BottomSheetCallback() {
-            override fun onStateChanged(bottomSheet: View, newState: Int) {
-                // El padding del mapa y el FAB se ajustan en onSlide
-            }
+        fun animarA(targetOffset: Float) {
+            sheet.animate().cancel()
+            sheet.animate()
+                .translationY(targetOffset)
+                .setDuration(220)
+                .setUpdateListener { actualizarOverlays(progreso()) }
+                .start()
+        }
 
-            override fun onSlide(bottomSheet: View, slideOffset: Float) {
-                // slideOffset: 0 = colapsado (peek), 1 = expandido (60%)
-                val fab = binding.fabMiUbicacion
-                val params = fab.layoutParams as ViewGroup.MarginLayoutParams
-                params.bottomMargin =
-                    (108.dp + slideOffset * (alturaExpandida - 100.dp)).toInt()
-                fab.layoutParams = params
-
-                if (::mMap.isInitialized) {
-                    val topInset = binding.filaTop.measuredHeight + 16.dp
-                    val bottomInset =
-                        (100.dp + slideOffset * (alturaExpandida - 100.dp)) + 16.dp
-                    mMap.setPadding(0, topInset, 0, bottomInset.toInt())
+        // Arrastre vertical desde la cabecera (handle + título).
+        var inicioY = 0f
+        var inicioTranslation = 0f
+        var arrastrado = false
+        binding.sheetHeader.setOnTouchListener { _, event ->
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    inicioY = event.rawY
+                    inicioTranslation = sheet.translationY
+                    arrastrado = false
+                    sheet.animate().cancel()
+                    true
                 }
+                MotionEvent.ACTION_MOVE -> {
+                    val delta = event.rawY - inicioY
+                    if (kotlin.math.abs(delta) > 8f) arrastrado = true
+                    if (arrastrado) {
+                        sheet.translationY =
+                            (inicioTranslation + delta).coerceIn(0f, maxOffset)
+                        actualizarOverlays(progreso())
+                    }
+                    true
+                }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    if (!arrastrado) {
+                        // Tap en la cabecera: alternar expandido/minimizado
+                        animarA(if (sheet.translationY > maxOffset * 0.4f) 0f else maxOffset)
+                    } else {
+                        // Soltar: quedarse del lado más próximo
+                        animarA(if (sheet.translationY > maxOffset * 0.4f) maxOffset else 0f)
+                    }
+                    true
+                }
+                else -> false
             }
-        })
+        }
 
-        // Estado inicial: colapsado (solo handle + título)
-        behavior.state = BottomSheetBehavior.STATE_COLLAPSED
-
-        // Reaplicar el estado tras el primer layout: si el proceso se restaura desde
-        // un estado previo guardado (reinstalacion con install -r, cambio de configuracion),
-        // BottomSheetBehavior puede conservar un offset antiguo que deja el sheet fuera
-        // de pantalla. Forzar COLLAPSED en el primer layout lo recoloca en el peek.
+        // Estado inicial: minimizado de entrada (solo peek, se ve el mapa).
+        sheet.translationY = maxOffset
         sheet.post {
-            BottomSheetBehavior.from(sheet).state = BottomSheetBehavior.STATE_COLLAPSED
+            sheet.translationY = maxOffset
+            actualizarOverlays(0f)
         }
     }
 

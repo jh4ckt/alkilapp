@@ -108,40 +108,51 @@
             android:src="@drawable/ic_add" />
     </LinearLayout>
 
-    <!-- 6. Bottom Sheet colapsable/expandible con listado de inmuebles -->
+    <!-- 6. Bottom Sheet colapsable/expandible con listado de inmuebles.
+         Implementacion manual (SIN BottomSheetBehavior): altura fija = 60% de la
+         pantalla y se minimiza desplazando el sheet hacia abajo con translationY,
+         dejando visible solo el peek (handle + titulo). -->
     <LinearLayout
         android:id="@+id/bottomSheet"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_gravity="bottom"
         android:background="@android:color/white"
-        android:orientation="vertical"
-        app:layout_behavior="com.google.android.material.bottomsheet.BottomSheetBehavior"
-        app:behavior_peekHeight="100dp"
-        app:behavior_hideable="false"
-        app:behavior_draggable="true"
-        app:behavior_fitToContents="false">
+        android:orientation="vertical">
 
-        <View
-            android:id="@+id/sheetHandle"
-            android:layout_width="40dp"
-            android:layout_height="4dp"
-            android:layout_gravity="center_horizontal"
-            android:layout_marginTop="8dp"
-            android:background="@color/sheet_handle" />
-
-        <TextView
-            android:layout_width="wrap_content"
+        <!-- Zona de arrastre: handle + titulo -->
+        <LinearLayout
+            android:id="@+id/sheetHeader"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="@string/nearby_title"
-            android:textStyle="bold"
-            android:textSize="16sp"
-            android:padding="16dp" />
+            android:orientation="vertical"
+            android:paddingTop="8dp"
+            android:background="@android:color/white"
+            android:clickable="true"
+            android:focusable="true">
+
+            <View
+                android:id="@+id/sheetHandle"
+                android:layout_width="40dp"
+                android:layout_height="4dp"
+                android:layout_gravity="center_horizontal"
+                android:background="@color/sheet_handle" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/nearby_title"
+                android:textStyle="bold"
+                android:textSize="16sp"
+                android:padding="16dp" />
+        </LinearLayout>
 
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/rvDepartamentos"
             android:layout_width="match_parent"
-            android:layout_height="match_parent" />
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:background="@android:color/white" />
 
     </LinearLayout>
 
