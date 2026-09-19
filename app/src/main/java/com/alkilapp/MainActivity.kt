@@ -10,6 +10,7 @@ import android.graphics.BitmapFactory
 import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.Build
+import android.graphics.Canvas
 import android.os.Bundle
 import android.provider.Settings
 import android.util.Base64
@@ -26,6 +27,7 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.content.res.AppCompatResources
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.view.GravityCompat
@@ -647,8 +649,18 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     }
 
     private fun initIconosMarcadores() {
-        iconoDefault = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED)
+        iconoDefault = cargarIconoRes(R.drawable.ic_marker_inmueble)
         iconoSeleccionado = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN)
+    }
+
+    /** Rasteriza un recurso de dibujo (vector) en un Bitmap para usarlo como icono de marcador. */
+    private fun cargarIconoRes(resId: Int): BitmapDescriptor {
+        val icono = AppCompatResources.getDrawable(this, resId) ?: return BitmapDescriptorFactory.defaultMarker()
+        val bitmap = Bitmap.createBitmap(icono.intrinsicWidth, icono.intrinsicHeight, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+        icono.setBounds(0, 0, icono.intrinsicWidth, icono.intrinsicHeight)
+        icono.draw(canvas)
+        return BitmapDescriptorFactory.fromBitmap(bitmap)
     }
 
     /** Añade/actualiza marcadores solo para inmuebles dentro de la vista actual del mapa. */
