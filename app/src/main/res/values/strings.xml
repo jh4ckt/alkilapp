@@ -189,6 +189,7 @@
     <string name="chat_enviar">Enviar mensaje</string>
     <string name="chat_atras">Volver</string>
     <string name="chat_identidad_verificada">Identidad verificada</string>
+    <string name="chat_cerrado_inmueble">El inmueble ya está en alquiler, no se permite comunicación con el dueño del inmueble.</string>
 
     <!-- Notificaciones de chats nuevos -->
     <string name="notif_canal_chats">Chats nuevos</string>

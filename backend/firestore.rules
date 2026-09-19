@@ -55,15 +55,25 @@ service cloud.firestore {
     }
 
     // MENSAJES: solo participantes del chat pueden leer; al crear el mensaje debe
-    // pertenecer al autor ("senderId") y tener texto 1..1000 chars.
+    // pertenecer al autor ("senderId") y tener texto 1..1000 chars. Si el inmueble
+    // asociado fue finalizado/alquilado, el chat queda cerrado (no se crean mas mensajes).
     match /chats/{chat}/messages/{message} {
       function chatParticipa(uid) {
         return get(/databases/$(database)/documents/chats/$(chat)).data is map
           && uid in get(/databases/$(database)/documents/chats/$(chat)).data.participants;
       }
+      function inmuebleCerrado() {
+        let c = get(/databases/$(database)/documents/chats/$(chat));
+        return c.exists
+          && c.data.listingId is string
+          && c.data.listingId.size() > 0
+          && exists(/databases/$(database)/documents/propiedades/$(c.data.listingId))
+          && get(/databases/$(database)/documents/propiedades/$(c.data.listingId)).data.estado == 'finalizado';
+      }
       allow read: if request.auth != null && chatParticipa(request.auth.uid);
       allow create: if request.auth != null
         && chatParticipa(request.auth.uid)
+        && !inmuebleCerrado()
         && request.resource.data.senderId == request.auth.uid
         && request.resource.data.text is string
         && request.resource.data.text.size() > 0

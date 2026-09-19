@@ -87,6 +87,7 @@ class ChatListActivity : AppCompatActivity() {
         val intent = Intent(this, ChatDetailActivity::class.java).apply {
             putExtra(EXTRA_CHAT_ID, chat.chatId)
             putExtra(EXTRA_LISTING, chat.listingTitle)
+            putExtra(EXTRA_LISTING_ID, chat.listingId)
             putExtra(EXTRA_OTRO_UID, otro)
         }
         startActivity(intent)
@@ -95,6 +96,7 @@ class ChatListActivity : AppCompatActivity() {
     companion object {
         const val EXTRA_CHAT_ID = "chat_id"
         const val EXTRA_LISTING = "chat_listing"
+        const val EXTRA_LISTING_ID = "chat_listing_id"
         const val EXTRA_OTRO_UID = "chat_otro_uid"
     }
 }

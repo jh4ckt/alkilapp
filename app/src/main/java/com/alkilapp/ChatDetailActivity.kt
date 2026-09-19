@@ -30,6 +30,7 @@ class ChatDetailActivity : AppCompatActivity() {
 
     private var chatId: String = ""
     private var otroUid: String = ""
+    private var listingId: String = ""
 
     private val adapter by lazy { MensajeAdapter(auth.currentUser?.uid ?: "") }
 
@@ -40,6 +41,8 @@ class ChatDetailActivity : AppCompatActivity() {
 
         chatId = intent.getStringExtra(ChatListActivity.EXTRA_CHAT_ID).orEmpty()
         otroUid = intent.getStringExtra(ChatListActivity.EXTRA_OTRO_UID).orEmpty()
+        listingId = intent.getStringExtra(ChatListActivity.EXTRA_LISTING_ID).orEmpty()
+            .ifBlank { chatId.removePrefix("inm-") }
         binding.tvChatListing.text = intent.getStringExtra(ChatListActivity.EXTRA_LISTING)
 
         binding.btnChatDetailBack.setOnClickListener { finish() }
@@ -55,6 +58,25 @@ class ChatDetailActivity : AppCompatActivity() {
         binding.rvMensajes.adapter = adapter
 
         if (otroUid.isNotBlank()) cargarPerfil(otroUid)
+        if (listingId.isNotBlank()) vigilarEstadoInmueble()
+    }
+
+    /**
+     * Si la publicacion queda finalizada/alquilada (estado "finalizado"),
+     * el chat se cierra para el solicitante: se muestra el aviso y se
+     * deshabilita la barra de escritura para no permitir mas comunicacion.
+     */
+    private fun vigilarEstadoInmueble() {
+        db.collection("propiedades").document(listingId)
+            .addSnapshotListener { snap, _ ->
+                if (snap?.exists() == true) {
+                    val estado = (snap.data?.get("estado") as? String)?.trim()?.lowercase().orEmpty()
+                    val cerrado = estado == "finalizado"
+                    binding.cardChatCerrado.visibility = if (cerrado) View.VISIBLE else View.GONE
+                    binding.etEntrada.isEnabled = !cerrado
+                    binding.btnEnviar.isEnabled = !cerrado
+                }
+            }
     }
 
     override fun onStart() {
@@ -125,6 +147,7 @@ class ChatDetailActivity : AppCompatActivity() {
     }
 
     private fun enviarMensaje() {
+        if (!binding.etEntrada.isEnabled) return
         val texto = binding.etEntrada.text.toString().trim()
         val miUid = auth.currentUser?.uid ?: return
         if (texto.isEmpty() || chatId.isBlank()) return
