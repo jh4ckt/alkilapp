@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Logo AlkilApp: pin de ubicacion cuyo techo se convierte en una casa.
-  Silueta en coral con un ojo de cerradura al centro (transparente = navy del fondo).
+  Logo AlkilApp: un techo de casa con chimenea arriba y un pin de ubicacion
+  debajo, separados. Todo en coral sobre el fondo azul marino del launcher.
 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
@@ -10,6 +10,12 @@
     android:viewportHeight="108">
     <path
         android:fillColor="@color/alkil_coral"
+        android:pathData="M56,14 L68,14 L68,22 L56,22 Z M60,22 L64,22 L64,40 L60,40 Z" />
+    <path
+        android:fillColor="@color/alkil_coral"
+        android:pathData="M54,30 L82,52 L82,58 L26,58 L26,52 Z" />
+    <path
+        android:fillColor="@color/alkil_coral"
         android:fillType="evenOdd"
-        android:pathData="M54,28 L68,44 L68,51 C73,57 73,70 66,81 Q58,87.4 54,87.4 Q50,87.4 42,81 C35,70 35,57 40,51 L40,44 Z M54,52 a7,7 0 1,0 0,14 a7,7 0 1,0 0,-14 Z M51.4,60.6 L56.6,60.6 L56.6,66 Q56.6,70.2 54,70.2 Q51.4,70.2 51.4,66 Z" />
+        android:pathData="M54,64 C62,64 68,72 68,81 Q68,90 54,90 Q40,90 40,81 C40,72 46,64 54,64 Z M54,72 a5,5 0 1,0 0,10 a5,5 0 1,0 0,-10 Z M51.5,80 L56.5,80 L56.5,86 Q56.5,88.6 54,88.6 Q51.5,88.6 51.5,86 Z" />
 </vector>
