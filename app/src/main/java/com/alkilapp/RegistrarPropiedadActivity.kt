@@ -80,7 +80,7 @@ class RegistrarPropiedadActivity : AppCompatActivity() {
                 fotosFormulario.add(base64)
             }
         }
-        renderizarPreviewsFotos()
+        renderizarPreviewsFotos(false)
     }
 
     companion object {
@@ -340,12 +340,13 @@ class RegistrarPropiedadActivity : AppCompatActivity() {
     }
 
     /** Muestra miniaturas de las fotos elegidas; tocar una la quita. */
-    private fun renderizarPreviewsFotos() {
+    private fun renderizarPreviewsFotos(editMode: Boolean = false) {
         val contenedor = binding.llPropFotos
         contenedor.removeAllViews()
         val ladoPx = (56 * resources.displayMetrics.density).toInt()
         val paddingPx = (2 * resources.displayMetrics.density).toInt()
-        fotosFormulario.forEachIndexed { i, foto ->
+        val delPx = (24 * resources.displayMetrics.density).toInt()
+        fotosFormulario.forEachIndexed { idx, foto ->
             val bytes = try {
                 Base64.decode(foto, Base64.NO_WRAP)
             } catch (_: IllegalArgumentException) {
@@ -358,20 +359,50 @@ class RegistrarPropiedadActivity : AppCompatActivity() {
                 val h = (it.height * escala).toInt().coerceAtLeast(1)
                 if (w == it.width && h == it.height) it else Bitmap.createScaledBitmap(it, w, h, true)
             }
+            val frame = androidx.constraintlayout.widget.ConstraintLayout(this).apply {
+                layoutParams = LinearLayout.LayoutParams(ladoPx, ladoPx).apply {
+                    marginEnd = (8 * resources.displayMetrics.density).toInt()
+                }
+            }
             val iv = ImageView(this).apply {
+                id = View.generateViewId()
                 setImageBitmap(thumb)
                 contentDescription = getString(R.string.prop_foto_thumb_cd)
-                layoutParams = LinearLayout.LayoutParams(ladoPx, ladoPx).apply {
+                layoutParams = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams(
+                    ladoPx, ladoPx
+                ).apply {
                     marginEnd = (8 * resources.displayMetrics.density).toInt()
                 }
                 setBackgroundResource(R.drawable.bg_foto_thumb)
                 setPadding(paddingPx, paddingPx, paddingPx, paddingPx)
             }
             iv.setOnClickListener {
-                fotosFormulario.removeAt(i)
-                renderizarPreviewsFotos()
+                fotosFormulario.removeAt(idx)
+                renderizarPreviewsFotos(editMode)
             }
-            contenedor.addView(iv)
+            frame.addView(iv)
+            if (editMode) {
+                val btnDel = ImageView(this).apply {
+                    setImageResource(R.drawable.ic_basurero)
+                    setColorFilter(getColor(R.color.alkil_rojo))
+                    layoutParams = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams(delPx, delPx).apply {
+                        topToTop = iv.id
+                        endToEnd = iv.id
+                        topMargin = (2 * resources.displayMetrics.density).toInt()
+                        marginEnd = (2 * resources.displayMetrics.density).toInt()
+                    }
+                    setBackgroundResource(R.drawable.bg_favorito)
+                    setPadding((4 * resources.displayMetrics.density).toInt(), (4 * resources.displayMetrics.density).toInt(),
+                        (4 * resources.displayMetrics.density).toInt(), (4 * resources.displayMetrics.density).toInt())
+                    setOnClickListener {
+                        fotosFormulario.removeAt(idx)
+                        renderizarPreviewsFotos(editMode)
+                    }
+                    contentDescription = "Eliminar foto"
+                }
+                frame.addView(btnDel)
+            }
+            contenedor.addView(frame)
         }
     }
 
@@ -430,7 +461,7 @@ class RegistrarPropiedadActivity : AppCompatActivity() {
                 val fotosBase64 = l("fotos")
                 fotosFormulario.clear()
                 fotosFormulario.addAll(fotosBase64)
-                renderizarPreviewsFotos()
+                renderizarPreviewsFotos(true)
 
                 latAgregar = n("lat")
                 lngAgregar = n("lng")

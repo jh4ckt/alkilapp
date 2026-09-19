@@ -21,8 +21,8 @@ android {
         applicationId = "com.alkilapp"
         minSdk = 24
         targetSdk = 36
-        versionCode = 7
-        versionName = "1.25"
+        versionCode = 8
+        versionName = "1.26"
         manifestPlaceholders["MAPS_API_KEY"] = mapsApiKey
     }
 
@@ -51,6 +51,9 @@ dependencies {
     implementation("com.google.android.gms:play-services-auth:21.2.0")
     // Places SDK (New): autocomplete de direcciones al publicar un inmueble
     implementation("com.google.android.libraries.places:places:3.5.0")
+
+    // Google Play Billing: compras in-app (destacados)
+    implementation("com.android.billingclient:billing:7.0.0")
 
     // Firebase: Firestore (base de datos) + Authentication (registro de usuarios)
     implementation(platform("com.google.firebase:firebase-bom:33.1.1"))

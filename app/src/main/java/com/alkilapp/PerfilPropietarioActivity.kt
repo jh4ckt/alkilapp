@@ -653,47 +653,45 @@ class PerfilPropietarioActivity : AppCompatActivity() {
     }
 
     private fun solicitarDestacar(p: Propiedad) {
-        val etiquetas = arrayOf(
-            getString(R.string.perfil_destacar_dias, 7),
-            getString(R.string.perfil_destacar_dias, 15),
-            getString(R.string.perfil_destacar_dias, 30)
+        val opciones = arrayOf(
+            "7 días - S/ 6.90",
+            "15 días - S/ 12.90",
+            "30 días - S/ 24.90"
         )
-        val valores = intArrayOf(7, 15, 30)
-        var seleccion = 2
         MaterialAlertDialogBuilder(this)
-            .setTitle(R.string.perfil_destacar_publicacion)
-            .setMessage(R.string.perfil_destacar_mensaje)
-            .setSingleChoiceItems(etiquetas, seleccion) { _, cual -> seleccion = cual }
-            .setNegativeButton(R.string.resena_cancelar, null)
-            .setPositiveButton(R.string.perfil_destacar_solicitar) { _, _ ->
-                enviarSolicitudDestacar(p, valores[seleccion])
+            .setTitle("Destacar publicación")
+            .setMessage("Elige la duración del destacado:")
+            .setItems(opciones) { _, which ->
+                val dias = when (which) {
+                    0 -> 7
+                    1 -> 15
+                    else -> 30
+                }
+                val precio = when (which) {
+                    0 -> 6.90
+                    1 -> 12.90
+                    else -> 24.90
+                }
+                // TODO: Integrar Google Play Billing (BillingManager.launchPurchaseFlow)
+                // Por ahora guardamos la solicitud en Firestore
+                db.collection("propiedades").document(p.id)
+                    .set(mapOf(
+                        "solicitudDestacar" to true,
+                        "destacadoDias" to dias,
+                        "destacadoPrecio" to precio
+                    ), SetOptions.merge())
+                    .addOnSuccessListener {
+                        Toast.makeText(this, "Solicitud de destacado $dias días (S/ $precio) enviada. Pendiente pago.", Toast.LENGTH_LONG).show()
+                    }
+                    .addOnFailureListener { e ->
+                        Toast.makeText(this, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+                    }
             }
+            .setNegativeButton("Cancelar", null)
             .show()
     }
 
-    private fun enviarSolicitudDestacar(p: Propiedad, dias: Int) {
-        val datos = mutableMapOf<String, Any>()
-        datos["solicitudDestacar"] = true
-        datos["destacadoDias"] = dias
-        datos["solicitudDestacarEn"] = FieldValue.serverTimestamp()
-        datos["solicitudDestacarPor"] = auth.currentUser?.uid ?: ""
-        db.collection("propiedades").document(p.id)
-            .update(datos)
-            .addOnSuccessListener {
-                Toast.makeText(
-                    this,
-                    getString(R.string.perfil_destacar_solicitud_enviada, dias),
-                    Toast.LENGTH_SHORT
-                ).show()
-            }
-            .addOnFailureListener { e ->
-                Toast.makeText(
-                    this,
-                    getString(R.string.perfil_destacar_error, e.localizedMessage ?: "?"),
-                    Toast.LENGTH_LONG
-                ).show()
-            }
-    }
+    
 
     /** Abre la ficha del inmueble con las mismas extras que el listado principal. */
     private fun abrirDetalle(p: Propiedad) {
