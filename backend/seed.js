@@ -57,6 +57,7 @@
 
 const path = require('path');
 const fs = require('fs');
+const zlib = require('zlib');
 const { Firestore } = require('@google-cloud/firestore');
 
 const PROJECT_ID = 'gen-lang-client-0040505884';
@@ -103,6 +104,63 @@ function geohash(lat, lon, precision = 9) {
 
 const now = () => new Date();
 
+// ---- PNG de color sólido (foto placeholder base64, sin dependencias) --------
+// La tarjeta del listado usa `fotos` (base64), no las URLs de `photos`. Para que
+// los seeds se visualicen con área de foto, se genera un PNG sólido 4x4 en el
+// color indicado (hex "#RRGGBB") usando solo zlib nativo de Node.
+const _crcTable = (() => {
+  const t = new Int32Array(256);
+  for (let n = 0; n < 256; n++) {
+    let c = n;
+    for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+    t[n] = c;
+  }
+  return t;
+})();
+const _crc32 = (buf) => {
+  let c = 0xffffffff;
+  for (let i = 0; i < buf.length; i++) c = _crcTable[(c ^ buf[i]) & 0xff] ^ (c >>> 8);
+  return (c ^ 0xffffffff) >>> 0;
+};
+function solidPngBase64(hex) {
+  const v = hex.replace('#', '');
+  const r = parseInt(v.slice(0, 2), 16);
+  const g = parseInt(v.slice(2, 4), 16);
+  const b = parseInt(v.slice(4, 6), 16);
+  const W = 4, H = 4, stride = 1 + W * 4;
+  const raw = Buffer.alloc(stride * H);
+  for (let y = 0; y < H; y++) {
+    raw[y * stride] = 0;
+    raw[y * stride + 1] = r; raw[y * stride + 2] = g;
+    raw[y * stride + 3] = b; raw[y * stride + 4] = 255;
+    raw[y * stride + 5] = r; raw[y * stride + 6] = g;
+    raw[y * stride + 7] = b; raw[y * stride + 8] = 255;
+    raw[y * stride + 9] = r; raw[y * stride + 10] = g;
+    raw[y * stride + 11] = b; raw[y * stride + 12] = 255;
+    raw[y * stride + 13] = r; raw[y * stride + 14] = g;
+    raw[y * stride + 15] = b; raw[y * stride + 16] = 255;
+  }
+  const chunk = (type, data) => {
+    const len = Buffer.alloc(4);
+    len.writeUInt32BE(data.length, 0);
+    const body = Buffer.concat([Buffer.from(type, 'ascii'), data]);
+    const crc = Buffer.alloc(4);
+    crc.writeUInt32BE(_crc32(body), 0);
+    return Buffer.concat([len, body, crc]);
+  };
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(W, 0);
+  ihdr.writeUInt32BE(H, 4);
+  ihdr[8] = 8; ihdr[9] = 6; // 8-bit, RGBA
+  const png = Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    chunk('IHDR', ihdr),
+    chunk('IDAT', zlib.deflateSync(raw)),
+    chunk('IEND', Buffer.alloc(0)),
+  ]);
+  return png.toString('base64');
+}
+
 async function deleteDoc(ref) {
   try { await ref.delete(); } catch { /* no existía */ }
 }
@@ -117,7 +175,7 @@ async function cleanSeedData() {
   log('Limpieza de datos de prueba previos...');
 
   // Usuarios seed + sus subcolecciones de reviews.
-  for (const uid of ['u-propietario-1', 'u-inquilino-1', 'u-ambos-1']) {
+  for (const uid of ['u-propietario-1', 'u-inquilino-1', 'u-ambos-1', 'u-propietario-2']) {
     await deleteCollection(db.collection('usuarios').doc(uid).collection('reviews'));
     await deleteDoc(db.collection('usuarios').doc(uid));
   }
@@ -128,6 +186,17 @@ async function cleanSeedData() {
     'seed-l-depa-sanmiguel',
     'seed-l-depa-surco',
     'seed-l-casa-surco',
+    // Lote extra 2026-09-18 (10 inmuebles, distritos distintos de Lima):
+    'seed-l-depa-sanisidro',
+    'seed-l-hab-barranco',
+    'seed-l-casa-lamolina',
+    'seed-l-depa-sanborja',
+    'seed-l-depa-magdalena',
+    'seed-l-hab-jesusmaria',
+    'seed-l-depa-lince',
+    'seed-l-depa-pueblolibre',
+    'seed-l-depa-losollivos',
+    'seed-l-otro-ate',
     // Antiguos demos (reemplazados por la nueva carga):
     'departamento-belgrano-cabildo-1400',
     'departamento-palermo-thames-1500',
@@ -196,13 +265,28 @@ const users = [
     totalRatings: 7,
     createdAt: now(),
   },
+  {
+    _id: 'u-propietario-2',
+    userId: 'u-propietario-2',
+    name: 'María Gutiérrez',
+    email: 'maria.gutierrez@example.pe',
+    phoneNumber: '+51911223344',
+    profilePicture: 'https://randomuser.me/api/portraits/women/68.jpg',
+    role: 'propietario',
+    verification: { identityVerified: false, emailVerified: false, phoneVerified: true },
+    trustLevel: 'none',
+    verificationBadge: false,
+    rating: 0,
+    totalRatings: 0,
+    createdAt: now(),
+  },
 ];
 
 /** Convierte un listing del spec al documento final (campos app + campos nuevos). */
 function buildListing({ listingId, titulo, descripcion, propertyType, rentalType, precio,
   direccion, barrio, lat, lng, features, roommatePreferences, ownerId, contacto,
   comodidades, ambientes = features.bedrooms, superficieM2 = features.areaSqm,
-  photoSeed, isFeatured = false, featuredUntil = null }, photoSeedLegacy) {
+  photoSeed, isFeatured = false, featuredUntil = null, fotoColor = null }, photoSeedLegacy) {
   const createdAt = now();
   const _photoSeed = photoSeedLegacy || photoSeed;
   return {
@@ -254,7 +338,7 @@ function buildListing({ listingId, titulo, descripcion, propertyType, rentalType
     ambientes,
     superficieM2,
     comodidades: comodidades || [],
-    fotos: [], // la app muestra base64; los seeds usan urls en `photos`
+    fotos: fotoColor ? [solidPngBase64(fotoColor)] : [], // la app muestra base64; los seeds usan urls en `photos`
     esDemo: true,
   };
 }
@@ -355,6 +439,243 @@ const listings = [
     isFeatured: true,
     featuredUntil: Date.now() + 3 * 24 * 60 * 60 * 1000,
   }, 'alk-casa-01'),
+
+  // ---- Lote extra (2026-09-18): 10 inmuebles con direcciones ficticias en
+  //      distintos distritos de Lima, para visualizar el listado y el mapa. ----
+  buildListing({
+    listingId: 'seed-l-depa-sanisidro',
+    titulo: 'Departamento de 1 dormitorio amoblado en San Isidro',
+    descripcion:
+      'Depto amoblado a pasos del parque El Olivar. 1 dormitorio, 1 baño, cocina americana, ' +
+      'wifi incluido y gimnasio en el edificio. Zona exclusiva y muy segura.',
+    propertyType: 'departamento',
+    rentalType: 'largo_plazo',
+    precio: 1600,
+    direccion: 'Av. Petit Thouars 2950, San Isidro',
+    barrio: 'San Isidro',
+    lat: -12.099,
+    lng: -77.0489,
+    features: {
+      bedrooms: 1, bathrooms: 1, areaSqm: 42, floor: 4,
+      hasElevator: true, allowsPets: false, furnished: true, utilitiesIncluded: true,
+    },
+    ownerId: 'u-propietario-1',
+    contacto: 'renzo.salazar@example.pe',
+    comodidades: ['Wifi', 'Ascensor', 'Gimnasio'],
+    fotoColor: '#C8D6E8',
+  }, 'alk-dep-sanisidro'),
+
+  buildListing({
+    listingId: 'seed-l-hab-barranco',
+    titulo: 'Habitación con balcón al malecón en Barranco',
+    descripcion:
+      'Habitación con balcón y vista al mar en casona restaurada de Barranco. Cocina y baño ' +
+      'compartidos, ambiente artístico y tranquilo. A 5 min del Museo Pedro de Osma.',
+    propertyType: 'habitacion',
+    rentalType: 'co-living',
+    precio: 800,
+    direccion: 'Jr. Unión 240, Barranco',
+    barrio: 'Barranco',
+    lat: -12.1447,
+    lng: -77.0224,
+    features: {
+      bedrooms: 1, bathrooms: 1, areaSqm: 10, floor: 2,
+      hasElevator: false, allowsPets: true, furnished: true, utilitiesIncluded: true,
+    },
+    ownerId: 'u-propietario-2',
+    contacto: 'maria.gutierrez@example.pe',
+    comodidades: ['Wifi', 'Agua', 'Limpieza de área común'],
+    fotoColor: '#E8D3C8',
+  }, 'alk-hab-barranco'),
+
+  buildListing({
+    listingId: 'seed-l-casa-lamolina',
+    titulo: 'Casa de 4 dormitorios con piscina en La Molina',
+    descripcion:
+      'Casa independiente de 3 pisos en condominio con piscina y áreas verdes. 4 dormitorios, ' +
+      '3 baños, sala doble, estudio, cuarto de servicio y 2 estacionamientos. Cerca de la Av. ' +
+      'La Molina y del club El Polo.',
+    propertyType: 'casa',
+    rentalType: 'largo_plazo',
+    precio: 4200,
+    direccion: 'Calle Los Girasoles 180, La Molina',
+    barrio: 'La Molina',
+    lat: -12.0778,
+    lng: -76.9355,
+    features: {
+      bedrooms: 4, bathrooms: 3, areaSqm: 180, floor: 3,
+      hasElevator: false, allowsPets: true, furnished: false, utilitiesIncluded: false,
+    },
+    ownerId: 'u-propietario-1',
+    contacto: 'renzo.salazar@example.pe',
+    comodidades: ['Piscina compartida', 'Jardín', 'Garaje para 2 autos', 'Cuarto de servicio'],
+    isFeatured: true,
+    featuredUntil: Date.now() + 7 * 24 * 60 * 60 * 1000,
+    fotoColor: '#D4C8E8',
+  }, 'alk-casa-lamolina'),
+
+  buildListing({
+    listingId: 'seed-l-depa-sanborja',
+    titulo: 'Departamento de 3 dormitorios frente al parque en San Borja',
+    descripcion:
+      'Depto con vista al parque de San Borja y cerca del Centro Comercial San Borja. 3 dormitorios ' +
+      'concloset, 2 baños, cocina equipada, terraza y estacionamiento techado.',
+    propertyType: 'departamento',
+    rentalType: 'largo_plazo',
+    precio: 2600,
+    direccion: 'Av. San Borja Norte 760, San Borja',
+    barrio: 'San Borja',
+    lat: -12.1068,
+    lng: -76.9956,
+    features: {
+      bedrooms: 3, bathrooms: 2, areaSqm: 95, floor: 7,
+      hasElevator: true, allowsPets: true, furnished: true, utilitiesIncluded: false,
+    },
+    ownerId: 'u-propietario-1',
+    contacto: 'renzo.salazar@example.pe',
+    comodidades: ['Ascensor', 'Estacionamiento techado', 'Terraza'],
+    fotoColor: '#C8E8D4',
+  }, 'alk-dep-sanborja'),
+
+  buildListing({
+    listingId: 'seed-l-depa-magdalena',
+    titulo: 'Departamento dúplex amoblado en Magdalena del Mar',
+    descripcion:
+      'Dúplex amoblado de 2 dormitorios a media cuadra de la Av. Brasil. 1 baño y medio, lavandería ' +
+      'propia y azotea con vista. A minutos de la UNMSM y del militae.',
+    propertyType: 'departamento',
+    rentalType: 'largo_plazo',
+    precio: 2200,
+    direccion: 'Av. Brasil 1450, Magdalena del Mar',
+    barrio: 'Magdalena del Mar',
+    lat: -12.098,
+    lng: -77.078,
+    features: {
+      bedrooms: 2, bathrooms: 2, areaSqm: 80, floor: 1,
+      hasElevator: false, allowsPets: true, furnished: true, utilitiesIncluded: false,
+    },
+    ownerId: 'u-ambos-1',
+    contacto: 'diego.flores@example.pe',
+    comodidades: ['Azotea privada', 'Lavandería propia'],
+    fotoColor: '#E8E4C8',
+  }, 'alk-dep-magdalena'),
+
+  buildListing({
+    listingId: 'seed-l-hab-jesusmaria',
+    titulo: 'Habitación amplia cerca del Hospital Edgardo Rebagliati',
+    descripcion:
+      'Habitación amplia con baño privado en Jesús María. Ideal para profesionales de salud o ' +
+      'internos. Incluye desayuno de cortesía los fines de semana.',
+    propertyType: 'habitacion',
+    rentalType: 'largo_plazo',
+    precio: 750,
+    direccion: 'Av. Cuba 890, Jesús María',
+    barrio: 'Jesús María',
+    lat: -12.0847,
+    lng: -77.0456,
+    features: {
+      bedrooms: 1, bathrooms: 1, areaSqm: 14, floor: 3,
+      hasElevator: true, allowsPets: false, furnished: true, utilitiesIncluded: true,
+    },
+    ownerId: 'u-propietario-2',
+    contacto: 'maria.gutierrez@example.pe',
+    comodidades: ['Wifi', 'Baño privado', 'Limpieza semanal'],
+    fotoColor: '#D9C7B8',
+  }, 'alk-hab-jesusmaria'),
+
+  buildListing({
+    listingId: 'seed-l-depa-lince',
+    titulo: 'Departamento de 2 dormitorios en Lince (cerca de la Av. Arenales)',
+    descripcion:
+      'Depto de 2 dormitorios con 1 baño y cocina independiente. A 3 cuadras del Mercado de Lince ' +
+      'y con fácil acceso al Metropolitano. Perfecto para parejas o roomies.',
+    propertyType: 'departamento',
+    rentalType: 'largo_plazo',
+    precio: 1500,
+    direccion: 'Av. Arenales 2100, Lince',
+    barrio: 'Lince',
+    lat: -12.0886,
+    lng: -77.0412,
+    features: {
+      bedrooms: 2, bathrooms: 1, areaSqm: 60, floor: 2,
+      hasElevator: false, allowsPets: true, furnished: false, utilitiesIncluded: false,
+    },
+    ownerId: 'u-propietario-2',
+    contacto: 'maria.gutierrez@example.pe',
+    comodidades: ['Cocina independiente'],
+    fotoColor: '#B8C4CE',
+  }, 'alk-dep-lince'),
+
+  buildListing({
+    listingId: 'seed-l-depa-pueblolibre',
+    titulo: 'Departamento de 1 dormitorio amoblado en Pueblo Libre',
+    descripcion:
+      'Depto amoblado cerca del Museo Nacional de Arqueología. 1 dormitorio con closet, cocina ' +
+      'americana y balcón. Ideal para una persona. Agua y luz incluidos.',
+    propertyType: 'departamento',
+    rentalType: 'largo_plazo',
+    precio: 1350,
+    direccion: 'Av. Bolívar 1150, Pueblo Libre',
+    barrio: 'Pueblo Libre',
+    lat: -12.0768,
+    lng: -77.0705,
+    features: {
+      bedrooms: 1, bathrooms: 1, areaSqm: 38, floor: 3,
+      hasElevator: true, allowsPets: false, furnished: true, utilitiesIncluded: true,
+    },
+    ownerId: 'u-ambos-1',
+    contacto: 'diego.flores@example.pe',
+    comodidades: ['Wifi', 'Agua', 'Luz', 'Balcón'],
+    fotoColor: '#C2C9D6',
+  }, 'alk-dep-pueblolibre'),
+
+  buildListing({
+    listingId: 'seed-l-depa-losollivos',
+    titulo: 'Departamento económico de 3 dormitorios en Los Olivos',
+    descripcion:
+      'Depto de 3 dormitorios y 2 baños en condominio con juegos infantiles. A pasos del CC Mega ' +
+      'Plaza y de la universidad. Opción perfecta para familias o estudiantes.',
+    propertyType: 'departamento',
+    rentalType: 'largo_plazo',
+    precio: 1100,
+    direccion: 'Av. Alfredo Mendiola 4900, Los Olivos',
+    barrio: 'Los Olivos',
+    lat: -11.9696,
+    lng: -77.0739,
+    features: {
+      bedrooms: 3, bathrooms: 2, areaSqm: 85, floor: 4,
+      hasElevator: true, allowsPets: true, furnished: false, utilitiesIncluded: false,
+    },
+    ownerId: 'u-propietario-1',
+    contacto: 'renzo.salazar@example.pe',
+    comodidades: ['Ascensor', 'Juegos infantiles'],
+    isFeatured: true,
+    featuredUntil: Date.now() + 15 * 24 * 60 * 60 * 1000,
+    fotoColor: '#E8CFC8',
+  }, 'alk-dep-losollivos'),
+
+  buildListing({
+    listingId: 'seed-l-otro-ate',
+    titulo: 'Estudio tipo loft independiente en Ate',
+    descripcion:
+      'Loft independiente con todo integrado en zona industrial residencial de Ate. Cuenta con ' +
+      'baño, mini cocina y escritorio. A 10 min de la Av. Javier Prado Este, ideal para teletrabajo.',
+    propertyType: 'otro',
+    rentalType: 'largo_plazo',
+    precio: 900,
+    direccion: 'Av. Separadora Industrial 1250, Ate',
+    barrio: 'Ate',
+    lat: -12.0305,
+    lng: -76.921,
+    features: {
+      bedrooms: 1, bathrooms: 1, areaSqm: 28, floor: 1,
+      hasElevator: false, allowsPets: false, furnished: true, utilitiesIncluded: false,
+    },
+    ownerId: 'u-ambos-1',
+    contacto: 'diego.flores@example.pe',
+    comodidades: ['Escritorio', 'Mini cocina', 'Baño privado'],
+    fotoColor: '#DCD6C9',
+  }, 'alk-otro-ate'),
 ];
 
 const reviews = [
