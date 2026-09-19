@@ -108,16 +108,22 @@
             android:src="@drawable/ic_add" />
     </LinearLayout>
 
-    <!-- 6. Panel fijo inferior (60% pantalla) con listado de departamentos -->
+    <!-- 6. Bottom Sheet colapsable/expandible con listado de inmuebles -->
     <LinearLayout
         android:id="@+id/bottomSheet"
         android:layout_width="match_parent"
-        android:layout_height="0dp"
+        android:layout_height="wrap_content"
         android:layout_gravity="bottom"
         android:background="@android:color/white"
-        android:orientation="vertical">
+        android:orientation="vertical"
+        app:layout_behavior="com.google.android.material.bottomsheet.BottomSheetBehavior"
+        app:behavior_peekHeight="100dp"
+        app:behavior_hideable="false"
+        app:behavior_draggable="true"
+        app:behavior_fitToContents="false">
 
         <View
+            android:id="@+id/sheetHandle"
             android:layout_width="40dp"
             android:layout_height="4dp"
             android:layout_gravity="center_horizontal"

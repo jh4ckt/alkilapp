@@ -164,7 +164,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         setupListaDepartamentos()
         setupBotones()
         configurarMenu()
-        configurarPanelFijoInferior()
+        configurarBottomSheet()
         configurarInsetsSistema()
         actualizarBotonFiltros()
 
@@ -199,20 +199,39 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     }
 
     /**
-     * Configura el panel fijo inferior al 60% de la pantalla (no deslizable).
+     * Configura el Bottom Sheet colapsable/expandible.
+     * peekHeight = 100dp (solo handle + título visible)
+     * expanded = fitToContents (altura del contenido)
      */
-    private fun configurarPanelFijoInferior() {
+    private fun configurarBottomSheet() {
         val sheet = binding.bottomSheet
-        val altoPantalla = resources.displayMetrics.heightPixels
-        val altura = (altoPantalla * 0.6f).toInt()
+        val behavior = BottomSheetBehavior.from(sheet)
 
-        sheet.layoutParams = sheet.layoutParams.apply { height = altura }
+        // Estados: COLLAPSED (peek 100dp) <-> EXPANDED
+        behavior.peekHeight = 100.dp
+        behavior.isHideable = false
+        behavior.isDraggable = true
+        behavior.isFitToContents = false // usamos altura fija cuando expandido
 
-        // FAB "mi ubicación" justo encima del panel fijo
-        binding.fabMiUbicacion.layoutParams =
-            (binding.fabMiUbicacion.layoutParams as ViewGroup.MarginLayoutParams).apply {
-                bottomMargin = altura + 16.dp
+        // Callback para mover FAB junto con el sheet
+        behavior.addBottomSheetCallback(object : BottomSheetBehavior.BottomSheetCallback() {
+            override fun onStateChanged(bottomSheet: View, newState: Int) {
+                // Opcional: reaccionar a cambios de estado
             }
+
+            override fun onSlide(bottomSheet: View, slideOffset: Float) {
+                // slideOffset: 0 = colapsado (peek), 1 = expandido
+                // Mover FAB hacia arriba cuando se expande
+                val fab = binding.fabMiUbicacion
+                val params = fab.layoutParams as ViewGroup.MarginLayoutParams
+                val alturaExpandida = sheet.height - 100.dp // altura extra al expandir
+                params.bottomMargin = (108.dp + slideOffset * alturaExpandida).toInt()
+                fab.layoutParams = params
+            }
+        })
+
+        // Estado inicial: colapsado
+        behavior.state = BottomSheetBehavior.STATE_COLLAPSED
     }
 
     /**
