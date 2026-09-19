@@ -86,6 +86,22 @@ class RegistrarPropiedadActivity : AppCompatActivity() {
     companion object {
         const val EXTRA_LAT = "extra_lat"
         const val EXTRA_LNG = "extra_lng"
+        const val EXTRA_EDIT_MODE = "edit_mode"
+        const val EXTRA_PROPIEDAD_ID = "propiedad_id"
+        const val EXTRA_TITULO = "extra_titulo"
+        const val EXTRA_DESCRIPCION = "extra_descripcion"
+        const val EXTRA_TIPO = "extra_tipo"
+        const val EXTRA_OPERACION = "extra_operacion"
+        const val EXTRA_PRECIO = "extra_precio"
+        const val EXTRA_MONEDA = "extra_moneda"
+        const val EXTRA_DIRECCION = "extra_direccion"
+        const val EXTRA_BARRIO = "extra_barrio"
+        const val EXTRA_CIUDAD = "extra_ciudad"
+        const val EXTRA_AMBIENTES = "extra_ambientes"
+        const val EXTRA_SUPERFICIE = "extra_superficie"
+        const val EXTRA_COMODIDADES = "extra_comodidades"
+        const val EXTRA_FOTOS = "extra_fotos"
+        const val EXTRA_FOTOS_URL = "extra_fotos_url"
         private const val MAX_FOTOS = 7
         private const val LADO_PREVIEW_PX = 128
     }
@@ -100,8 +116,11 @@ class RegistrarPropiedadActivity : AppCompatActivity() {
         latAgregar = intent.getDoubleExtra(EXTRA_LAT, 0.0)
         lngAgregar = intent.getDoubleExtra(EXTRA_LNG, 0.0)
 
+        val editMode = intent.getBooleanExtra(EXTRA_EDIT_MODE, false)
+        val propiedadId = intent.getStringExtra(EXTRA_PROPIEDAD_ID)?.orEmpty() ?: ""
+
         binding.btnRegistrarBack.setOnClickListener { finish() }
-        binding.btnRegistrarGuardar.setOnClickListener { guardarPropiedad() }
+        binding.btnRegistrarGuardar.setOnClickListener { guardarPropiedad(editMode, propiedadId) }
 
         val spinnerTipo = binding.spPropTipo
         val spinnerOperacion = binding.spPropOperacion
@@ -126,6 +145,10 @@ class RegistrarPropiedadActivity : AppCompatActivity() {
         spinnerDistrito.adapter = ArrayAdapter(
             this, android.R.layout.simple_spinner_item, distritosPublicar
         ).apply { setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
+
+        if (editMode && propiedadId.isNotBlank()) {
+            cargarDatosParaEditar(propiedadId, spinnerTipo, spinnerOperacion, spinnerMoneda, spinnerDistrito)
+        }
 
         binding.btnPropAgregarFoto.setOnClickListener {
             fotosLauncher.launch(
@@ -352,7 +375,72 @@ class RegistrarPropiedadActivity : AppCompatActivity() {
         }
     }
 
-    private fun guardarPropiedad() {
+    private fun cargarDatosParaEditar(
+        propiedadId: String,
+        spinnerTipo: android.widget.Spinner,
+        spinnerOperacion: android.widget.Spinner,
+        spinnerMoneda: android.widget.Spinner,
+        spinnerDistrito: android.widget.Spinner
+    ) {
+        binding.tvRegistrarTitulo.text = "Editar publicacion"
+        binding.btnRegistrarGuardar.text = "Guardar cambios"
+
+        db.collection("propiedades").document(propiedadId).get()
+            .addOnSuccessListener { doc ->
+                val d = doc.data ?: return@addOnSuccessListener
+                fun s(k: String): String = d[k] as? String ?: ""
+                fun n(k: String): Double = (d[k] as? Number)?.toDouble() ?: 0.0
+                fun l(k: String): List<String> = (d[k] as? List<*>)?.filterIsInstance<String>() ?: emptyList()
+
+                binding.etPropTitulo.setText(s("titulo"))
+                binding.etPropDescripcion.setText(s("descripcion"))
+                binding.etPropDireccion.setText(s("direccion"))
+                binding.etPropAmbientes.setText(s("ambientes"))
+                binding.etPropSuperficie.setText(s("superficieM2"))
+                binding.etPropPrecio.setText(n("precio").toString())
+
+                val tipo = s("tipo")
+                val operacion = s("operacion")
+                val moneda = s("moneda")
+                val barrio = s("barrio")
+                val distritoSel = if (barrio.isBlank()) getString(R.string.prop_distrito_sin) else barrio
+
+                val tiposArr = resources.getStringArray(R.array.tipos_inmueble)
+                val operArr = resources.getStringArray(R.array.operaciones)
+                val monArr = resources.getStringArray(R.array.monedas)
+
+                spinnerTipo.setSelection(tiposArr.indexOfFirst { it == tipo }.coerceAtLeast(0))
+                spinnerOperacion.setSelection(operArr.indexOfFirst { it == operacion }.coerceAtLeast(0))
+                spinnerMoneda.setSelection(monArr.indexOfFirst { it.contains(moneda, ignoreCase = true) }.coerceAtLeast(0))
+                spinnerDistrito.setSelection(
+                    (listOf(getString(R.string.prop_distrito_sin)) + resources.getStringArray(R.array.distritos_lima).toList())
+                        .indexOfFirst { it == distritoSel }.coerceAtLeast(0)
+                )
+
+                // Comodidades
+                val comodidadesExistentes = l("comodidades").toSet()
+                for (i in 0 until binding.cgPropComodidades.childCount) {
+                    val chip = binding.cgPropComodidades.getChildAt(i) as com.google.android.material.chip.Chip
+                    if (comodidadesExistentes.contains(chip.text.toString())) {
+                        chip.isChecked = true
+                    }
+                }
+
+                // Fotos base64
+                val fotosBase64 = l("fotos")
+                fotosFormulario.clear()
+                fotosFormulario.addAll(fotosBase64)
+                renderizarPreviewsFotos()
+
+                latAgregar = n("lat")
+                lngAgregar = n("lng")
+            }
+            .addOnFailureListener { e ->
+                Toast.makeText(this, "Error cargando datos: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
+    }
+
+    private fun guardarPropiedad(editMode: Boolean, propiedadId: String = "") {
         val titulo = binding.etPropTitulo.text.toString().trim()
         if (titulo.isEmpty()) {
             Toast.makeText(this, R.string.prop_titulo_requerido, Toast.LENGTH_SHORT).show()
@@ -392,7 +480,6 @@ class RegistrarPropiedadActivity : AppCompatActivity() {
             "imagenUrl" to emptyList<String>(),
             "fotos" to fotosFormulario.toList(),
             "idPropietario" to u.uid,
-            "estado" to "under_review",
             "ambientes" to (binding.etPropAmbientes.text.toString().trim().toLongOrNull() ?: 0L),
             "superficieM2" to (binding.etPropSuperficie.text.toString().trim().toDoubleOrNull()
                 ?: 0.0),
@@ -400,17 +487,36 @@ class RegistrarPropiedadActivity : AppCompatActivity() {
             "publicadoEn" to FieldValue.serverTimestamp()
         )
 
-        db.collection("propiedades").add(datos)
-            .addOnSuccessListener {
-                Toast.makeText(this, R.string.prop_ok_guardado, Toast.LENGTH_SHORT).show()
-                finish()
-            }
-            .addOnFailureListener { e ->
-                Toast.makeText(
-                    this,
-                    getString(R.string.prop_error_guardado, e.localizedMessage ?: "?"),
-                    Toast.LENGTH_LONG
-                ).show()
-            }
+        if (editMode && propiedadId.isNotBlank()) {
+            // En modo edición, actualizar documento existente (mantener estado actual)
+            db.collection("propiedades").document(propiedadId).update(datos)
+                .addOnSuccessListener {
+                    Toast.makeText(this, "Cambios guardados", Toast.LENGTH_SHORT).show()
+                    finish()
+                }
+                .addOnFailureListener { e ->
+                    Toast.makeText(
+                        this,
+                        getString(R.string.prop_error_guardado, e.localizedMessage ?: "?"),
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+        } else {
+            // Nueva publicación
+            val datosNueva = datos.toMutableMap()
+            datosNueva["estado"] = "under_review"
+            db.collection("propiedades").add(datosNueva)
+                .addOnSuccessListener {
+                    Toast.makeText(this, R.string.prop_ok_guardado, Toast.LENGTH_SHORT).show()
+                    finish()
+                }
+                .addOnFailureListener { e ->
+                    Toast.makeText(
+                        this,
+                        getString(R.string.prop_error_guardado, e.localizedMessage ?: "?"),
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+        }
     }
 }

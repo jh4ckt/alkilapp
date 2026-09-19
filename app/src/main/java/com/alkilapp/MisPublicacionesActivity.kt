@@ -4,8 +4,11 @@ import android.content.Intent
 import android.content.res.ColorStateList
 import android.os.Bundle
 import android.util.Log
+import android.view.MenuItem
 import android.view.View
+import android.widget.ImageView
 import android.widget.LinearLayout
+import android.widget.PopupMenu
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -13,6 +16,7 @@ import com.alkilapp.data.Propiedad
 import com.alkilapp.databinding.ActivityMisPublicacionesBinding
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.SetOptions
 
 /** Pantalla estática "Mis publicaciones": lista los inmuebles del usuario con su estado. */
 class MisPublicacionesActivity : AppCompatActivity() {
@@ -87,12 +91,27 @@ class MisPublicacionesActivity : AppCompatActivity() {
             setPadding(14.dp, 12.dp, 14.dp, 12.dp)
         }
 
-        cont.addView(TextView(this).apply {
+        // Header con título + menú
+        val header = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = android.view.Gravity.CENTER_VERTICAL
+        }
+        header.addView(TextView(this).apply {
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
             text = p.titulo
             textSize = 14f
             setTextColor(getColor(R.color.text_primary))
             setTypeface(null, android.graphics.Typeface.BOLD)
         })
+        header.addView(ImageView(this).apply {
+            setImageResource(R.drawable.ic_more_vert)
+            setColorFilter(getColor(R.color.text_secondary))
+            layoutParams = LinearLayout.LayoutParams(40.dp, 40.dp)
+            setScaleType(ImageView.ScaleType.CENTER)
+            setOnClickListener { v -> mostrarMenuOpciones(v, p) }
+            contentDescription = "Más opciones"
+        })
+        cont.addView(header)
 
         val fila = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -183,6 +202,147 @@ class MisPublicacionesActivity : AppCompatActivity() {
             putExtra(PropiedadDetalleActivity.EXTRA_FEATURED, p.esDestacado)
             putExtra(PropiedadDetalleActivity.EXTRA_ESTADO, p.estado)
         }.also { startActivity(it) }
+    }
+
+    private fun mostrarMenuOpciones(anchor: View, p: Propiedad) {
+        val popup = PopupMenu(this, anchor)
+        popup.menuInflater.inflate(R.menu.menu_mis_publicaciones, popup.menu)
+        val menu = popup.menu
+        val estadoNorm = p.estadoNormalizado
+        // Mostrar/ocultar opciones según estado
+        menu.findItem(R.id.menu_suspender).isVisible = estadoNorm == "disponible"
+        menu.findItem(R.id.menu_reactivar).isVisible = estadoNorm == "under_review" || estadoNorm == "pendiente"
+        menu.findItem(R.id.menu_destacar).title = if (p.esDestacado) "Quitar destacado" else "Destacar publicacion"
+        popup.setOnMenuItemClickListener { item ->
+            when (item.itemId) {
+                R.id.menu_editar -> {
+                    editarPublicacion(p)
+                    true
+                }
+                R.id.menu_destacar -> {
+                    toggleDestacado(p)
+                    true
+                }
+                R.id.menu_suspender -> {
+                    suspenderPublicacion(p)
+                    true
+                }
+                R.id.menu_reactivar -> {
+                    reactivarPublicacion(p)
+                    true
+                }
+                R.id.menu_eliminar -> {
+                    confirmarEliminar(p)
+                    true
+                }
+                else -> false
+            }
+        }
+        popup.show()
+    }
+
+    private fun editarPublicacion(p: Propiedad) {
+        Intent(this, RegistrarPropiedadActivity::class.java).apply {
+            putExtra("editMode", true)
+            putExtra("propiedadId", p.id)
+            putExtra(RegistrarPropiedadActivity.EXTRA_TITULO, p.titulo)
+            putExtra(RegistrarPropiedadActivity.EXTRA_DESCRIPCION, p.descripcion)
+            putExtra(RegistrarPropiedadActivity.EXTRA_TIPO, p.tipo)
+            putExtra(RegistrarPropiedadActivity.EXTRA_OPERACION, p.operacion)
+            putExtra(RegistrarPropiedadActivity.EXTRA_PRECIO, p.precio)
+            putExtra(RegistrarPropiedadActivity.EXTRA_MONEDA, p.moneda)
+            putExtra(RegistrarPropiedadActivity.EXTRA_DIRECCION, p.direccion)
+            putExtra(RegistrarPropiedadActivity.EXTRA_BARRIO, p.barrio)
+            putExtra(RegistrarPropiedadActivity.EXTRA_CIUDAD, p.ciudad)
+            putExtra(RegistrarPropiedadActivity.EXTRA_LAT, p.lat)
+            putExtra(RegistrarPropiedadActivity.EXTRA_LNG, p.lng)
+            putExtra(RegistrarPropiedadActivity.EXTRA_AMBIENTES, p.ambientes)
+            putExtra(RegistrarPropiedadActivity.EXTRA_SUPERFICIE, p.superficieM2)
+            putExtra(RegistrarPropiedadActivity.EXTRA_COMODIDADES, p.comodidades.toTypedArray())
+            putExtra(RegistrarPropiedadActivity.EXTRA_FOTOS, p.fotos.toTypedArray())
+            putExtra(RegistrarPropiedadActivity.EXTRA_FOTOS_URL, p.photosUrl.toTypedArray())
+        }.also { startActivity(it) }
+    }
+
+    private fun toggleDestacado(p: Propiedad) {
+        if (p.esDestacado) {
+            quitarDestacado(p)
+        } else {
+            solicitarDestacado(p)
+        }
+    }
+
+    private fun solicitarDestacado(p: Propiedad) {
+        db.collection("propiedades").document(p.id)
+            .set(mapOf(
+                "solicitudDestacar" to true,
+                "destacadoDias" to 30
+            ), SetOptions.merge())
+            .addOnSuccessListener {
+                Toast.makeText(this, "Solicitud de destacado enviada (30 dias)", Toast.LENGTH_SHORT).show()
+            }
+            .addOnFailureListener { e ->
+                Toast.makeText(this, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
+    }
+
+    private fun quitarDestacado(p: Propiedad) {
+        db.collection("propiedades").document(p.id)
+            .set(mapOf(
+                "isFeatured" to false,
+                "featuredUntil" to null,
+                "destacadoDiasRestantes" to 0,
+                "destacadoEstado" to "retirado",
+                "solicitudDestacar" to false
+            ), SetOptions.merge())
+            .addOnSuccessListener {
+                Toast.makeText(this, "Destacado retirado", Toast.LENGTH_SHORT).show()
+            }
+            .addOnFailureListener { e ->
+                Toast.makeText(this, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
+    }
+
+    private fun suspenderPublicacion(p: Propiedad) {
+        db.collection("propiedades").document(p.id)
+            .set(mapOf("estado" to "under_review"), SetOptions.merge())
+            .addOnSuccessListener {
+                Toast.makeText(this, "Publicacion suspendida (en revision)", Toast.LENGTH_SHORT).show()
+            }
+            .addOnFailureListener { e ->
+                Toast.makeText(this, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
+    }
+
+    private fun reactivarPublicacion(p: Propiedad) {
+        db.collection("propiedades").document(p.id)
+            .set(mapOf("estado" to "disponible"), SetOptions.merge())
+            .addOnSuccessListener {
+                Toast.makeText(this, "Publicacion reactivada (disponible)", Toast.LENGTH_SHORT).show()
+            }
+            .addOnFailureListener { e ->
+                Toast.makeText(this, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
+    }
+
+    private fun confirmarEliminar(p: Propiedad) {
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("Eliminar publicacion")
+            .setMessage("¿Eliminar definitivamente \"${p.titulo}\"? Esta accion no se puede deshacer.")
+            .setPositiveButton("Eliminar") { _, _ -> eliminarPublicacion(p) }
+            .setNegativeButton("Cancelar", null)
+            .show()
+    }
+
+    private fun eliminarPublicacion(p: Propiedad) {
+        db.collection("propiedades").document(p.id)
+            .delete()
+            .addOnSuccessListener {
+                Toast.makeText(this, "Publicacion eliminada", Toast.LENGTH_SHORT).show()
+            }
+            .addOnFailureListener { e ->
+                Toast.makeText(this, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
     }
 
     private val Int.dp: Int

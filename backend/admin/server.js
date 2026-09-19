@@ -134,6 +134,15 @@ ${link('/usuarios', 'Usuarios')}<span class="sp"></span>
 <button class="b-grey" type="submit">Salir</button></form></header>`;
 }
 
+function buscarInput(nombre, valor, placeholder) {
+    return `<form method="get" style="margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap">
+<input type="text" name="${nombre}" value="${esc(valor)}" placeholder="${esc(placeholder)}"
+style="flex:1;min-width:220px;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px">
+<button class="b-ok" type="submit" style="padding:8px 14px">Buscar</button>
+${valor ? `<a href="${nombre === 'q' ? '/' : '/' + nombre}" class="b-grey" style="padding:8px 14px;text-decoration:none">Limpiar</a>` : ''}
+</form>`;
+}
+
 function aviso(msg, tipo = 'ok') {
     if (!msg) return '';
     return `<div class="card" style="border-color:${tipo === 'ok' ? '#bbf7d0' : '#fecaca'}">
@@ -179,9 +188,17 @@ ${stat(usr.data().count, 'Usuarios')}
 </div></main>`;
 }
 
-async function vistaVerificaciones(avisoHtml) {
-    const snap = await db.collection('verificaciones').limit(200).get();
+async function vistaVerificaciones(avisoHtml, q = '') {
+    let query = db.collection('verificaciones').limit(200);
+    if (q) {
+        // Buscar en email, nombre, numeroDocumento
+        // Nota: Firestore no soporta OR nativo, filtramos en memoria tras traer limit
+    }
+    const snap = await query.get();
     const docs = snap.docs.map(ponerCreado)
+        .filter((v) => !q || (v.email && v.email.toLowerCase().includes(q.toLowerCase())) ||
+            (v.nombre && v.nombre.toLowerCase().includes(q.toLowerCase())) ||
+            (v.numeroDocumento && v.numeroDocumento.toLowerCase().includes(q.toLowerCase())))
         .sort((a, b) => (mostrarCreado(b) > mostrarCreado(a) ? 1 : -1));
     const filas = docs.map((v) => {
         const pill = v.estado === 'aprobado' ? 'ok' : v.estado === 'rechazado' ? 'bad' : 'pend';
@@ -203,6 +220,7 @@ ${v.motivo ? `<p class="muted">motivo: ${esc(v.motivo)}</p>` : ''}
 <div style="margin-top:10px">${acciones}</div></div>`;
     }).join('');
     return nav('/verificaciones') + `<main><h2>Verificaciones de identidad</h2>
+${buscarInput('q', q, 'Buscar email, nombre, documento...')}
 ${avisoHtml || ''}${filas || '<div class="card">Sin solicitudes.</div>'}</main>`;
 }
 
