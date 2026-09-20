@@ -781,7 +781,7 @@ class PerfilPropietarioActivity : AppCompatActivity() {
     private fun abrirChat() {
         val miUid = auth.currentUser?.uid ?: return
         if (listingId.isBlank() || uid.isBlank()) return
-        val chatId = "inm-$listingId"
+        val chatId = "inm-$listingId-$miUid"
         db.collection("chats").document(chatId)
             .set(
                 hashMapOf(

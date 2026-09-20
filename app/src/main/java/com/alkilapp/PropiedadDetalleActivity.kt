@@ -525,11 +525,11 @@ class PropiedadDetalleActivity : AppCompatActivity() {
         }
         if (idPropietario.isBlank() || propId.isBlank()) return
 
-        // Chat determinístico por inmueble: mismo id para ambos interlocutores.
+        // Chat determinístico por inmueble Y usuario: cada usuario tiene su propio chat con el propietario.
         // Se crea con SET MERGE (no leemos antes: en un doc inexistente el get daba
         // PERMISSION_DENIED y el chat "no abría"). En un chat existente el merge no
         // pisa lastMessage/unreadCount.
-        val chatId = "inm-$propId"
+        val chatId = "inm-$propId-$miUid"
         db.collection("chats").document(chatId)
             .set(
                 hashMapOf(
