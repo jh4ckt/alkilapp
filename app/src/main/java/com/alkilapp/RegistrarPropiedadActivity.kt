@@ -154,13 +154,16 @@ class RegistrarPropiedadActivity : AppCompatActivity() {
         val spinnerTipo = binding.spPropTipo
         val spinnerOperacion = binding.spPropOperacion
         val spinnerMoneda = binding.spPropMoneda
+        val spinnerDepartamento = binding.spPropDepartamento
         val spinnerDistrito = binding.spPropDistrito
 
         val tipos = resources.getStringArray(R.array.tipos_inmueble)
         val operaciones = resources.getStringArray(R.array.operaciones)
         val monedas = resources.getStringArray(R.array.monedas)
-        val distritos = resources.getStringArray(R.array.distritos_lima).toList()
-        val distritosPublicar = listOf(getString(R.string.prop_distrito_sin)) + distritos
+        val departamentos = resources.getStringArray(R.array.departamentos_peru).toList()
+        val distritosLima = resources.getStringArray(R.array.distritos_lima).toList()
+        val distritosGenerico = listOf(getString(R.string.prop_distrito_sin), "Otro")
+        val distritosPublicar = listOf(getString(R.string.prop_distrito_sin)) + distritosLima
 
         spinnerTipo.adapter = ArrayAdapter(
             this, android.R.layout.simple_spinner_item, tipos
@@ -171,12 +174,29 @@ class RegistrarPropiedadActivity : AppCompatActivity() {
         spinnerMoneda.adapter = ArrayAdapter(
             this, android.R.layout.simple_spinner_item, monedas
         ).apply { setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
+        spinnerDepartamento.adapter = ArrayAdapter(
+            this, android.R.layout.simple_spinner_item, departamentos
+        ).apply { setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
         spinnerDistrito.adapter = ArrayAdapter(
             this, android.R.layout.simple_spinner_item, distritosPublicar
         ).apply { setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
 
+        // Actualizar distritos según departamento seleccionado
+        spinnerDepartamento.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: android.widget.AdapterView<*>?, view: View?, position: Int, id: Long) {
+                val dep = departamentos[position]
+                val nuevosDistritos = if (dep == "Lima") distritosPublicar else distritosGenerico
+                spinnerDistrito.adapter = ArrayAdapter(
+                    this@RegistrarPropiedadActivity,
+                    android.R.layout.simple_spinner_item,
+                    nuevosDistritos
+                ).apply { setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
+            }
+            override fun onNothingSelected(parent: android.widget.AdapterView<*>?) {}
+        }
+
         if (editMode && propiedadId.isNotBlank()) {
-            cargarDatosParaEditar(propiedadId, spinnerTipo, spinnerOperacion, spinnerMoneda, spinnerDistrito)
+            cargarDatosParaEditar(propiedadId, spinnerTipo, spinnerOperacion, spinnerMoneda, spinnerDepartamento, spinnerDistrito)
         }
 
         binding.btnPropAgregarFoto.setOnClickListener {
@@ -464,6 +484,7 @@ class RegistrarPropiedadActivity : AppCompatActivity() {
         spinnerTipo: android.widget.Spinner,
         spinnerOperacion: android.widget.Spinner,
         spinnerMoneda: android.widget.Spinner,
+        spinnerDepartamento: android.widget.Spinner,
         spinnerDistrito: android.widget.Spinner
     ) {
         binding.tvRegistrarTitulo.text = "Editar publicacion"
@@ -487,18 +508,33 @@ class RegistrarPropiedadActivity : AppCompatActivity() {
                 val operacion = s("operacion")
                 val moneda = s("moneda")
                 val barrio = s("barrio")
+                val departamentoSel = if (s("ciudad").isBlank()) "Lima" else s("ciudad")
                 val distritoSel = if (barrio.isBlank()) getString(R.string.prop_distrito_sin) else barrio
 
                 val tiposArr = resources.getStringArray(R.array.tipos_inmueble)
                 val operArr = resources.getStringArray(R.array.operaciones)
                 val monArr = resources.getStringArray(R.array.monedas)
+                val depArr = resources.getStringArray(R.array.departamentos_peru)
 
                 spinnerTipo.setSelection(tiposArr.indexOfFirst { it == tipo }.coerceAtLeast(0))
                 spinnerOperacion.setSelection(operArr.indexOfFirst { it == operacion }.coerceAtLeast(0))
                 spinnerMoneda.setSelection(monArr.indexOfFirst { it.contains(moneda, ignoreCase = true) }.coerceAtLeast(0))
+                spinnerDepartamento.setSelection(depArr.indexOfFirst { it == departamentoSel }.coerceAtLeast(0))
+
+                // Actualizar distritos según departamento antes de setear
+                val distritosLima = resources.getStringArray(R.array.distritos_lima).toList()
+                val distritosGenerico = listOf(getString(R.string.prop_distrito_sin), "Otro")
+                val nuevosDistritos = if (departamentoSel == "Lima") {
+                    listOf(getString(R.string.prop_distrito_sin)) + distritosLima
+                } else distritosGenerico
+                spinnerDistrito.adapter = ArrayAdapter(
+                    this,
+                    android.R.layout.simple_spinner_item,
+                    nuevosDistritos
+                ).apply { setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
+
                 spinnerDistrito.setSelection(
-                    (listOf(getString(R.string.prop_distrito_sin)) + resources.getStringArray(R.array.distritos_lima).toList())
-                        .indexOfFirst { it == distritoSel }.coerceAtLeast(0)
+                    nuevosDistritos.indexOfFirst { it == distritoSel }.coerceAtLeast(0)
                 )
 
                 // Comodidades
@@ -541,8 +577,9 @@ class RegistrarPropiedadActivity : AppCompatActivity() {
         val monedas = resources.getStringArray(R.array.monedas)
         val codigoMoneda =
             if (monedas[binding.spPropMoneda.selectedItemPosition].contains("USD")) "USD" else "PEN"
+        val departamento = binding.spPropDepartamento.selectedItem as String
         val distrito = binding.spPropDistrito.selectedItem as String
-        val barrio = if (distrito == getString(R.string.prop_distrito_sin)) "" else distrito
+        val barrio = if (distrito == getString(R.string.prop_distrito_sin) || distrito == "Otro") "" else distrito
 
         val comodidades = binding.cgPropComodidades.checkedChipIds.mapNotNull { id ->
             (binding.cgPropComodidades.findViewById<com.google.android.material.chip.Chip>(id))
@@ -558,7 +595,7 @@ class RegistrarPropiedadActivity : AppCompatActivity() {
             "moneda" to codigoMoneda,
             "direccion" to binding.etPropDireccion.text.toString().trim(),
             "barrio" to barrio,
-            "ciudad" to getString(R.string.ciudad_lima),
+            "ciudad" to departamento,
             "lat" to latAgregar,
             "lng" to lngAgregar,
             "imagenUrl" to emptyList<String>(),

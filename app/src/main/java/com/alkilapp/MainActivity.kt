@@ -523,8 +523,9 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
 
         val todos = getString(R.string.filtros_todos)
         val departamentos = resources.getStringArray(R.array.departamentos_peru).toList()
-        val distritos = resources.getStringArray(R.array.distritos_lima).toList()
-        val distritosConTodos = listOf(todos) + distritos
+        val distritosLima = resources.getStringArray(R.array.distritos_lima).toList()
+        val distritosGenerico = listOf(todos, "Otro")
+        val distritosConTodos = listOf(todos) + distritosLima
         val tipos = resources.getStringArray(R.array.tipos_inmueble)
         val opcionesHab = listOf(todos) + resources.getStringArray(R.array.opciones_habitaciones).toList()
 
@@ -537,6 +538,20 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         llenar(spinnerDis, distritosConTodos)
         llenar(spinnerTipo, listOf(todos) + tipos)
         llenar(spinnerHab, opcionesHab)
+
+        // Actualizar distritos según departamento seleccionado
+        spinnerDep.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: android.widget.AdapterView<*>?, view: View?, position: Int, id: Long) {
+                val dep = (listOf(todos) + departamentos)[position]
+                val nuevosDistritos = if (dep == "Lima") distritosConTodos else distritosGenerico
+                spinnerDis.adapter = ArrayAdapter(
+                    this@MainActivity,
+                    android.R.layout.simple_spinner_item,
+                    nuevosDistritos
+                ).apply { setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
+            }
+            override fun onNothingSelected(parent: android.widget.AdapterView<*>?) {}
+        }
 
         val depActual = filtroDepartamento ?: todos
         spinnerDep.setSelection(

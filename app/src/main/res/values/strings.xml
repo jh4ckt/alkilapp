@@ -86,6 +86,7 @@
     <string name="prop_moneda_label">Moneda</string>
     <string name="prop_distrito_label">Distrito</string>
     <string name="prop_distrito_sin">Sin distrito</string>
+    <string name="prop_departamento_label">Departamento</string>
     <string name="ciudad_lima">Lima</string>
 
     <string-array name="monedas">
@@ -116,11 +117,35 @@
     <string name="filtros_btn">Filtros</string>
     <string name="filtros_btn_activo">Filtros: %1$s</string>
     <string name="filtros_sin_resultados">No hay inmuebles que coincidan con el filtro</string>
-    <string name="filtros_scope_info">Por ahora se filtra solo Lima (Perú). Más departamentos próximamente.</string>
+    <string name="filtros_scope_info">Ahora se filtra a nivel nacional (Perú). Selecciona departamento y distrito.</string>
     <string name="menu_principal_cd">Menú principal: perfil y chat</string>
 
     <string-array name="departamentos_peru">
+        <item>Amazonas</item>
+        <item>Ancash</item>
+        <item>Apurímac</item>
+        <item>Arequipa</item>
+        <item>Ayacucho</item>
+        <item>Cajamarca</item>
+        <item>Callao</item>
+        <item>Cusco</item>
+        <item>Huancavelica</item>
+        <item>Huánuco</item>
+        <item>Ica</item>
+        <item>Junín</item>
+        <item>La Libertad</item>
+        <item>Lambayeque</item>
         <item>Lima</item>
+        <item>Loreto</item>
+        <item>Madre de Dios</item>
+        <item>Moquegua</item>
+        <item>Pasco</item>
+        <item>Piura</item>
+        <item>Puno</item>
+        <item>San Martín</item>
+        <item>Tacna</item>
+        <item>Tumbes</item>
+        <item>Ucayali</item>
     </string-array>
 
     <string-array name="distritos_lima">
