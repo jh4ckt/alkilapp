@@ -203,7 +203,8 @@ class MisPublicacionesActivity : AppCompatActivity() {
             putExtra(PropiedadDetalleActivity.EXTRA_AMBIENTES, p.ambientes)
             putExtra(PropiedadDetalleActivity.EXTRA_SUPERFICIE, p.superficieM2)
             putExtra(PropiedadDetalleActivity.EXTRA_COMODIDADES, p.comodidades.toTypedArray())
-            putExtra(PropiedadDetalleActivity.EXTRA_FOTOS, p.fotos.toTypedArray())
+            // NO pasar fotos base64 por el intent: supera el límite de Binder
+            // (TransactionTooLargeException). El detalle las carga por ID desde Firestore.
             putExtra(PropiedadDetalleActivity.EXTRA_FOTOS_URL, p.photosUrl.toTypedArray())
             putExtra(PropiedadDetalleActivity.EXTRA_FEATURED, p.esDestacado)
             putExtra(PropiedadDetalleActivity.EXTRA_ESTADO, p.estado)
