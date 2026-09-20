@@ -38,6 +38,9 @@ class PropiedadAdapter(
     private var latUsuario: Double? = null
     private var lngUsuario: Double? = null
     private var propietariosVerificados: Map<String, Boolean> = emptyMap()
+    // Zona por defecto del usuario (desde Mi Perfil)
+    private var zonaDepartamento: String? = null
+    private var zonaCiudad: String? = null
 
     private val cacheFotos = object : LruCache<String, Bitmap>(8 * 1024 * 1024) {}
 
@@ -201,6 +204,14 @@ class PropiedadAdapter(
         aplicar()
     }
 
+    /** Establece la zona por defecto del usuario (departamento + ciudad/distrito).
+     * Se aplica cuando no hay filtros explícitos activos. */
+    fun setZona(departamento: String?, ciudad: String?) {
+        zonaDepartamento = departamento
+        zonaCiudad = ciudad
+        aplicar()
+    }
+
     private fun dp(valor: Int): Int =
         (valor * android.content.res.Resources.getSystem().displayMetrics.density).toInt()
 
@@ -270,14 +281,18 @@ class PropiedadAdapter(
 
     private fun aplicar() {
         items.clear()
+        // Filtro efectivo: explícito gana sobre zona por defecto
+        val deptoEfectivo = filtroDepartamento ?: zonaDepartamento
+        val distritoEfectivo = filtroDistrito ?: (if (filtroDepartamento == null) zonaCiudad else null)
+
         val filtradas = fullList.filter { p ->
             val buscaOk = query.isEmpty() ||
                 listOf(p.titulo, p.direccion, p.barrio, p.tipo, p.ciudad)
                     .any { it.lowercase().contains(query) }
-            val deptoOk = filtroDepartamento == null ||
-                p.ciudad.equals(filtroDepartamento, ignoreCase = true)
-            val distritoOk = filtroDistrito == null ||
-                p.barrio.equals(filtroDistrito, ignoreCase = true)
+            val deptoOk = deptoEfectivo == null ||
+                p.ciudad.equals(deptoEfectivo, ignoreCase = true)
+            val distritoOk = distritoEfectivo == null ||
+                p.barrio.equals(distritoEfectivo, ignoreCase = true)
             val tipoOk = filtroTipo == null || tipoClave(p.tipo) == filtroTipo
             val habOk = filtroHabitaciones == null ||
                 (if (filtroHabitaciones == 4) p.ambientes >= 4 else p.ambientes == filtroHabitaciones)

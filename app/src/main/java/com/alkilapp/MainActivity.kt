@@ -97,6 +97,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     private var busquedaActual: String = ""
     private var soloFavoritos = false
     private var favoritosSet: Set<String> = emptySet()
+    private var zonaConfigurada = false
     private var ultimaUbicacion: LatLng? = null
 
     private val googleSignInClient by lazy {
@@ -393,9 +394,11 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         auth.signOut()
         favoritosSet = Favoritos.locales(this)
         soloFavoritos = false
+        zonaConfigurada = false
         adapter.setFavoritos(favoritosSet)
         adapter.setSoloFavoritos(false)
         actualizarUiSesion()
+        actualizarEmptyState()
         Toast.makeText(this, R.string.auth_sesion_cerrada, Toast.LENGTH_SHORT).show()
     }
 
@@ -430,7 +433,42 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         super.onStart()
         actualizarUiSesion()
         cargarFavoritos()
+        cargarZonaUsuario()
         escucharPropiedades()
+    }
+
+    /** Carga la zona por defecto del usuario (departamento + ciudad) desde Firestore
+     * y la aplica al adapter para filtrar el listado por defecto. */
+    private fun cargarZonaUsuario() {
+        val u = auth.currentUser ?: return
+        db.collection("usuarios").document(u.uid).get()
+            .addOnSuccessListener { doc ->
+                if (!doc.exists()) return@addOnSuccessListener
+                val d = doc.data ?: return@addOnSuccessListener
+                val dep = d["zonaDepartamento"] as? String
+                val ciu = d["zonaCiudad"] as? String
+                if (!dep.isNullOrBlank() || !ciu.isNullOrBlank()) {
+                    adapter.setZona(dep, ciu)
+                    zonaConfigurada = true
+                }
+                // Mostrar/ocultar empty state según zona y resultados
+                actualizarEmptyState()
+            }
+            .addOnFailureListener { }
+    }
+
+    /** Muestra u oculta el estado vacío (llSheetVacio) cuando la zona del usuario no tiene inmuebles
+     * y no hay filtros explícitos activos. */
+    private fun actualizarEmptyState() {
+        val hayFiltroExplicito = filtroDepartamento != null || filtroDistrito != null ||
+            filtroTipo != null || filtroHabitaciones != null || soloFavoritos || busquedaActual.isNotBlank()
+        // Solo mostramos el empty state si:
+        // 1. El usuario tiene zona configurada (departamento/ciudad en Mi Perfil)
+        // 2. No hay filtros explícitos activos
+        // 3. No hay inmuebles visibles en el listado
+        val visibles = adapter.visibles()
+        val showEmpty = zonaConfigurada && !hayFiltroExplicito && visibles.isEmpty()
+        binding.llSheetVacio.visibility = if (showEmpty) View.VISIBLE else View.GONE
     }
 
     override fun onStop() {
@@ -450,6 +488,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             busquedaActual = texto?.toString().orEmpty()
             adapter.filter(busquedaActual)
             actualizarZonaMapa(false)
+            actualizarEmptyState()
         }
         binding.btnFiltroBuscar.setOnClickListener { abrirDialogoFiltros() }
     }
@@ -634,6 +673,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             adapter.setSoloFavoritos(soloFavoritos)
             actualizarBotonFiltros()
             actualizarZonaMapa()
+            actualizarEmptyState()
             sheet.dismiss()
         }
 
@@ -648,6 +688,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             adapter.setSoloFavoritos(false)
             actualizarBotonFiltros()
             actualizarZonaMapa()
+            actualizarEmptyState()
             sheet.dismiss()
         }
 
@@ -684,6 +725,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
                 adapter.submitList(lista)
                 actualizarBadges(lista)
                 cargarVerificacionPropietarios(lista)
+                actualizarEmptyState()
             }
     }
 

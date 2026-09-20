@@ -19,6 +19,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
 import kotlin.math.max
+import android.widget.AdapterView
 
 /** Pantalla "Mi perfil": el usuario autenticado edita sus datos personales. */
 class MiPerfilActivity : AppCompatActivity() {
@@ -29,6 +30,7 @@ class MiPerfilActivity : AppCompatActivity() {
 
     private var fotoBase64: String? = null
     private val valoresTipo = arrayOf("dueno", "inquilino", "ambos")
+    private val departamentos = resources.getStringArray(R.array.departamentos_peru).toList()
 
     private val fotoLauncher = registerForActivityResult(
         ActivityResultContracts.PickVisualMedia()
@@ -62,6 +64,31 @@ class MiPerfilActivity : AppCompatActivity() {
             resources.getStringArray(R.array.tipos_usuario)
         ).apply { setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
 
+        val departamentos = resources.getStringArray(R.array.departamentos_peru).toList()
+        binding.spPerfilZonaDepartamento.adapter = ArrayAdapter(
+            this,
+            android.R.layout.simple_spinner_item,
+            departamentos
+        ).apply { setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
+
+        binding.spPerfilZonaDepartamento.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: android.view.View?, position: Int, id: Long) {
+                val dep = departamentos[position]
+                val ciudades = obtenerCiudades(dep)
+                val opciones = if (dep == "Lima") {
+                    listOf(getString(R.string.prop_distrito_sin)) + ciudades
+                } else {
+                    listOf(getString(R.string.prop_distrito_sin), "Otro") + ciudades
+                }
+                binding.spPerfilZonaCiudad.adapter = ArrayAdapter(
+                    this@MiPerfilActivity,
+                    android.R.layout.simple_spinner_item,
+                    opciones
+                ).apply { setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
+            }
+            override fun onNothingSelected(parent: AdapterView<*>?) {}
+        }
+
         binding.btnPerfilFoto.setOnClickListener {
             fotoLauncher.launch(
                 PickVisualMediaRequest.Builder()
@@ -86,12 +113,65 @@ class MiPerfilActivity : AppCompatActivity() {
                 binding.spPerfilTipo.setSelection(
                     valoresTipo.indexOfFirst { it == tipo }.coerceAtLeast(0)
                 )
+                val zonaDep = (d["zonaDepartamento"] as? String)
+                if (!zonaDep.isNullOrBlank()) {
+                    val depIndex = departamentos.indexOfFirst { it == zonaDep }
+                    if (depIndex >= 0) {
+                        binding.spPerfilZonaDepartamento.setSelection(depIndex)
+                    }
+                }
+                val zonaCiu = (d["zonaCiudad"] as? String)
+                if (!zonaCiu.isNullOrBlank()) {
+                    // The ciudad spinner will be populated after departamento selection
+                    // We need to wait for the adapter to be set, then find the ciudad
+                    binding.spPerfilZonaCiudad.post {
+                        val adapter = binding.spPerfilZonaCiudad.adapter as? ArrayAdapter<String>
+                        adapter?.let { ad ->
+                            val ciuIndex = ad.getPosition(zonaCiu!!)
+                            if (ciuIndex >= 0) {
+                                binding.spPerfilZonaCiudad.setSelection(ciuIndex)
+                            }
+                        }
+                    }
+                }
                 val b64 = (d["fotoBase64"] as? String)
                 if (!b64.isNullOrBlank()) {
                     fotoBase64 = b64
                     mostrarFoto(b64)
                 }
             }
+    }
+
+    // Función para obtener ciudades por departamento (copiada de RegistrarPropiedadActivity)
+    private fun obtenerCiudades(departamento: String): List<String> {
+        return when (departamento) {
+            "Amazonas" -> resources.getStringArray(R.array.ciudades_amazonas).toList()
+            "Ancash" -> resources.getStringArray(R.array.ciudades_ancash).toList()
+            "Apurímac" -> resources.getStringArray(R.array.ciudades_apurimac).toList()
+            "Arequipa" -> resources.getStringArray(R.array.ciudades_arequipa).toList()
+            "Ayacucho" -> resources.getStringArray(R.array.ciudades_ayacucho).toList()
+            "Cajamarca" -> resources.getStringArray(R.array.ciudades_cajamarca).toList()
+            "Callao" -> resources.getStringArray(R.array.ciudades_callao).toList()
+            "Cusco" -> resources.getStringArray(R.array.ciudades_cusco).toList()
+            "Huancavelica" -> resources.getStringArray(R.array.ciudades_huancavelica).toList()
+            "Huánuco" -> resources.getStringArray(R.array.ciudades_huanuco).toList()
+            "Ica" -> resources.getStringArray(R.array.ciudades_ica).toList()
+            "Junín" -> resources.getStringArray(R.array.ciudades_junin).toList()
+            "Lambayeque" -> resources.getStringArray(R.array.ciudades_lambayeque).toList()
+            "La Libertad" -> resources.getStringArray(R.array.ciudades_lalibertad).toList()
+            "Lima" -> resources.getStringArray(R.array.ciudades_lima).toList()
+            "Loreto" -> resources.getStringArray(R.array.ciudades_loreto).toList()
+            "Madre de Dios" -> resources.getStringArray(R.array.ciudades_madrededios).toList()
+            "Moquegua" -> resources.getStringArray(R.array.ciudades_moquegua).toList()
+            "Pasco" -> resources.getStringArray(R.array.ciudades_pasco).toList()
+            "Piura" -> resources.getStringArray(R.array.ciudades_piura).toList()
+            "Puno" -> resources.getStringArray(R.array.ciudades_puno).toList()
+            "San Martín" -> resources.getStringArray(R.array.ciudades_sanmartin).toList()
+            "Tacna" -> resources.getStringArray(R.array.ciudades_tacna).toList()
+            "Tumbes" -> resources.getStringArray(R.array.ciudades_tumbes).toList()
+            "Ucayali" -> resources.getStringArray(R.array.ciudades_ucayali).toList()
+            else -> listOf(getString(R.string.prop_distrito_sin), "Otro")
+        }
     }
 
     private fun mostrarFoto(b64: String) {
@@ -115,7 +195,9 @@ class MiPerfilActivity : AppCompatActivity() {
         }
         val datos = hashMapOf<String, Any>(
             "telefono" to telefono,
-            "tipoUsuario" to valoresTipo[binding.spPerfilTipo.selectedItemPosition]
+            "tipoUsuario" to valoresTipo[binding.spPerfilTipo.selectedItemPosition],
+            "zonaDepartamento" to binding.spPerfilZonaDepartamento.selectedItem?.toString().orEmpty(),
+            "zonaCiudad" to binding.spPerfilZonaCiudad.selectedItem?.toString().orEmpty()
         )
         fotoBase64?.let { datos["fotoBase64"] = it }
         db.collection("usuarios").document(u.uid)

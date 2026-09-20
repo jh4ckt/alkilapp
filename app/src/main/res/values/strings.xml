@@ -118,6 +118,8 @@
     <string name="filtros_btn_activo">Filtros: %1$s</string>
     <string name="filtros_sin_resultados">No hay inmuebles que coincidan con el filtro</string>
     <string name="filtros_scope_info">Ahora se filtra a nivel nacional (Perú). Selecciona departamento y distrito.</string>
+    <string name="sheet_zona_vacio_titulo">Aún no hay inmuebles en tu zona</string>
+    <string name="sheet_zona_vacio_mensaje">Sé el primero en publicar uno. Revisa los filtros para ver inmuebles de otras zonas.</string>
     <string name="menu_principal_cd">Menú principal: perfil y chat</string>
 
     <string-array name="departamentos_peru">
@@ -551,6 +553,8 @@
     <string name="perfil_telefono_hint">Teléfono</string>
     <string name="perfil_email_label">Correo</string>
     <string name="perfil_tipo_label">Tipo de cuenta</string>
+    <string name="perfil_zona_departamento_label">Departamento de tu zona</string>
+    <string name="perfil_zona_ciudad_label">Ciudad/Distrito de tu zona</string>
     <string name="perfil_guardar">Guardar</string>
     <string name="perfil_ok">Perfil actualizado</string>
     <string name="perfil_error">No se pudo guardar tu perfil: %1$s</string>
