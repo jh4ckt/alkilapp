@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="AlkilApp - Encuentra y publica alquileres en Perú. Departamentos, casas, habitaciones. Chat directo con propietarios.">
+    <meta name="theme-color" content="#ff6b5e">
+    <title>AlkilApp - Alquileres en Perú</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #fafafa; color: #1f2937; line-height: 1.6; }
+        .hero { background: linear-gradient(135deg, #0b2447 0%, #1e3a5f 100%); color: white; padding: 4rem 1.5rem; text-align: center; }
+        .hero h1 { font-size: 2.5rem; font-weight: 700; margin-bottom: 1rem; }
+        .hero p { font-size: 1.15rem; opacity: 0.9; max-width: 600px; margin: 0 auto 2rem; }
+        .btn { display: inline-block; background: #ff6b5e; color: white; padding: 1rem 2rem; border-radius: 12px; text-decoration: none; font-weight: 600; font-size: 1.1rem; box-shadow: 0 4px 14px rgba(255,107,94,0.4); transition: transform .15s, box-shadow .15s; }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(255,107,94,0.5); }
+        .btn:disabled { background: #9ca3af; cursor: not-allowed; box-shadow: none; transform: none; }
+        .btn-secondary { background: transparent; border: 2px solid white; color: white; box-shadow: none; }
+        .btn-secondary:hover { background: rgba(255,255,255,0.1); }
+        .features { padding: 3rem 1.5rem; max-width: 1000px; margin: 0 auto; }
+        .features h2 { text-align: center; font-size: 1.75rem; color: #0b2447; margin-bottom: 2rem; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; }
+        .card { background: white; border-radius: 16px; padding: 2rem; box-shadow: 0 2px 8px rgba(0,0,0,0.06); border: 1px solid #eef2f7; transition: transform .2s, box-shadow .2s; }
+        .card:hover { transform: translateY(-4px); box-shadow: 0 8px 24px rgba(0,0,0,0.1); }
+        .card .icon { width: 56px; height: 56px; background: linear-gradient(135deg, #ff6b5e, #e85d4d); border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; margin-bottom: 1rem; }
+        .card h3 { font-size: 1.15rem; color: #0b2447; margin-bottom: 0.5rem; }
+        .card p { color: #6b7280; font-size: 0.95rem; }
+        .screenshots { background: #f3f4f6; padding: 3rem 1.5rem; }
+        .screenshots h2 { text-align: center; font-size: 1.75rem; color: #0b2447; margin-bottom: 2rem; }
+        .screen-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; max-width: 1000px; margin: 0 auto; }
+        .screen { background: white; border-radius: 12px; aspect-ratio: 9/19; box-shadow: 0 2px 8px rgba(0,0,0,0.08); background: linear-gradient(180deg, #0b2447 0%, #1e3a5f 100%); display: flex; align-items: center; justify-content: center; color: rgba(255,255,255,0.6); font-size: 0.85rem; }
+        .footer { background: #0b2447; color: white; padding: 3rem 1.5rem 1.5rem; }
+        .footer-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 2rem; max-width: 1000px; margin: 0 auto 2rem; }
+        .footer h4 { font-size: 1rem; margin-bottom: 1rem; color: #ff6b5e; }
+        .footer a { color: #d1d5db; text-decoration: none; display: block; margin-bottom: 0.5rem; transition: color .15s; }
+        .footer a:hover { color: #ff6b5e; }
+        .footer-bottom { text-align: center; padding-top: 1.5rem; border-top: 1px solid #1e3a5f; color: #9ca3af; font-size: 0.85rem; }
+        .badge { display: inline-flex; align-items: center; gap: 0.5rem; background: rgba(255,255,255,0.15); padding: 0.5rem 1rem; border-radius: 999px; font-size: 0.85rem; margin-bottom: 1.5rem; }
+        @media (max-width: 600px) {
+            .hero h1 { font-size: 2rem; }
+            .hero { padding: 3rem 1rem; }
+        }
+    </style>
+</head>
+<body>
+    <header class="hero">
+        <div class="badge">🇵🇪 Disponible en Perú</div>
+        <h1>AlkilApp</h1>
+        <p>La forma más fácil de encontrar y publicar alquileres en Perú. Departamentos, casas, habitaciones y más. Chat directo con propietarios, sin intermediarios.</p>
+        <div style="display:flex; gap:1rem; justify-content:center; flex-wrap:wrap;">
+            <a class="btn" href="https://play.google.com/store/apps/details?id=com.alkilapp" id="playStoreLink" disabled>Descargar en Play Store</a>
+            <a class="btn btn-secondary" href="privacy-policy.html">Política de Privacidad</a>
+        </div>
+    </header>
+
+    <section class="features">
+        <h2>¿Por qué AlkilApp?</h2>
+        <div class="grid">
+            <article class="card">
+                <div class="icon">🔍</div>
+                <h3>Búsqueda inteligente</h3>
+                <p>Filtra por zona, tipo, precio, habitaciones y comodidades. Mapa interactivo con tu ubicación.</p>
+            </article>
+            <article class="card">
+                <div class="icon">💬</div>
+                <h3>Chat directo</h3>
+                <p>Habla con el propietario al instante. Sin intermediarios, sin comisiones ocultas.</p>
+            </article>
+            <article class="card">
+                <div class="icon">🛡️</div>
+                <h3>Verificación de confianza</h3>
+                <p>Propietarios verificados con DNI. Badge "Verificado por AlkilApp" para más seguridad.</p>
+            </article>
+            <article class="card">
+                <div class="icon">📍</div>
+                <h3>Tu zona, tus reglas</h3>
+                <p>Configura tu departamento y ciudad en Mi Perfil. El feed muestra solo lo que te interesa.</p>
+            </article>
+            <article class="card">
+                <div class="icon">⭐</div>
+                <h3>Reseñas y reputación</h3>
+                <p>Califica y lee experiencias de otros inquilinos. Construye tu reputación como arrendador.</p>
+            </article>
+            <article class="card">
+                <div class="icon">📱</div>
+                <h3>Gestiona tus publicaciones</h3>
+                <p>Edita, pausa, reactiva o destaca tus inmuebles desde "Mis Publicaciones".</p>
+            </article>
+        </div>
+    </section>
+
+    <section class="screenshots">
+        <h2>Vista previa</h2>
+        <div class="screen-grid">
+            <div class="screen">Feed principal + Mapa</div>
+            <div class="screen">Detalle de inmueble</div>
+            <div class="screen">Chat con propietario</div>
+            <div class="screen">Mi Perfil + Zona</div>
+            <div class="screen">Mis Publicaciones</div>
+            <div class="screen">Verificación DNI</div>
+        </div>
+    </section>
+
+    <footer class="footer">
+        <div class="footer-grid">
+            <div>
+                <h4>AlkilApp</h4>
+                <a href="privacy-policy.html">Política de Privacidad</a>
+                <a href="account-deletion.html">Eliminar mi cuenta</a>
+                <a href="https://github.com/jh4ckt/alkilapp">Código abierto (GitHub)</a>
+            </div>
+            <div>
+                <h4>Para usuarios</h4>
+                <a href="https://play.google.com/store/apps/details?id=com.alkilapp">Descargar app</a>
+                <a href="#">Cómo buscar</a>
+                <a href="#">Cómo publicar</a>
+                <a href="#">Verificación DNI</a>
+            </div>
+            <div>
+                <h4>Para propietarios</h4>
+                <a href="#">Publicar inmueble</a>
+                <a href="#">Destacar publicación</a>
+                <a href="#">Gestionar chats</a>
+                <a href="#">Badge verificado</a>
+            </div>
+            <div>
+                <h4>Contacto</h4>
+                <a href="mailto:alkilapp2026@gmail.com">alkilapp2026@gmail.com</a>
+                <p style="color:#9ca3af; margin-top:0.5rem;">Desarrollado por Jh4ckT</p>
+                <p style="color:#9ca3af;">Perú 🇵🇪</p>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            © 2026 AlkilApp. Todos los derechos reservados.
+        </div>
+    </footer>
+
+    <script>
+        // Enable Play Store link when published (replace with real package name)
+        // document.getElementById('playStoreLink').disabled = false;
+    </script>
+</body>
+</html>
