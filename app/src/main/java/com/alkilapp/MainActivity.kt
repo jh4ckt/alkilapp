@@ -530,6 +530,38 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         val tipos = resources.getStringArray(R.array.tipos_inmueble)
         val opcionesHab = listOf(todos) + resources.getStringArray(R.array.opciones_habitaciones).toList()
 
+        // Función para obtener ciudades por departamento (mismo mapa que RegistrarPropiedadActivity)
+        fun obtenerCiudades(departamento: String): List<String> {
+            return when (departamento) {
+                "Amazonas" -> resources.getStringArray(R.array.ciudades_amazonas).toList()
+                "Ancash" -> resources.getStringArray(R.array.ciudades_ancash).toList()
+                "Apurímac" -> resources.getStringArray(R.array.ciudades_apurimac).toList()
+                "Arequipa" -> resources.getStringArray(R.array.ciudades_arequipa).toList()
+                "Ayacucho" -> resources.getStringArray(R.array.ciudades_ayacucho).toList()
+                "Cajamarca" -> resources.getStringArray(R.array.ciudades_cajamarca).toList()
+                "Callao" -> resources.getStringArray(R.array.ciudades_callao).toList()
+                "Cusco" -> resources.getStringArray(R.array.ciudades_cusco).toList()
+                "Huancavelica" -> resources.getStringArray(R.array.ciudades_huancavelica).toList()
+                "Huánuco" -> resources.getStringArray(R.array.ciudades_huanuco).toList()
+                "Ica" -> resources.getStringArray(R.array.ciudades_ica).toList()
+                "Junín" -> resources.getStringArray(R.array.ciudades_junin).toList()
+                "La Libertad" -> resources.getStringArray(R.array.ciudades_lalibertad).toList()
+                "Lambayeque" -> resources.getStringArray(R.array.ciudades_lambayeque).toList()
+                "Lima" -> resources.getStringArray(R.array.ciudades_lima).toList()
+                "Loreto" -> resources.getStringArray(R.array.ciudades_loreto).toList()
+                "Madre de Dios" -> resources.getStringArray(R.array.ciudades_madrededios).toList()
+                "Moquegua" -> resources.getStringArray(R.array.ciudades_moquegua).toList()
+                "Pasco" -> resources.getStringArray(R.array.ciudades_pasco).toList()
+                "Piura" -> resources.getStringArray(R.array.ciudades_piura).toList()
+                "Puno" -> resources.getStringArray(R.array.ciudades_puno).toList()
+                "San Martín" -> resources.getStringArray(R.array.ciudades_sanmartin).toList()
+                "Tacna" -> resources.getStringArray(R.array.ciudades_tacna).toList()
+                "Tumbes" -> resources.getStringArray(R.array.ciudades_tumbes).toList()
+                "Ucayali" -> resources.getStringArray(R.array.ciudades_ucayali).toList()
+                else -> listOf(todos, "Otro")
+            }
+        }
+
         fun llenar(sp: Spinner, opciones: List<String>) {
             sp.adapter = ArrayAdapter(
                 this, android.R.layout.simple_spinner_item, opciones
@@ -540,11 +572,16 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         llenar(spinnerTipo, listOf(todos) + tipos)
         llenar(spinnerHab, opcionesHab)
 
-        // Actualizar distritos según departamento seleccionado
+        // Actualizar distritos/ciudades según departamento seleccionado
         spinnerDep.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: android.widget.AdapterView<*>?, view: View?, position: Int, id: Long) {
                 val dep = (listOf(todos) + departamentos)[position]
-                val nuevosDistritos = if (dep == "Lima") distritosConTodos else distritosGenerico
+                val ciudades = obtenerCiudades(dep)
+                val nuevosDistritos = if (dep == "Lima") {
+                    listOf(todos) + ciudades
+                } else {
+                    listOf(todos, "Otro") + ciudades
+                }
                 spinnerDis.adapter = ArrayAdapter(
                     this@MainActivity,
                     android.R.layout.simple_spinner_item,
@@ -1036,6 +1073,7 @@ configurarBadges()
     }
 
     private fun abrirDetallePropiedad(propiedad: Propiedad) {
+        Log.d("AlkilApp", "abrirDetallePropiedad: ${propiedad.titulo} (${propiedad.id})")
         try {
             if (::mMap.isInitialized && propiedad.lat != 0.0 && propiedad.lng != 0.0) {
                 mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(propiedad.ubicacion, 16f))

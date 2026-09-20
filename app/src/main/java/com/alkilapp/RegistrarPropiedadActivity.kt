@@ -181,15 +181,68 @@ class RegistrarPropiedadActivity : AppCompatActivity() {
             this, android.R.layout.simple_spinner_item, distritosPublicar
         ).apply { setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
 
-        // Actualizar distritos según departamento seleccionado
+        // Función para obtener ciudades por departamento
+        fun obtenerCiudades(departamento: String): List<String> {
+            return when (departamento) {
+                "Amazonas" -> resources.getStringArray(R.array.ciudades_amazonas).toList()
+                "Ancash" -> resources.getStringArray(R.array.ciudades_ancash).toList()
+                "Apurímac" -> resources.getStringArray(R.array.ciudades_apurimac).toList()
+                "Arequipa" -> resources.getStringArray(R.array.ciudades_arequipa).toList()
+                "Ayacucho" -> resources.getStringArray(R.array.ciudades_ayacucho).toList()
+                "Cajamarca" -> resources.getStringArray(R.array.ciudades_cajamarca).toList()
+                "Callao" -> resources.getStringArray(R.array.ciudades_callao).toList()
+                "Cusco" -> resources.getStringArray(R.array.ciudades_cusco).toList()
+                "Huancavelica" -> resources.getStringArray(R.array.ciudades_huancavelica).toList()
+                "Huánuco" -> resources.getStringArray(R.array.ciudades_huanuco).toList()
+                "Ica" -> resources.getStringArray(R.array.ciudades_ica).toList()
+                "Junín" -> resources.getStringArray(R.array.ciudades_junin).toList()
+                "La Libertad" -> resources.getStringArray(R.array.ciudades_lalibertad).toList()
+                "Lambayeque" -> resources.getStringArray(R.array.ciudades_lambayeque).toList()
+                "Lima" -> resources.getStringArray(R.array.ciudades_lima).toList()
+                "Loreto" -> resources.getStringArray(R.array.ciudades_loreto).toList()
+                "Madre de Dios" -> resources.getStringArray(R.array.ciudades_madrededios).toList()
+                "Moquegua" -> resources.getStringArray(R.array.ciudades_moquegua).toList()
+                "Pasco" -> resources.getStringArray(R.array.ciudades_pasco).toList()
+                "Piura" -> resources.getStringArray(R.array.ciudades_piura).toList()
+                "Puno" -> resources.getStringArray(R.array.ciudades_puno).toList()
+                "San Martín" -> resources.getStringArray(R.array.ciudades_sanmartin).toList()
+                "Tacna" -> resources.getStringArray(R.array.ciudades_tacna).toList()
+                "Tumbes" -> resources.getStringArray(R.array.ciudades_tumbes).toList()
+                "Ucayali" -> resources.getStringArray(R.array.ciudades_ucayali).toList()
+                else -> listOf(getString(R.string.prop_distrito_sin), "Otro")
+            }
+        }
+
+        spinnerTipo.adapter = ArrayAdapter(
+            this, android.R.layout.simple_spinner_item, tipos
+        ).apply { setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
+        spinnerOperacion.adapter = ArrayAdapter(
+            this, android.R.layout.simple_spinner_item, operaciones
+        ).apply { setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
+        spinnerMoneda.adapter = ArrayAdapter(
+            this, android.R.layout.simple_spinner_item, monedas
+        ).apply { setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
+        spinnerDepartamento.adapter = ArrayAdapter(
+            this, android.R.layout.simple_spinner_item, departamentos
+        ).apply { setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
+        spinnerDistrito.adapter = ArrayAdapter(
+            this, android.R.layout.simple_spinner_item, distritosPublicar
+        ).apply { setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
+
+        // Actualizar ciudades según departamento seleccionado
         spinnerDepartamento.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: android.widget.AdapterView<*>?, view: View?, position: Int, id: Long) {
                 val dep = departamentos[position]
-                val nuevosDistritos = if (dep == "Lima") distritosPublicar else distritosGenerico
+                val ciudades = obtenerCiudades(dep)
+                val opciones = if (dep == "Lima") {
+                    listOf(getString(R.string.prop_distrito_sin)) + ciudades
+                } else {
+                    listOf(getString(R.string.prop_distrito_sin), "Otro") + ciudades
+                }
                 spinnerDistrito.adapter = ArrayAdapter(
                     this@RegistrarPropiedadActivity,
                     android.R.layout.simple_spinner_item,
-                    nuevosDistritos
+                    opciones
                 ).apply { setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
             }
             override fun onNothingSelected(parent: android.widget.AdapterView<*>?) {}

@@ -351,16 +351,14 @@ class PropiedadDetalleActivity : AppCompatActivity() {
         // Se crea con SET MERGE (no leemos antes: en un doc inexistente el get daba
         // PERMISSION_DENIED y el chat "no abría"). En un chat existente el merge no
         // pisa lastMessage/unreadCount.
-        // Ordenamos participants para que sea consistente sin importar quién lo cree primero.
         val chatId = "inm-$propId"
-        val participants = listOf(miUid, idPropietario).distinct().sorted()
         db.collection("chats").document(chatId)
             .set(
                 hashMapOf(
                     "chatId" to chatId,
                     "listingId" to propId,
                     "listingTitle" to listingTitle,
-                    "participants" to participants
+                    "participants" to listOf(miUid, idPropietario)
                 ),
                 SetOptions.merge()
             )

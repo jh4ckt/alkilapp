@@ -4,6 +4,7 @@ import android.content.res.ColorStateList
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.util.Base64
+import android.util.Log
 import android.util.LruCache
 import android.view.LayoutInflater
 import android.view.View
@@ -140,8 +141,14 @@ class PropiedadAdapter(
             onAlternarFavorito(item)
         }
 
-        binding.btnVerDetalles.setOnClickListener { onClick(item) }
-        binding.root.setOnClickListener { onClick(item) }
+        binding.btnVerDetalles.setOnClickListener {
+                Log.d("AlkilApp", "btnVerDetalles click: ${item.titulo}")
+                onClick(item)
+            }
+            binding.root.setOnClickListener {
+                Log.d("AlkilApp", "root click: ${item.titulo}")
+                onClick(item)
+            }
     }
 
     override fun getItemCount(): Int = items.size

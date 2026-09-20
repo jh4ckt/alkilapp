@@ -782,14 +782,13 @@ class PerfilPropietarioActivity : AppCompatActivity() {
         val miUid = auth.currentUser?.uid ?: return
         if (listingId.isBlank() || uid.isBlank()) return
         val chatId = "inm-$listingId"
-        val participants = listOf(miUid, uid).distinct().sorted()
         db.collection("chats").document(chatId)
             .set(
                 hashMapOf(
                     "chatId" to chatId,
                     "listingId" to listingId,
                     "listingTitle" to listingTitulo,
-                    "participants" to participants
+                    "participants" to listOf(miUid, uid)
                 ),
                 SetOptions.merge()
             )

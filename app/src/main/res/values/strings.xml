@@ -148,6 +148,227 @@
         <item>Ucayali</item>
     </string-array>
 
+    <!-- Ciudades principales por departamento (capital + ciudades importantes) -->
+    <string-array name="ciudades_amazonas">
+        <item>Chachapoyas</item>
+        <item>Bagua Grande</item>
+        <item>Bagua</item>
+        <item>Utcubamba</item>
+        <item>Luya</item>
+        <item>Rodríguez de Mendoza</item>
+    </string-array>
+    <string-array name="ciudades_ancash">
+        <item>Huaraz</item>
+        <item>Chimbote</item>
+        <item>Casma</item>
+        <item>Huari</item>
+        <item>Carhuaz</item>
+        <item>Yungay</item>
+        <item>Caraz</item>
+        <item>Recuay</item>
+    </string-array>
+    <string-array name="ciudades_apurimac">
+        <item>Abancay</item>
+        <item>Andahuaylas</item>
+        <item>Chalhuanca</item>
+        <item>Chincheros</item>
+        <item>Cotabambas</item>
+    </string-array>
+    <string-array name="ciudades_arequipa">
+        <item>Arequipa</item>
+        <item>Camaná</item>
+        <item>Mollendo</item>
+        <item>Chivay</item>
+        <item>La Joya</item>
+        <item>Pedregal</item>
+        <item>Majes</item>
+    </string-array>
+    <string-array name="ciudades_ayacucho">
+        <item>Ayacucho</item>
+        <item>Huamanga</item>
+        <item>Huanta</item>
+        <item>Coracora</item>
+        <item>Pauza</item>
+        <item>Pichari</item>
+    </string-array>
+    <string-array name="ciudades_cajamarca">
+        <item>Cajamarca</item>
+        <item>Jaén</item>
+        <item>Celendín</item>
+        <item>Chota</item>
+        <item>Cutervo</item>
+        <item>San Ignacio</item>
+        <item>San Marcos</item>
+    </string-array>
+    <string-array name="ciudades_callao">
+        <item>Callao</item>
+        <item>Ventanilla</item>
+        <item>Bellavista</item>
+        <item>La Perla</item>
+        <item>Carmen de la Legua</item>
+    </string-array>
+    <string-array name="ciudades_cusco">
+        <item>Cusco</item>
+        <item>Urubamba</item>
+        <item>Calca</item>
+        <item>Paucartambo</item>
+        <item>Quillabamba</item>
+        <item>Sicuani</item>
+        <item>Espinar</item>
+    </string-array>
+    <string-array name="ciudades_huancavelica">
+        <item>Huancavelica</item>
+        <item>Castrovirreyna</item>
+        <item>Acobamba</item>
+        <item>Angaraes</item>
+        <item>Huaytará</item>
+    </string-array>
+    <string-array name="ciudades_huanuco">
+        <item>Huánuco</item>
+        <item>Tingo María</item>
+        <item>Huacaybamba</item>
+        <item>Lauricocha</item>
+        <item>Leoncio Prado</item>
+        <item>Marañón</item>
+        <item>Pachitea</item>
+    </string-array>
+    <string-array name="ciudades_ica">
+        <item>Ica</item>
+        <item>Chincha</item>
+        <item>Pisco</item>
+        <item>Nazca</item>
+        <item>Palpa</item>
+    </string-array>
+    <string-array name="ciudades_junin">
+        <item>Huancayo</item>
+        <item>Jauja</item>
+        <item>Tarma</item>
+        <item>Concepción</item>
+        <item>Junín</item>
+        <item>Chanchamayo</item>
+        <item>Satipo</item>
+    </string-array>
+    <string-array name="ciudades_lambayeque">
+        <item>Chiclayo</item>
+        <item>Lambayeque</item>
+        <item>Ferreñafe</item>
+        <item>Motupe</item>
+        <item>Zaña</item>
+    </string-array>
+    <string-array name="ciudades_lalibertad">
+        <item>Trujillo</item>
+        <item>Chepén</item>
+        <item>Pacasmayo</item>
+        <item>Guadalupe</item>
+        <item>Otuzco</item>
+        <item>Santiago de Chuco</item>
+        <item>Viru</item>
+    </string-array>
+    <string-array name="ciudades_lima">
+        <item>Lima</item>
+        <item>Callao</item>
+        <item>San Juan de Lurigancho</item>
+        <item>San Juan de Miraflores</item>
+        <item>San Martín de Porres</item>
+        <item>Villa El Salvador</item>
+        <item>Villa María del Triunfo</item>
+        <item>Comas</item>
+        <item>El Agustino</item>
+        <item>Independencia</item>
+        <item>Los Olivos</item>
+        <item>Ate</item>
+        <item>Carabayllo</item>
+        <item>Puente Piedra</item>
+        <item>Chorrillos</item>
+        <item>Surco</item>
+        <item>Miraflores</item>
+        <item>San Borja</item>
+        <item>La Molina</item>
+        <item>San Isidro</item>
+        <item>Barranco</item>
+        <item>Jesús María</item>
+        <item>Lince</item>
+        <item>Magdalena del Mar</item>
+        <item>Pueblo Libre</item>
+        <item>San Miguel</item>
+        <item>Santa Anita</item>
+        <item>Santa Rosa</item>
+    </string-array>
+    <string-array name="ciudades_loreto">
+        <item>Iquitos</item>
+        <item>Yurimaguas</item>
+        <item>Nauta</item>
+        <item>Requena</item>
+        <item>Caballococha</item>
+        <item>San Lorenzo</item>
+    </string-array>
+    <string-array name="ciudades_madrededios">
+        <item>Puerto Maldonado</item>
+        <item>Iberia</item>
+        <item>Inapari</item>
+        <item>Las Piedras</item>
+    </string-array>
+    <string-array name="ciudades_moquegua">
+        <item>Moquegua</item>
+        <item>Ilo</item>
+        <item>Omacho</item>
+        <item>Carumas</item>
+    </string-array>
+    <string-array name="ciudades_pasco">
+        <item>Cerro de Pasco</item>
+        <item>Oxapampa</item>
+        <item>Yanahuanca</item>
+        <item>Huariaca</item>
+    </string-array>
+    <string-array name="ciudades_piura">
+        <item>Piura</item>
+        <item>Sullana</item>
+        <item>Talara</item>
+        <item>Paita</item>
+        <item>Sechura</item>
+        <item>Morropón</item>
+        <item>Huancabamba</item>
+        <item>Ayabaca</item>
+    </string-array>
+    <string-array name="ciudades_puno">
+        <item>Puno</item>
+        <item>Juliaca</item>
+        <item>Azángaro</item>
+        <item>Ayaviri</item>
+        <item>Moho</item>
+        <item>Huancané</item>
+        <item>Carabaya</item>
+    </string-array>
+    <string-array name="ciudades_sanmartin">
+        <item>Moyobamba</item>
+        <item>Tarapoto</item>
+        <item>Juanjuí</item>
+        <item>Bellavista</item>
+        <item>Picota</item>
+        <item>El Dorado</item>
+        <item>Lamas</item>
+        <item>Rioja</item>
+    </string-array>
+    <string-array name="ciudades_tacna">
+        <item>Tacna</item>
+        <item>Locumba</item>
+        <item>Tarata</item>
+        <item>Candarave</item>
+    </string-array>
+    <string-array name="ciudades_tumbes">
+        <item>Tumbes</item>
+        <item>Zorritos</item>
+        <item>Punta Sal</item>
+        <item>Contralmirante Villar</item>
+    </string-array>
+    <string-array name="ciudades_ucayali">
+        <item>Pucallpa</item>
+        <item>Aguaytía</item>
+        <item>Atalaya</item>
+        <item>Padre Abad</item>
+        <item>Contamana</item>
+    </string-array>
+
     <string-array name="distritos_lima">
         <item>Ancón</item>
         <item>Ate</item>
