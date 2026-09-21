@@ -1,0 +1,6 @@
+<svg width="512" height="512" viewBox="0 0 108 108" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background: navy #0B2447 -->
+  <rect width="108" height="108" fill="#0B2447"/>
+  <!-- Foreground: coral #FF6B5E - house shape from ic_launcher_foreground.xml -->
+  <path fill="#FF6B5E" d="M54 32 L30 56 L34 56 L34 76 L74 76 L74 56 L78 56 Z M44 76 L44 62 L64 62 L64 76 Z"/>
+</svg>
