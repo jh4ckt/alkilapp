@@ -606,8 +606,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
                 this, android.R.layout.simple_spinner_item, opciones
             ).apply { setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
         }
-        llenar(spinnerDep, listOf(todos) + departamentos)
-        llenar(spinnerDis, distritosConTodos)
+llenar(spinnerDep, listOf(todos) + departamentos)
+        llenar(spinnerDis, listOf(todos))
         llenar(spinnerTipo, listOf(todos) + tipos)
         llenar(spinnerHab, opcionesHab)
 
@@ -617,7 +617,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
                 val dep = (listOf(todos) + departamentos)[position]
                 val ciudades = obtenerCiudades(dep)
                 val nuevosDistritos = when {
-                    dep == todos -> distritosConTodos
+                    dep == todos -> listOf(todos)
                     dep == "Lima" -> listOf(todos) + ciudades
                     else -> listOf(todos, "Otro") + ciudades
                 }
@@ -627,17 +627,32 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
                     nuevosDistritos
                 ).apply { setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
             }
-            override fun onNothingSelected(parent: android.widget.AdapterView<*>?) {}
+override fun onNothingSelected(parent: android.widget.AdapterView<*>?) {}
         }
 
+        // Restaurar filtros guardados (usa post para que el layout esté listo)
         val depActual = filtroDepartamento ?: todos
-        spinnerDep.setSelection(
-            (todos + departamentos).indexOfFirst { it.lowercase() == depActual.lowercase() }.coerceAtLeast(0)
-        )
         val disActual = filtroDistrito ?: todos
-        spinnerDis.setSelection(
-            distritosConTodos.indexOfFirst { it.lowercase() == disActual.lowercase() }.coerceAtLeast(0)
-        )
+        spinnerDep.post {
+            val ciudadesDepActual = obtenerCiudades(depActual)
+            val distritosParaDepActual = when {
+                depActual == todos -> listOf(todos)
+                depActual == "Lima" -> listOf(todos) + ciudadesDepActual
+                else -> listOf(todos, "Otro") + ciudadesDepActual
+            }
+            spinnerDep.setSelection(
+                (todos + departamentos).indexOfFirst { it.lowercase() == depActual.lowercase() }.coerceAtLeast(0)
+            )
+            spinnerDis.adapter = ArrayAdapter(
+                this@MainActivity,
+                android.R.layout.simple_spinner_item,
+                distritosParaDepActual
+            ).apply { setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
+            spinnerDis.setSelection(
+                distritosParaDepActual.indexOfFirst { it.lowercase() == disActual.lowercase() }.coerceAtLeast(0)
+            )
+        }
+
         val tipoActual = filtroTipo ?: todos
         spinnerTipo.setSelection(
             (todos + tipos).indexOfFirst { it.lowercase() == tipoActual.lowercase() }.coerceAtLeast(0)

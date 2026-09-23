@@ -32,6 +32,12 @@ class MiPerfilActivity : AppCompatActivity() {
     private val valoresTipo = arrayOf("dueno", "inquilino", "ambos")
     private lateinit var departamentos: List<String>
 
+    private var enModoEdicion = false
+    private var telefonoOriginal = ""
+    private var tipoOriginal = 0
+    private var zonaDepOriginal = ""
+    private var zonaCiuOriginal = ""
+
     private val fotoLauncher = registerForActivityResult(
         ActivityResultContracts.PickVisualMedia()
     ) { uri ->
@@ -52,6 +58,7 @@ class MiPerfilActivity : AppCompatActivity() {
 
         binding.btnPerfilBack.setOnClickListener { finish() }
         binding.btnPerfilGuardar.setOnClickListener { guardarPerfil() }
+        binding.btnPerfilEditar.setOnClickListener { activarModoEdicion() }
         binding.btnPerfilCerrarSesion.setOnClickListener {
             auth.signOut()
             Toast.makeText(this, R.string.auth_sesion_cerrada, Toast.LENGTH_SHORT).show()
@@ -97,7 +104,59 @@ class MiPerfilActivity : AppCompatActivity() {
             )
         }
 
+        // Inicialmente campos bloqueados
+        bloquearCampos()
         cargarMisDatos()
+    }
+
+    private fun desbloquearCampos() {
+        binding.etPerfilTelefono.isEnabled = true
+        binding.spPerfilTipo.isEnabled = true
+        binding.spPerfilZonaDepartamento.isEnabled = true
+        binding.spPerfilZonaCiudad.isEnabled = true
+        binding.btnPerfilFoto.isEnabled = true
+        binding.btnPerfilEditar.visibility = View.GONE
+        binding.layPerfilGuardar.visibility = View.VISIBLE
+    }
+
+    private fun activarModoEdicion() {
+        // Guardar valores originales
+        telefonoOriginal = binding.etPerfilTelefono.text.toString()
+        tipoOriginal = binding.spPerfilTipo.selectedItemPosition
+        zonaDepOriginal = binding.spPerfilZonaDepartamento.selectedItem?.toString() ?: ""
+        zonaCiuOriginal = binding.spPerfilZonaCiudad.selectedItem?.toString() ?: ""
+        enModoEdicion = true
+        desbloquearCampos()
+        binding.btnPerfilCancelar.setOnClickListener { cancelarEdicion() }
+        binding.btnPerfilCancelar2.setOnClickListener { cancelarEdicion() }
+    }
+
+    private fun cancelarEdicion() {
+        // Restaurar valores originales
+        binding.etPerfilTelefono.setText(telefonoOriginal)
+        binding.spPerfilTipo.setSelection(tipoOriginal)
+        val depIndex = departamentos.indexOfFirst { it == zonaDepOriginal }
+        if (depIndex >= 0) binding.spPerfilZonaDepartamento.setSelection(depIndex)
+        // zonaCiudad se restaurará tras actualizar el adapter
+        binding.spPerfilZonaCiudad.post {
+            val adapter = binding.spPerfilZonaCiudad.adapter as? ArrayAdapter<String>
+            adapter?.let { ad ->
+                val ciuIndex = ad.getPosition(zonaCiuOriginal)
+                if (ciuIndex >= 0) binding.spPerfilZonaCiudad.setSelection(ciuIndex)
+            }
+        }
+        enModoEdicion = false
+        bloquearCampos()
+    }
+
+    private fun bloquearCampos() {
+        binding.etPerfilTelefono.isEnabled = false
+        binding.spPerfilTipo.isEnabled = false
+        binding.spPerfilZonaDepartamento.isEnabled = false
+        binding.spPerfilZonaCiudad.isEnabled = false
+        binding.btnPerfilFoto.isEnabled = false
+        binding.btnPerfilEditar.visibility = View.VISIBLE
+        binding.layPerfilGuardar.visibility = View.GONE
     }
 
     private fun cargarMisDatos() {
@@ -204,6 +263,8 @@ class MiPerfilActivity : AppCompatActivity() {
             .set(datos, SetOptions.merge())
             .addOnSuccessListener {
                 Toast.makeText(this, R.string.perfil_ok, Toast.LENGTH_SHORT).show()
+                enModoEdicion = false
+                bloquearCampos()
                 finish()
             }
             .addOnFailureListener { e ->

@@ -560,7 +560,9 @@
     <string name="perfil_tipo_label">Tipo de cuenta</string>
     <string name="perfil_zona_departamento_label">Departamento de tu zona</string>
     <string name="perfil_zona_ciudad_label">Ciudad/Distrito de tu zona</string>
+    <string name="perfil_editar">Modificar</string>
     <string name="perfil_guardar">Guardar</string>
+    <string name="perfil_cancelar">Cancelar</string>
     <string name="perfil_ok">Perfil actualizado</string>
     <string name="perfil_error">No se pudo guardar tu perfil: %1$s</string>
     <string name="perfil_nombre_requerido">Escribí tu nombre</string>
