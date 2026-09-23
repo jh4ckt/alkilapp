@@ -616,10 +616,10 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             override fun onItemSelected(parent: android.widget.AdapterView<*>?, view: View?, position: Int, id: Long) {
                 val dep = (listOf(todos) + departamentos)[position]
                 val ciudades = obtenerCiudades(dep)
-                val nuevosDistritos = if (dep == "Lima") {
-                    listOf(todos) + ciudades
-                } else {
-                    listOf(todos, "Otro") + ciudades
+                val nuevosDistritos = when {
+                    dep == todos -> distritosConTodos
+                    dep == "Lima" -> listOf(todos) + ciudades
+                    else -> listOf(todos, "Otro") + ciudades
                 }
                 spinnerDis.adapter = ArrayAdapter(
                     this@MainActivity,
