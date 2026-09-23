@@ -283,7 +283,7 @@ class PropiedadAdapter(
         items.clear()
         // Filtro efectivo: explícito gana sobre zona por defecto
         val deptoEfectivo = filtroDepartamento ?: zonaDepartamento
-        val distritoEfectivo = filtroDistrito ?: (if (filtroDepartamento == null) zonaCiudad else null)
+        val distritoEfectivo = filtroDistrito
 
         val filtradas = fullList.filter { p ->
             val buscaOk = query.isEmpty() ||

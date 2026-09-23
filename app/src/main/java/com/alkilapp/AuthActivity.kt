@@ -77,6 +77,16 @@ class AuthActivity : AppCompatActivity() {
         binding.btnAuthGoogle.setOnClickListener { iniciarSesionGoogle() }
         binding.btnAuthOlvide.setOnClickListener { enviarReset() }
 
+        val departamentosRegistro = resources.getStringArray(R.array.departamentos_peru).toList()
+        val opcionesDepartamento = listOf(getString(R.string.auth_departamento_selecciona)) + departamentosRegistro
+        binding.spAuthDepartamento.adapter = android.widget.ArrayAdapter(
+            this,
+            android.R.layout.simple_spinner_item,
+            opcionesDepartamento
+        ).apply {
+            setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        }
+
         aplicarModo(false)
     }
 
@@ -86,6 +96,8 @@ class AuthActivity : AppCompatActivity() {
         binding.tilAuthNombre.visibility = if (registro) View.VISIBLE else View.GONE
         binding.tilAuthTelefono.visibility = if (registro) View.VISIBLE else View.GONE
         binding.tilAuthConfirmar.visibility = if (registro) View.VISIBLE else View.GONE
+        binding.tvAuthDepartamentoLabel.visibility = if (registro) View.VISIBLE else View.GONE
+        binding.spAuthDepartamento.visibility = if (registro) View.VISIBLE else View.GONE
         binding.btnAuthAccion.setText(if (registro) R.string.auth_crear_cuenta else R.string.auth_ingresar)
         ocultarError()
     }
@@ -112,11 +124,16 @@ class AuthActivity : AppCompatActivity() {
                 mostrarError(getString(R.string.auth_telefono_requerido))
                 return
             }
+            val departamento = binding.spAuthDepartamento.selectedItem as? String
+            if (departamento == null || departamento == getString(R.string.auth_departamento_selecciona)) {
+                mostrarError(getString(R.string.auth_departamento_requerido))
+                return
+            }
             if (binding.etAuthConfirmar.text.toString() != pass) {
                 mostrarError(getString(R.string.auth_pass_no_coincide))
                 return
             }
-            crearCuenta(email, pass, nombre, telefono)
+            crearCuenta(email, pass, nombre, telefono, departamento)
         } else {
             iniciarSesion(email, pass)
         }
@@ -138,7 +155,13 @@ class AuthActivity : AppCompatActivity() {
             }
     }
 
-    private fun crearCuenta(email: String, pass: String, nombre: String, telefono: String) {
+    private fun crearCuenta(
+        email: String,
+        pass: String,
+        nombre: String,
+        telefono: String,
+        departamento: String? = null
+    ) {
         ocultarError()
         bloquear(true)
         auth.createUserWithEmailAndPassword(email, pass)
@@ -152,7 +175,7 @@ class AuthActivity : AppCompatActivity() {
                     .setDisplayName(nombre)
                     .build()
                 task.result?.user?.updateProfile(perfil)
-                guardarUsuarioEnBase(nombre, telefono)
+                guardarUsuarioEnBase(nombre, telefono, departamento)
                 bloquear(false)
                 Toast.makeText(this, R.string.auth_ok_registro, Toast.LENGTH_SHORT).show()
                 finish()
@@ -184,7 +207,7 @@ class AuthActivity : AppCompatActivity() {
     }
 
     /** Crea/actualiza el documento del usuario sin pisar datos ya existentes. */
-    private fun guardarUsuarioEnBase(nombreNuevo: String? = null, telefonoNuevo: String? = null) {
+    private fun guardarUsuarioEnBase(nombreNuevo: String? = null, telefonoNuevo: String? = null, departamentoNuevo: String? = null) {
         val u = auth.currentUser ?: return
         val ref = db.collection("usuarios").document(u.uid)
         val base = hashMapOf(
@@ -209,6 +232,7 @@ class AuthActivity : AppCompatActivity() {
                     if (telefonoNuevo != null) datos["telefono"] = telefonoNuevo
                 } else {
                     datos["telefono"] = telefonoNuevo ?: ""
+                    datos["zonaDepartamento"] = departamentoNuevo ?: ""
                     datos["tipoUsuario"] = "dueno"
                     datos["fechaRegistro"] = FieldValue.serverTimestamp()
                 }

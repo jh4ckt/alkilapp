@@ -116,6 +116,24 @@
                             android:maxLines="1" />
                     </com.google.android.material.textfield.TextInputLayout>
 
+                    <TextView
+                        android:id="@+id/tvAuthDepartamentoLabel"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="16dp"
+                        android:text="@string/auth_departamento"
+                        android:textColor="@color/text_muted"
+                        android:textSize="14sp"
+                        android:textStyle="bold"
+                        android:visibility="gone" />
+
+                    <Spinner
+                        android:id="@+id/spAuthDepartamento"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:visibility="gone" />
+
                     <com.google.android.material.textfield.TextInputLayout
                         android:id="@+id/tilAuthEmail"
                         android:layout_width="match_parent"

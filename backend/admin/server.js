@@ -1,54 +1,60 @@
 /*
- * Panel de administracion de AlkilApp (Node puro, sin dependencias extra).
- *
- *   ADMIN_PASSWORD=...            obligatorio (password de acceso)
- *   ADMIN_SECRET=...              opcional, firma la cookie de sesion
- *   PORT=8080                     puerto (Cloud Run lo inyecta)
- *
- * Ejecutar en local:  node admin/server.js
- * Desplegar:          ver admin/README.md
+ * AlkilApp Admin Panel - Modern API Server
+ * Serves static frontend + REST API for admin operations
  */
 const http = require('http');
-const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 const { Firestore } = require('@google-cloud/firestore');
-const { expirarDestacados } = require('../expirar');
+const { expirarDestacados } = require('./expirar');
 
 const PROJECT = 'gen-lang-client-0040505884';
 const DATABASE = 'alkilappdb';
 const SA = process.env.GOOGLE_APPLICATION_CREDENTIALS ||
     path.join(__dirname, '..', 'credentials', 'alkilapp-seed-sa.json');
-const PASSWORD = process.env.ADMIN_PASSWORD || '';
+const PASSWORD = (process.env.ADMIN_PASSWORD || '').trim();
+const USER = (process.env.ADMIN_USER || '').trim();
 const SECRET = process.env.ADMIN_SECRET || 'alkilapp-admin-dev';
-const PORT = Number(process.env.PORT || 8099);
+const PORT = Number(process.env.PORT || 8080);
 
-// En local usamos el JSON de la service account; en Cloud Run basta con las
-// credenciales por defecto del servicio (ADC), por eso solo se pasa si existe.
 const opcionesDb = { projectId: PROJECT, databaseId: DATABASE };
 if (fs.existsSync(SA)) opcionesDb.keyFilename = SA;
 const db = new Firestore(opcionesDb);
 
-// ---------------------------------------------------------------------------
-// Utilidades
-// ---------------------------------------------------------------------------
-const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => (
-    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
-));
+const PUBLIC_DIR = path.join(__dirname, 'public');
+const MIME_TYPES = {
+    '.html': 'text/html; charset=utf-8',
+    '.css': 'text/css; charset=utf-8',
+    '.js': 'application/javascript; charset=utf-8',
+    '.mjs': 'application/javascript; charset=utf-8',
+    '.json': 'application/json; charset=utf-8',
+    '.png': 'image/png',
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.svg': 'image/svg+xml',
+    '.ico': 'image/x-icon',
+    '.woff': 'font/woff',
+    '.woff2': 'font/woff2',
+};
 
+// ---- Utils ----
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({
+    '&': '&',
+    '<': '<',
+    '>': '>',
+    '"': '"',
+    "'": "'"
+}[c]));
 const fecha = (v) => {
     if (!v) return '-';
     const d = typeof v.toDate === 'function' ? v.toDate() : new Date(v);
     return isNaN(d) ? '-' : d.toISOString().slice(0, 16).replace('T', ' ');
 };
-
-// Fecha de creación: usa el campo propio si existe (seed/app), si no el
-// createTime del documento (Firestore lo fija en el primer write siempre).
 const mostrarCreado = (doc) => fecha(doc.createdAt || doc._creado);
 const ponerCreado = (d) => ({ id: d.id, ...d.data(), _creado: d.createTime ? d.createTime.toDate() : null });
-
 const firmar = (t) => crypto.createHmac('sha256', SECRET).update(t).digest('hex');
-const SESION_TTL = 24 * 60 * 60 * 1000; // 24h
+const SESION_TTL = 24 * 60 * 60 * 1000;
 
 function cookies(req) {
     const out = {};
@@ -75,524 +81,406 @@ function autenticado(req) {
 function leerCuerpo(req) {
     return new Promise((resolve) => {
         let data = '';
-        req.on('data', (c) => {
-            data += c;
-            if (data.length > 5_000_000) req.destroy();
-        });
+        req.on('data', (c) => { data += c; if (data.length > 5_000_000) req.destroy(); });
         req.on('end', () => resolve(new URLSearchParams(data)));
     });
 }
 
-function html(res, cuerpo, titulo = 'AlkilApp Admin', status = 200) {
-    res.writeHead(status, { 'Content-Type': 'text/html; charset=utf-8' });
-    res.end(`<!doctype html><html lang="es"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>${esc(titulo)}</title>
-<style>
-:root{--primary:#1E293B;--accent:#FF6B5E;--gold:#D4A017;--bg:#F8FAFC;
---card:#fff;--border:#E2E8F0;--muted:#64748B;--ok:#3AA37B;--bad:#DC2626}
-*{box-sizing:border-box}
-body{margin:0;font:14px/1.5 -apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--primary)}
-header{background:var(--primary);color:#fff;padding:12px 20px;display:flex;
-align-items:center;gap:18px;flex-wrap:wrap}
-header b{font-size:17px}
-header a{color:#cbd5e1;text-decoration:none;padding:4px 8px;border-radius:8px}
-header a:hover{background:#334155;color:#fff}
-header .sp{flex:1}
-main{max-width:1080px;margin:24px auto;padding:0 16px}
-.card{background:var(--card);border:1px solid var(--border);border-radius:14px;
-padding:18px;margin-bottom:16px}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
-.stat{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px}
-.stat b{display:block;font-size:26px}
-.stat span{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.04em}
-table{width:100%;border-collapse:collapse}
-th,td{text-align:left;padding:9px 8px;border-bottom:1px solid var(--border);vertical-align:top}
-th{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.04em}
-img.doc{max-width:340px;border-radius:10px;border:1px solid var(--border);display:block;margin-top:8px}
-.pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:11px;font-weight:600}
-.pill.pend{background:#FEF3C7;color:#92400E}
-.pill.ok{background:#DCFCE7;color:#166534}
-.pill.bad{background:#FEE2E2;color:#991B1B}
-.pill.gold{background:#FBF1D6;color:#8A6100}
-.pill.grey{background:#E2E8F0;color:#334155}
-button{border:0;border-radius:9px;padding:8px 13px;font-size:13px;font-weight:600;
-cursor:pointer;margin:2px 4px 2px 0}
-.b-ok{background:var(--ok);color:#fff}
-.b-bad{background:var(--bad);color:#fff}
-.b-gold{background:var(--gold);color:#fff}
-.b-grey{background:#E2E8F0;color:var(--primary)}
-input[type=text],input[type=password]{width:100%;padding:10px;border:1px solid var(--border);
-border-radius:10px;font-size:15px;margin:6px 0 14px}
-.muted{color:var(--muted);font-size:12px}
-a.coral{color:var(--accent)}
-a.stat-link{text-decoration:none;color:inherit;display:block}
-a.stat-link:hover .stat{border-color:var(--accent);box-shadow:0 0 0 2px #ff6b5e40}
-</style></head><body>${cuerpo}</body></html>`);
+// ---- Static file server ----
+async function serveStatic(req, res, filePath) {
+    const ext = path.extname(filePath).toLowerCase();
+    const contentType = MIME_TYPES[ext] || 'application/octet-stream';
+    try {
+        const stat = fs.statSync(filePath);
+        if (stat.isDirectory()) {
+            const indexPath = path.join(filePath, 'index.html');
+            if (fs.existsSync(indexPath)) {
+                return serveStatic(req, res, indexPath);
+            }
+        }
+        // Cache: long for assets, short for HTML/JS modules
+        const isAsset = ['.png', '.jpg', '.jpeg', '.svg', '.ico', '.woff', '.woff2', '.css'].includes(ext);
+        const isModule = ['.js', '.mjs'].includes(ext);
+        const cacheControl = isAsset ? 'public, max-age=31536000, immutable' : (isModule ? 'public, max-age=0, must-revalidate' : 'no-store');
+        res.writeHead(200, { 'Content-Type': contentType, 'Cache-Control': cacheControl });
+        fs.createReadStream(filePath).pipe(res);
+    } catch (e) {
+        res.writeHead(404, { 'Content-Type': 'text/plain' });
+        res.end('Not found');
+    }
 }
 
-function nav(activo) {
-    const link = (href, txt) =>
-        `<a href="${href}"${activo === href ? ' style="background:#334155;color:#fff"' : ''}>${txt}</a>`;
-    return `<header><b>AlkilApp Admin</b>
-${link('/', 'Resumen')}${link('/verificaciones', 'Verificaciones')}
-${link('/publicaciones', 'Publicaciones')}${link('/reportes', 'Denuncias')}
-${link('/usuarios', 'Usuarios')}<span class="sp"></span>
-<form method="post" action="/logout" style="margin:0">
-<button class="b-grey" type="submit">Salir</button></form></header>`;
+// ---- API Handlers ----
+async function handleAPI(req, res, url) {
+    const ruta = url.pathname;
+
+    // CORS headers
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+    if (req.method === 'OPTIONS') {
+        res.writeHead(204); return res.end();
+    }
+
+    try {
+        // Cron (no auth)
+        if (ruta === '/api/cron/expirar') {
+            if (!SECRET || url.searchParams.get('clave') !== SECRET) {
+                return json(res, 403, { error: 'clave invalida' });
+            }
+            const r = await expirarDestacados(db);
+            return json(res, 200, r);
+        }
+
+        // Auth check for all other API routes
+        if (!autenticado(req)) {
+            return json(res, 401, { error: 'no autenticado' });
+        }
+
+        // GET routes
+        if (req.method === 'GET') {
+            if (ruta === '/api/resumen') return json(res, 200, await getResumen());
+            if (ruta === '/api/verificaciones') return json(res, 200, await getVerificaciones(url));
+            if (ruta === '/api/publicaciones') return json(res, 200, await getPublicaciones(url));
+            if (ruta === '/api/reportes') return json(res, 200, await getReportes(url));
+            if (ruta === '/api/usuarios') return json(res, 200, await getUsuarios(url));
+            if (ruta === '/api/stats') return json(res, 200, await getStats(url));
+        }
+
+        // POST routes
+        if (req.method === 'POST') {
+            const body = await leerCuerpo(req);
+            const data = Object.fromEntries(body);
+
+            // Verificaciones
+            const vm = ruta.match(/^\/api\/verificaciones\/([^/]+)\/(aprobar|rechazar)$/);
+            if (vm) {
+                if (vm[2] === 'aprobar') await aprobarVerificacion(vm[1]);
+                else await rechazarVerificacion(vm[1], data.motivo);
+                return json(res, 200, { ok: true });
+            }
+
+            // Publicaciones
+            const pm = ruta.match(/^\/api\/publicaciones\/([^/]+)\/(aprobar|finalizar|destacar|eliminar|estado)$/);
+            if (pm) {
+                const id = decodeURIComponent(pm[1]);
+                const ref = db.collection('propiedades').doc(id);
+                if (pm[2] === 'eliminar') {
+                    await ref.delete();
+                    return json(res, 200, { ok: true });
+                }
+                if (pm[2] === 'aprobar') {
+                    await ref.set({ estado: 'publicado', aprobadoEn: new Date() }, { merge: true });
+                    return json(res, 200, { ok: true });
+                }
+                if (pm[2] === 'estado') {
+                    const nuevo = String(data.estado || '').trim();
+                    const validos = ['publicado', 'disponible', 'finalizado', 'under_review', 'pendiente'];
+                    if (!validos.includes(nuevo)) return json(res, 400, { error: 'estado invalido' });
+                    await ref.set({ estado: nuevo, estadoCambiadoAdmin: true, estadoCambiadoEn: new Date() }, { merge: true });
+                    return json(res, 200, { ok: true });
+                }
+                if (pm[2] === 'finalizar') { await ref.set({ estado: 'finalizado' }, { merge: true }); return json(res, 200, { ok: true }); }
+                if (pm[2] === 'destacar') {
+                    const doc = await ref.get();
+                    const on = doc.get('isFeatured') === true;
+                    if (on) {
+                        await ref.set({ isFeatured: false, featuredUntil: null, destacadoDiasRestantes: 0, destacadoEstado: 'retirado' }, { merge: true });
+                    } else {
+                        const pedidos = Number(doc.get('destacadoDias'));
+                        const dias = pedidos > 0 ? pedidos : 30;
+                        const hasta = new Date(Date.now() + dias * 24 * 3600 * 1000);
+                        await ref.set({ isFeatured: true, featuredUntil: hasta, destacadoDias: dias, destacadoDiasRestantes: dias, destacadoEstado: 'aprobado', solicitudDestacar: false, destacadoAprobadoEn: new Date(), destacadoAprobadoPor: 'admin-panel' }, { merge: true });
+                    }
+                    return json(res, 200, { ok: true });
+                }
+            }
+
+            // Reportes
+            const rm = ruta.match(/^\/api\/reportes\/([^/]+)\/resolver$/);
+            if (rm) {
+                await db.collection('reports').doc(decodeURIComponent(rm[1]))
+                    .set({ estado: 'resuelto', resueltoEn: new Date() }, { merge: true });
+                return json(res, 200, { ok: true });
+            }
+        }
+
+        return json(res, 404, { error: 'not found' });
+    } catch (e) {
+        console.error('API ERROR', ruta, e);
+        return json(res, 500, { error: e.message });
+    }
 }
 
-function buscarInput(nombre, valor, placeholder) {
-    return `<form method="get" style="margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap">
-<input type="text" name="${nombre}" value="${esc(valor)}" placeholder="${esc(placeholder)}"
-style="flex:1;min-width:220px;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px">
-<button class="b-ok" type="submit" style="padding:8px 14px">Buscar</button>
-${valor ? `<a href="${nombre === 'q' ? '/' : '/' + nombre}" class="b-grey" style="padding:8px 14px;text-decoration:none">Limpiar</a>` : ''}
-</form>`;
+// ---- JSON helper ----
+function json(res, status, data) {
+    res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify(data));
 }
 
-function aviso(msg, tipo = 'ok') {
-    if (!msg) return '';
-    return `<div class="card" style="border-color:${tipo === 'ok' ? '#bbf7d0' : '#fecaca'}">
-<b>${tipo === 'ok' ? 'Listo' : 'Error'}:</b> ${esc(msg)}</div>`;
-}
-
-// ---------------------------------------------------------------------------
-// Vistas
-// ---------------------------------------------------------------------------
-function vistaLogin(error) {
-    return `<main style="max-width:380px;margin-top:12vh">
-<div class="card">
-<h2 style="margin:0 0 4px">Panel de administracion</h2>
-<p class="muted">AlkilApp</p>
-${error ? `<p style="color:var(--bad)">${esc(error)}</p>` : ''}
-<form method="post" action="/login">
-<input type="password" name="password" placeholder="Password de admin" autofocus>
-<button class="b-ok" style="width:100%;padding:11px" type="submit">Ingresar</button>
-</form></div></main>`;
-}
-
-async function vistaResumen() {
+// ---- API Logic ----
+async function getResumen() {
     const [prop, verif, rep, usr] = await Promise.all([
         db.collection('propiedades').count().get(),
         db.collection('verificaciones').count().get(),
         db.collection('reports').count().get(),
         db.collection('usuarios').count().get(),
     ]);
-    const pendVerif = (await db.collection('verificaciones')
-        .where('estado', '==', 'pendiente').get()).size;
-    const pendPub = (await db.collection('propiedades')
-        .where('estado', '==', 'under_review').get()).size;
-    const pendRep = (await db.collection('reports')
-        .where('estado', '==', 'pendiente').get()).size;
-    const statLink = (href, n, t, extra = '') =>
-        `<a href="${href}" class="stat-link"><div class="stat"><b>${n}</b><span>${t}</span>${extra}</div></a>`;
-    return nav('/') + `<main><h2>Resumen</h2><div class="grid">
-${statLink('/verificaciones', verif.data().count, 'Verificaciones', `<span class="muted">${pendVerif} pendientes</span>`)}
-${statLink('/publicaciones', prop.data().count, 'Inmuebles', `<span class="muted">${pendPub} por aprobar</span>`)}
-${statLink('/reportes', rep.data().count, 'Denuncias', `<span class="muted">${pendRep} pendientes</span>`)}
-${statLink('/usuarios', usr.data().count, 'Usuarios')}
-</div></main>`;
+    const pendVerif = (await db.collection('verificaciones').where('estado', '==', 'pendiente').get()).size;
+    const pendPub = (await db.collection('propiedades').where('estado', '==', 'under_review').get()).size;
+    const pendRep = (await db.collection('reports').where('estado', '==', 'pendiente').get()).size;
+    return {
+        propiedades: { total: prop.data().count, pendientes: pendPub },
+        verificaciones: { total: verif.data().count, pendientes: pendVerif },
+        reportes: { total: rep.data().count, pendientes: pendRep },
+        usuarios: { total: usr.data().count },
+    };
 }
 
-async function vistaVerificaciones(avisoHtml, q = '', estadoFiltro = '') {
-    let query = db.collection('verificaciones').limit(200);
-    const snap = await query.get();
-    const docs = snap.docs.map(ponerCreado)
-        .filter((v) => !q || (v.email && v.email.toLowerCase().includes(q.toLowerCase())) ||
-            (v.nombre && v.nombre.toLowerCase().includes(q.toLowerCase())) ||
-            (v.numeroDocumento && v.numeroDocumento.toLowerCase().includes(q.toLowerCase())))
-        .filter((v) => !estadoFiltro || v.estado === estadoFiltro)
-        .sort((a, b) => (mostrarCreado(b) > mostrarCreado(a) ? 1 : -1));
-    const filas = docs.map((v) => {
-        const pill = v.estado === 'aprobado' ? 'ok' : v.estado === 'rechazado' ? 'bad' : 'pend';
-        const acciones = v.estado === 'pendiente' ? `
-<form method="post" action="/verificaciones/${esc(v.id)}/aprobar" style="display:inline">
-<button class="b-ok" type="submit">Aprobar</button></form>
-<form method="post" action="/verificaciones/${esc(v.id)}/rechazar" style="display:inline">
-<input type="hidden" name="motivo" value="Documento ilegible">
-<button class="b-bad" type="submit">Rechazar</button></form>` : '';
-        return `<div class="card">
-<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-<b>${esc(v.nombre || '(sin nombre)')}</b>
-<span class="pill ${pill}">${esc(v.estado)}</span>
-<span class="muted">${esc(v.email)}</span>
-</div>
-<div class="muted">${esc(v.tipoDocumento)} ${esc(v.numeroDocumento)} - enviado ${mostrarCreado(v)}</div>
-${v.imagen ? `<img class="doc" alt="frente" src="data:image/jpeg;base64,${esc(v.imagen)}">` : '<p class="muted">sin imagen</p>'}
-${v.imagenReverso ? `<img class="doc" alt="adverso" src="data:image/jpeg;base64,${esc(v.imagenReverso)}">` : '<p class="muted">sin imagen adverso</p>'}
-${v.motivo ? `<p class="muted">motivo: ${esc(v.motivo)}</p>` : ''}
-<div style="margin-top:10px">${acciones}</div></div>`;
-    }).join('');
-    const estados = ['', 'pendiente', 'aprobado', 'rechazado']
-        .map((e) => `<option value="${e}"${e === estadoFiltro ? ' selected' : ''}>${e || 'Todos'}</option>`)
-        .join('');
-    const filtroEstado = `<select name="estado" style="padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px">${estados}</select>`;
-    return nav('/verificaciones') + `<main><h2>Verificaciones de identidad</h2>
-<form method="get" style="margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap">
-<input type="text" name="q" value="${esc(q)}" placeholder="Buscar email, nombre, documento..."
-style="flex:1;min-width:220px;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px">
-${filtroEstado}
-<button class="b-ok" type="submit" style="padding:8px 14px">Filtrar</button>
-${(q || estadoFiltro) ? `<a href="/verificaciones" class="b-grey" style="padding:8px 14px;text-decoration:none">Limpiar</a>` : ''}
-</form>
-${avisoHtml || ''}${filas || '<div class="card">Sin solicitudes.</div>'}</main>`;
-}
-
-async function vistaPublicaciones(avisoHtml, q = '', estadoFiltro = '', destacadoFiltro = '') {
-    const snap = await db.collection('propiedades').limit(200).get();
+async function getVerificaciones(url) {
+    const q = (url.searchParams.get('q') || '').toLowerCase();
+    const estado = url.searchParams.get('estado') || '';
+    const page = parseInt(url.searchParams.get('page') || '1');
+    const limit = parseInt(url.searchParams.get('limit') || '20');
+    const snap = await db.collection('verificaciones').limit(500).get();
     let docs = snap.docs.map(ponerCreado)
-        .filter((p) => !q || (p.titulo && p.titulo.toLowerCase().includes(q.toLowerCase())) ||
-            (p.direccion && p.direccion.toLowerCase().includes(q.toLowerCase())) ||
-            (p.barrio && p.barrio.toLowerCase().includes(q.toLowerCase())) ||
-            (p.idPropietario && p.idPropietario.toLowerCase().includes(q.toLowerCase())))
-        .filter((p) => !estadoFiltro || (p.estado || 'disponible') === estadoFiltro)
-        .filter((p) => !destacadoFiltro || (destacadoFiltro === 'si' ? p.isFeatured : !p.isFeatured))
+        .filter((v) => !q || (v.email && v.email.toLowerCase().includes(q)) ||
+            (v.nombre && v.nombre.toLowerCase().includes(q)) ||
+            (v.numeroDocumento && v.numeroDocumento.toLowerCase().includes(q)))
+        .filter((v) => !estado || v.estado === estado)
         .sort((a, b) => (mostrarCreado(b) > mostrarCreado(a) ? 1 : -1));
-    const filas = docs.map((p) => {
-        const estado = p.estado || 'disponible';
-        const pill = estado === 'under_review' ? 'pend' : estado === 'finalizado' ? 'grey' : 'ok';
-        const pub = p.publicado === false ? ' <span class="pill grey">oculto</span>' : '';
-        let gold = '';
-        if (p.isFeatured) {
-            const restan = p.destacadoDiasRestantes;
-            const vence = p.featuredUntil ? fecha(p.featuredUntil) : '-';
-            gold = ` <span class="pill gold">destacado${restan != null ? ` - ${esc(restan)} dia(s)` : ''}</span>`
-                + `<div class="muted">vence ${esc(vence)}</div>`;
-        }
-        if (p.solicitudDestacar === true) {
-            gold += ` <span class="pill pend">pidio destacar${p.destacadoDias ? ` (${esc(p.destacadoDias)} dias)` : ''}</span>`;
-        }
-        const aprobar = estado === 'under_review'
-            ? `<form method="post" action="/publicaciones/${esc(p.id)}/aprobar" style="display:inline"><button class="b-ok" type="submit">Aprobar</button></form>`
-            : '';
-        const destacarTxt = p.isFeatured ? 'Quitar destacado'
-            : (p.destacadoDias ? `Destacar ${esc(p.destacadoDias)} dias` : 'Destacar 30 dias');
-        const destacar = `<form method="post" action="/publicaciones/${esc(p.id)}/destacar" style="display:inline"><button class="b-gold" type="submit">${destacarTxt}</button></form>`;
-        const cerrar = estado !== 'finalizado'
-            ? `<form method="post" action="/publicaciones/${esc(p.id)}/finalizar" style="display:inline"><button class="b-grey" type="submit">Finalizar</button></form>`
-            : '';
-        const opcionesEstado = ['publicado', 'disponible', 'finalizado', 'under_review', 'pendiente']
-            .map((e) => `<option value="${e}"${e === estado ? ' selected' : ''}>${e}</option>`)
-            .join('');
-        const cambiarEstado = `<form method="post" action="/publicaciones/${esc(p.id)}/estado" style="display:inline"><select name="estado" style="padding:3px">${opcionesEstado}</select><button class="b-grey" type="submit">Cambiar</button></form>`;
-        const tituloSeguro = String(p.titulo || p.id).replace(/'/g, '');
-        const borrar = `<form method="post" action="/publicaciones/${esc(p.id)}/eliminar" style="display:inline" onsubmit="return confirm('Eliminar definitivamente &quot;${esc(tituloSeguro)}&quot;? Esta accion no se puede deshacer.');"><button class="b-bad" type="submit">Eliminar</button></form>`;
-        return `<tr>
-<td><b>${esc(p.titulo || '(sin titulo)')}</b>${pub}${gold}
-<div class="muted">${esc(p.direccion)} - ${esc(p.barrio)}, ${esc(p.ciudad)}</div></td>
-<td><span class="pill ${pill}">${esc(estado)}</span></td>
-<td>${p.precio != null ? esc(p.precio) : '-'}</td>
-<td class="muted">${mostrarCreado(p)}</td>
-<td>${esc(p.idPropietario).slice(0, 10)}...</td>
-<td>${aprobar}${cambiarEstado}${destacar}${cerrar}${borrar}</td></tr>`;
-    }).join('');
-    const estados = ['', 'publicado', 'disponible', 'finalizado', 'under_review', 'pendiente']
-        .map((e) => `<option value="${e}"${e === estadoFiltro ? ' selected' : ''}>${e || 'Todos'}</option>`)
-        .join('');
-    const destacados = ['', 'si', 'no']
-        .map((e) => `<option value="${e}"${e === destacadoFiltro ? ' selected' : ''}>${e === 'si' ? 'Destacados' : e === 'no' ? 'Normales' : 'Todos'}</option>`)
-        .join('');
-    const filtroEstado = `<select name="estado" style="padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px">${estados}</select>`;
-    const filtroDestacado = `<select name="destacado" style="padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px">${destacados}</select>`;
-    return nav('/publicaciones') + `<main><h2>Publicaciones</h2>
-<form method="get" style="margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap">
-<input type="text" name="q" value="${esc(q)}" placeholder="Buscar titulo, direccion, barrio, dueno..."
-style="flex:1;min-width:220px;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px">
-${filtroEstado}${filtroDestacado}
-<button class="b-ok" type="submit" style="padding:8px 14px">Filtrar</button>
-${(q || estadoFiltro || destacadoFiltro) ? `<a href="/publicaciones" class="b-grey" style="padding:8px 14px;text-decoration:none">Limpiar</a>` : ''}
-</form>
-${avisoHtml || ''}
-<div class="card" style="overflow-x:auto"><table>
-<tr><th>Inmueble</th><th>Estado</th><th>Precio</th><th>Publicado</th><th>Dueno</th><th>Acciones</th></tr>
-${filas || '<tr><td colspan="6">Sin inmuebles.</td></tr>'}</table></div></main>`;
+    const total = docs.length;
+    docs = docs.slice((page - 1) * limit, page * limit);
+    return { data: docs.map(v => ({
+        ...v,
+        pill: v.estado === 'aprobado' ? 'ok' : v.estado === 'rechazado' ? 'bad' : 'pend',
+        creado: mostrarCreado(v),
+    })), total, page, limit, totalPages: Math.ceil(total / limit) };
 }
 
-async function vistaReportes(avisoHtml, q = '', estadoFiltro = '') {
-    const snap = await db.collection('reports').limit(200).get();
+async function getPublicaciones(url) {
+    const q = (url.searchParams.get('q') || '').toLowerCase();
+    const estado = url.searchParams.get('estado') || '';
+    const destacado = url.searchParams.get('destacado') || '';
+    const page = parseInt(url.searchParams.get('page') || '1');
+    const limit = parseInt(url.searchParams.get('limit') || '20');
+    const snap = await db.collection('propiedades').limit(500).get();
     let docs = snap.docs.map(ponerCreado)
-        .filter((r) => !q || (r.motivo && r.motivo.toLowerCase().includes(q.toLowerCase())) ||
-            (r.listingId && r.listingId.toLowerCase().includes(q.toLowerCase())) ||
-            (r.reporterId && r.reporterId.toLowerCase().includes(q.toLowerCase())))
-        .filter((r) => !estadoFiltro || (r.estado || 'pendiente') === estadoFiltro)
+        .filter((p) => !q || (p.titulo && p.titulo.toLowerCase().includes(q)) ||
+            (p.direccion && p.direccion.toLowerCase().includes(q)) ||
+            (p.barrio && p.barrio.toLowerCase().includes(q)) ||
+            (p.idPropietario && p.idPropietario.toLowerCase().includes(q)))
+        .filter((p) => !estado || (p.estado || 'disponible') === estado)
+        .filter((p) => !destacado || (destacado === 'si' ? p.isFeatured : !p.isFeatured))
         .sort((a, b) => (mostrarCreado(b) > mostrarCreado(a) ? 1 : -1));
-    const filas = docs.map((r) => `<tr>
-<td><b>${esc(r.motivo || '-')}</b>
-<div class="muted">${esc(r.detalle || '')}</div></td>
-<td>${esc(r.listingId || '-')}</td>
-<td class="muted">${mostrarCreado(r)}</td>
-<td>${esc(r.reporterId || '-')}</td>
-<td>${estadoPillReporte(r.estado)}</td>
-<td>${r.estado === 'pendiente'
-            ? `<form method="post" action="/reportes/${esc(r.id)}/resolver" style="display:inline"><button class="b-ok" type="submit">Resolver</button></form>`
-            : ''}</td></tr>`).join('');
-    const estados = ['', 'pendiente', 'resuelto']
-        .map((e) => `<option value="${e}"${e === estadoFiltro ? ' selected' : ''}>${e || 'Todos'}</option>`)
-        .join('');
-    const filtroEstado = `<select name="estado" style="padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px">${estados}</select>`;
-    return nav('/reportes') + `<main><h2>Denuncias</h2>
-<form method="get" style="margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap">
-<input type="text" name="q" value="${esc(q)}" placeholder="Buscar motivo, inmueble, denunciante..."
-style="flex:1;min-width:220px;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px">
-${filtroEstado}
-<button class="b-ok" type="submit" style="padding:8px 14px">Filtrar</button>
-${(q || estadoFiltro) ? `<a href="/reportes" class="b-grey" style="padding:8px 14px;text-decoration:none">Limpiar</a>` : ''}
-</form>
-${avisoHtml || ''}
-<div class="card" style="overflow-x:auto"><table>
-<tr><th>Motivo</th><th>Inmueble</th><th>Creado</th><th>Denunciante</th><th>Estado</th><th></th></tr>
-${filas || '<tr><td colspan="6">Sin denuncias.</td></tr>'}</table></div></main>`;
+    const total = docs.length;
+    docs = docs.slice((page - 1) * limit, page * limit);
+    return { data: docs.map(p => ({
+        ...p,
+        estado: p.estado || 'disponible',
+        pill: p.estado === 'under_review' ? 'pend' : p.estado === 'finalizado' ? 'grey' : 'ok',
+        creado: mostrarCreado(p),
+        destacadoInfo: p.isFeatured ? {
+            dias: p.destacadoDiasRestantes,
+            vence: fecha(p.featuredUntil),
+        } : null,
+    })), total, page, limit, totalPages: Math.ceil(total / limit) };
 }
 
-function estadoPillReporte(e) {
-    const cls = e === 'resuelto' ? 'ok' : 'pend';
-    return `<span class="pill ${cls}">${esc(e || 'pendiente')}</span>`;
+async function getReportes(url) {
+    const q = (url.searchParams.get('q') || '').toLowerCase();
+    const estado = url.searchParams.get('estado') || '';
+    const page = parseInt(url.searchParams.get('page') || '1');
+    const limit = parseInt(url.searchParams.get('limit') || '20');
+    const snap = await db.collection('reports').limit(500).get();
+    let docs = snap.docs.map(ponerCreado)
+        .filter((r) => !q || (r.motivo && r.motivo.toLowerCase().includes(q)) ||
+            (r.listingId && r.listingId.toLowerCase().includes(q)) ||
+            (r.reporterId && r.reporterId.toLowerCase().includes(q)))
+        .filter((r) => !estado || (r.estado || 'pendiente') === estado)
+        .sort((a, b) => (mostrarCreado(b) > mostrarCreado(a) ? 1 : -1));
+    const total = docs.length;
+    docs = docs.slice((page - 1) * limit, page * limit);
+    return { data: docs.map(r => ({
+        ...r,
+        creado: mostrarCreado(r),
+        pill: r.estado === 'resuelto' ? 'ok' : 'pend',
+    })), total, page, limit, totalPages: Math.ceil(total / limit) };
 }
 
-async function vistaUsuarios(avisoHtml, q = '', tipoFiltro = '', verifFiltro = '', trustFiltro = '') {
-    const snap = await db.collection('usuarios').limit(300).get();
+async function getUsuarios(url) {
+    const q = (url.searchParams.get('q') || '').toLowerCase();
+    const tipo = url.searchParams.get('tipo') || '';
+    const verif = url.searchParams.get('verif') || '';
+    const trust = url.searchParams.get('trust') || '';
+    const page = parseInt(url.searchParams.get('page') || '1');
+    const limit = parseInt(url.searchParams.get('limit') || '20');
+    const snap = await db.collection('usuarios').limit(500).get();
     let docs = snap.docs
         .filter((d) => {
             const u = d.data();
-            return !q || (u.nombre && u.nombre.toLowerCase().includes(q.toLowerCase())) ||
-                (u.email && u.email.toLowerCase().includes(q.toLowerCase())) ||
-                d.id.toLowerCase().includes(q.toLowerCase());
+            return !q || (u.nombre && u.nombre.toLowerCase().includes(q)) ||
+                (u.email && u.email.toLowerCase().includes(q)) ||
+                d.id.toLowerCase().includes(q);
         })
-        .filter((d) => !tipoFiltro || (d.data().tipoUsuario || d.data().role || '') === tipoFiltro)
+        .filter((d) => !tipo || (d.data().tipoUsuario || d.data().role || '') === tipo)
         .filter((d) => {
             const u = d.data();
-            const verif = u.verification || {};
-            const ok = u.verificationBadge === true || verif.identityVerified === true;
-            const status = verif.status || '';
-            if (verifFiltro === 'verificado') return ok;
-            if (verifFiltro === 'pendiente') return status === 'pendiente';
-            if (verifFiltro === 'sin_verificar') return !ok && status !== 'pendiente';
+            const v = u.verification || {};
+            const ok = u.verificationBadge === true || v.identityVerified === true;
+            const status = v.status || '';
+            if (verif === 'verificado') return ok;
+            if (verif === 'pendiente') return status === 'pendiente';
+            if (verif === 'sin_verificar') return !ok && status !== 'pendiente';
             return true;
         })
-        .filter((d) => !trustFiltro || (d.data().trustLevel || 'nuevo') === trustFiltro)
+        .filter((d) => !trust || (d.data().trustLevel || 'nuevo') === trust)
         .map((d) => ({ id: d.id, ...d.data(), _creado: d.createTime ? d.createTime.toDate() : null }))
         .sort((a, b) => (mostrarCreado(b) > mostrarCreado(a) ? 1 : -1));
-    const filas = docs.map((u) => {
-        const verif = u.verification || {};
-        const ok = u.verificationBadge === true || verif.identityVerified === true;
-        return `<tr>
-<td><b>${esc(u.nombre || '(sin nombre)')}</b>
-<div class="muted">${esc(u.email || u.id)}</div></td>
-<td>${esc(u.tipoUsuario || u.role || '-')}</td>
-<td>${ok ? '<span class="pill ok">verificado</span>' : '<span class="pill grey">sin verificar</span>'}
-${verif.status === 'pendiente' ? ' <span class="pill pend">en revision</span>' : ''}</td>
-<td>${esc(u.trustLevel || 'nuevo')}</td>
-<td class="muted">${mostrarCreado(u)}</td>
-<td>${u.rating != null ? esc(u.rating) : '-'}</td></tr>`;
-    }).join('');
-    const tipos = ['', 'dueno', 'inquilino', 'ambos']
-        .map((e) => `<option value="${e}"${e === tipoFiltro ? ' selected' : ''}>${e || 'Todos'}</option>`)
-        .join('');
-    const verifs = ['', 'verificado', 'pendiente', 'sin_verificar']
-        .map((e) => `<option value="${e}"${e === verifFiltro ? ' selected' : ''}>${e === 'verificado' ? 'Verificados' : e === 'pendiente' ? 'En revision' : e === 'sin_verificar' ? 'Sin verificar' : 'Todos'}</option>`)
-        .join('');
-    const trusts = ['', 'nuevo', 'basic', 'verified', 'premium']
-        .map((e) => `<option value="${e}"${e === trustFiltro ? ' selected' : ''}>${e || 'Todos'}</option>`)
-        .join('');
-    const filtroTipo = `<select name="tipo" style="padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px">${tipos}</select>`;
-    const filtroVerif = `<select name="verif" style="padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px">${verifs}</select>`;
-    const filtroTrust = `<select name="trust" style="padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px">${trusts}</select>`;
-    return nav('/usuarios') + `<main><h2>Usuarios</h2>
-<form method="get" style="margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap">
-<input type="text" name="q" value="${esc(q)}" placeholder="Buscar nombre, email, uid..."
-style="flex:1;min-width:220px;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px">
-${filtroTipo}${filtroVerif}${filtroTrust}
-<button class="b-ok" type="submit" style="padding:8px 14px">Filtrar</button>
-${(q || tipoFiltro || verifFiltro || trustFiltro) ? `<a href="/usuarios" class="b-grey" style="padding:8px 14px;text-decoration:none">Limpiar</a>` : ''}
-</form>
-${avisoHtml || ''}
-<div class="card" style="overflow-x:auto"><table>
-<tr><th>Usuario</th><th>Tipo</th><th>Identidad</th><th>Confianza</th><th>Alta</th><th>Rating</th></tr>
-${filas || '<tr><td colspan="6">Sin usuarios.</td></tr>'}</table></div></main>`;
+    const total = docs.length;
+    docs = docs.slice((page - 1) * limit, page * limit);
+    return { data: docs.map(u => {
+        const v = u.verification || {};
+        const ok = u.verificationBadge === true || v.identityVerified === true;
+        return {
+            ...u,
+            verificado: ok,
+            estadoVerif: v.status || '',
+            creado: mostrarCreado(u),
+        };
+    }), total, page, limit, totalPages: Math.ceil(total / limit) };
 }
 
-// ---------------------------------------------------------------------------
-// Acciones
-// ---------------------------------------------------------------------------
+async function getStats(url) {
+    const days = parseInt(url.searchParams.get('days') || '30');
+    const since = new Date(Date.now() - days * 24 * 3600 * 1000);
+    const [props, users, chats] = await Promise.all([
+        db.collection('propiedades').where('createdAt', '>=', since).count().get(),
+        db.collection('usuarios').where('createdAt', '>=', since).count().get(),
+        db.collection('chats').where('lastMessageAt', '>=', since).count().get(),
+    ]);
+    return {
+        period: `${days}d`,
+        newPropiedades: props.data().count,
+        newUsuarios: users.data().count,
+        newChats: chats.data().count,
+    };
+}
+
+// ---- Actions ----
 async function aprobarVerificacion(uid) {
-    await db.collection('verificaciones').doc(uid).set(
-        { estado: 'aprobado', motivo: '', revisadoEn: new Date() }, { merge: true });
+    await db.collection('verificaciones').doc(uid).set({ estado: 'aprobado', motivo: '', revisadoEn: new Date() }, { merge: true });
     const ref = db.collection('usuarios').doc(uid);
     const doc = await ref.get();
     const actual = (doc.exists && doc.get('trustLevel')) || 'nuevo';
     await ref.set({
-        verification: {
-            status: 'aprobado',
-            identityVerified: true,
-            documentoPendiente: false,
-            motivo: '',
-        },
+        verification: { status: 'aprobado', identityVerified: true, documentoPendiente: false, motivo: '' },
         verificationBadge: true,
         trustLevel: actual === 'nuevo' || actual === 'basic' ? 'verified' : actual,
     }, { merge: true });
 }
 
 async function rechazarVerificacion(uid, motivo) {
-    await db.collection('verificaciones').doc(uid).set(
-        { estado: 'rechazado', motivo, revisadoEn: new Date() }, { merge: true });
+    await db.collection('verificaciones').doc(uid).set({ estado: 'rechazado', motivo, revisadoEn: new Date() }, { merge: true });
     await db.collection('usuarios').doc(uid).set({
-        verification: {
-            status: 'rechazado',
-            identityVerified: false,
-            documentoPendiente: false,
-            motivo,
-        },
+        verification: { status: 'rechazado', identityVerified: false, documentoPendiente: false, motivo },
     }, { merge: true });
 }
 
-// ---------------------------------------------------------------------------
-// Servidor
-// ---------------------------------------------------------------------------
+// ---- Server ----
 const servidor = http.createServer(async (req, res) => {
     const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
     const ruta = url.pathname;
 
     try {
+        // Auth endpoints (form-based for backward compat)
         if (ruta === '/login' && req.method === 'GET') {
-            return html(res, vistaLogin(''), 'Ingresar');
+            return serveStatic(req, res, path.join(PUBLIC_DIR, 'login.html'));
         }
         if (ruta === '/login' && req.method === 'POST') {
-            const cuerpo = await leerCuerpo(req);
-            if (!PASSWORD) {
-                return html(res, vistaLogin('ADMIN_PASSWORD no esta configurado'), 'Ingresar', 500);
-            }
-            if (cuerpo.get('password') !== PASSWORD) {
-                return html(res, vistaLogin('Password incorrecto'), 'Ingresar', 401);
+            const body = await leerCuerpo(req);
+            const inputUser = body.get('user')?.trim() || '';
+            const inputPassword = body.get('password')?.trim() || '';
+            console.log('[LOGIN] Attempt:', {
+                hasUser: !!USER, hasPassword: !!PASSWORD,
+                inputUserLen: inputUser.length, expectedUserLen: USER.length,
+                inputPassLen: inputPassword.length, expectedPassLen: PASSWORD.length
+            });
+            if (!PASSWORD) return html(res, 500, 'ADMIN_USER/ADMIN_PASSWORD no configurados en variables de entorno');
+            if (inputUser !== USER || inputPassword !== PASSWORD) {
+                console.log('[LOGIN] Failed: user or password mismatch');
+                return html(res, 401, 'Usuario o contraseña incorrectos');
             }
             const id = crypto.randomBytes(16).toString('hex');
             const ts = Date.now().toString();
             const payload = `${id}|${ts}`;
             const firma = firmar(payload);
+            // Cookie compatible con HTTPS (Cloud Run usa HTTPS)
+            const isSecure = req.headers['x-forwarded-proto'] === 'https' || req.headers.host?.includes('.run.app');
+            const cookieOpts = `alkil_admin=${payload}.${firma}; Path=/; HttpOnly; SameSite=Lax${isSecure ? '; Secure' : ''}; Max-Age=86400`;
             res.writeHead(302, {
-                'Set-Cookie': `alkil_admin=${payload}.${firma}; Path=/; HttpOnly; SameSite=Lax; Max-Age=86400`,
+                'Set-Cookie': cookieOpts,
                 Location: '/',
             });
             return res.end();
         }
         if (ruta === '/logout') {
-            res.writeHead(302, {
-                'Set-Cookie': 'alkil_admin=; Path=/; Max-Age=0',
-                Location: '/login',
-            });
+            const isSecure = req.headers['x-forwarded-proto'] === 'https' || req.headers.host?.includes('.run.app');
+            res.writeHead(302, { 'Set-Cookie': `alkil_admin=; Path=/; HttpOnly; SameSite=Lax${isSecure ? '; Secure' : ''}; Max-Age=0`, Location: '/login' });
             return res.end();
         }
 
-        // Caducidad de destacados: la llama Cloud Scheduler (sin sesion).
-        // Protegida con ADMIN_SECRET en la query.
-        if (ruta === '/cron/expirar') {
-            if (!SECRET || url.searchParams.get('clave') !== SECRET) {
-                res.writeHead(403, { 'Content-Type': 'application/json' });
-                return res.end(JSON.stringify({ error: 'clave invalida' }));
-            }
-            const resultado = await expirarDestacados(db);
-            res.writeHead(200, { 'Content-Type': 'application/json' });
-            return res.end(JSON.stringify(resultado));
+        // API routes
+        if (ruta.startsWith('/api/')) {
+            return handleAPI(req, res, url);
         }
 
-        if (!autenticado(req)) {
+        // SPA routes - serve index.html for client-side routing
+        if (ruta === '/' || ruta.startsWith('/dashboard') || ruta.startsWith('/verificaciones') ||
+            ruta.startsWith('/publicaciones') || ruta.startsWith('/reportes') || ruta.startsWith('/usuarios') ||
+            ruta.startsWith('/stats')) {
+            if (!autenticado(req)) {
+                res.writeHead(302, { Location: '/login' });
+                return res.end();
+            }
+            return serveStatic(req, res, path.join(PUBLIC_DIR, 'index.html'));
+        }
+
+        // Static assets
+        const filePath = path.join(PUBLIC_DIR, ruta === '/' ? 'index.html' : ruta);
+        if (fs.existsSync(filePath)) {
+            return serveStatic(req, res, filePath);
+        }
+
+        // 404
+        if (!autenticado(req) && ruta !== '/login') {
             res.writeHead(302, { Location: '/login' });
             return res.end();
         }
-        if (req.method === 'GET') {
-            if (ruta === '/') return html(res, await vistaResumen());
-            if (ruta === '/verificaciones') return html(res, await vistaVerificaciones('', url.searchParams.get('q') || '', url.searchParams.get('estado') || ''));
-            if (ruta === '/publicaciones') return html(res, await vistaPublicaciones('', url.searchParams.get('q') || '', url.searchParams.get('estado') || '', url.searchParams.get('destacado') || ''));
-            if (ruta === '/reportes') return html(res, await vistaReportes('', url.searchParams.get('q') || '', url.searchParams.get('estado') || ''));
-            if (ruta === '/usuarios') return html(res, await vistaUsuarios('', url.searchParams.get('q') || '', url.searchParams.get('tipo') || '', url.searchParams.get('verif') || '', url.searchParams.get('trust') || ''));
-            return html(res, nav('') + '<main><div class="card">No encontrado</div></main>', '404', 404);
-        }
-
-        if (req.method === 'POST') {
-            const m = ruta.match(/^\/verificaciones\/([^/]+)\/(aprobar|rechazar)$/);
-            if (m) {
-                const uid = decodeURIComponent(m[1]);
-                if (m[2] === 'aprobar') {
-                    await aprobarVerificacion(uid);
-                } else {
-                    const cuerpo = await leerCuerpo(req);
-                    await rechazarVerificacion(uid, cuerpo.get('motivo') || 'Documento no valido');
-                }
-                return html(res, await vistaVerificaciones('Verificacion actualizada.'));
-            }
-            const p = ruta.match(/^\/publicaciones\/([^/]+)\/(aprobar|finalizar|destacar|eliminar|estado)$/);
-            if (p) {
-                const id = decodeURIComponent(p[1]);
-                const ref = db.collection('propiedades').doc(id);
-                if (p[2] === 'eliminar') {
-                    await ref.delete();
-                    return html(res, await vistaPublicaciones('Publicacion eliminada.'));
-                }
-                if (p[2] === 'aprobar') {
-                    // "publicado": la app lo lee como disponible en el feed
-                    // (estadoNormalizado) y habilita el chat/seguimiento.
-                    await ref.set({ estado: 'publicado', aprobadoEn: new Date() }, { merge: true });
-                    return html(res, await vistaPublicaciones('Aprobada y publicada (' + esc(ref.id) + ').'));
-                }
-                if (p[2] === 'estado') {
-                    const cuerpo = await leerCuerpo(req);
-                    const nuevo = String(cuerpo.get('estado') || '').trim();
-                    const validos = ['publicado', 'disponible', 'finalizado', 'under_review', 'pendiente'];
-                    if (!validos.includes(nuevo)) {
-                        return html(res, await vistaPublicaciones('Estado invalido: ' + esc(nuevo)));
-                    }
-                    await ref.set({
-                        estado: nuevo,
-                        estadoCambiadoAdmin: true,
-                        estadoCambiadoEn: new Date(),
-                    }, { merge: true });
-                    return html(res, await vistaPublicaciones('Estado cambiado a "' + esc(nuevo) + '".'));
-                }
-                if (p[2] === 'finalizar') await ref.set({ estado: 'finalizado' }, { merge: true });
-                if (p[2] === 'destacar') {
-                    const doc = await ref.get();
-                    const on = doc.get('isFeatured') === true;
-                    if (on) {
-                        await ref.set({
-                            isFeatured: false,
-                            featuredUntil: null,
-                            destacadoDiasRestantes: 0,
-                            destacadoEstado: 'retirado',
-                        }, { merge: true });
-                    } else {
-                        const pedidos = Number(doc.get('destacadoDias'));
-                        const dias = pedidos > 0 ? pedidos : 30;
-                        const hasta = new Date(Date.now() + dias * 24 * 3600 * 1000);
-                        await ref.set({
-                            isFeatured: true,
-                            featuredUntil: hasta,
-                            destacadoDias: dias,
-                            destacadoDiasRestantes: dias,
-                            destacadoEstado: 'aprobado',
-                            solicitudDestacar: false,
-                            destacadoAprobadoEn: new Date(),
-                            destacadoAprobadoPor: 'admin-panel',
-                        }, { merge: true });
-                    }
-                }
-                return html(res, await vistaPublicaciones('Publicacion actualizada.'));
-            }
-            const r = ruta.match(/^\/reportes\/([^/]+)\/resolver$/);
-            if (r) {
-                await db.collection('reports').doc(decodeURIComponent(r[1]))
-                    .set({ estado: 'resuelto', resueltoEn: new Date() }, { merge: true });
-                return html(res, await vistaReportes('Denuncia resuelta.'));
-            }
-        }
-
-        return html(res, nav('') + '<main><div class="card">No encontrado</div></main>', '404', 404);
+        res.writeHead(404, { 'Content-Type': 'text/html' });
+        res.end('Not found');
     } catch (e) {
         console.error('ERROR', ruta, e);
-        return html(res, `<main><div class="card"><b>Error:</b> ${esc(e.message)}</div></main>`, 'Error', 500);
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: e.message }));
     }
 });
 
-servidor.listen(PORT, () => {
-    console.log(`Panel AlkilApp en http://localhost:${PORT}`);
-    if (!PASSWORD) console.warn('AVISO: define ADMIN_PASSWORD para poder entrar.');
+function html(res, status, msg) {
+    res.writeHead(status, { 'Content-Type': 'text/html; charset=utf-8' });
+    res.end(`<!doctype html><html><body><h1>${status}</h1><p>${esc(msg)}</p><a href="/login">Volver</a></body></html>`);
+}
+
+servidor.listen(PORT, '0.0.0.0', () => {
+    console.log(`AlkilApp Admin API + UI en http://localhost:${PORT}`);
+    if (!PASSWORD) console.warn('AVISO: define ADMIN_PASSWORD');
+});
+
+process.on('unhandledRejection', (reason) => {
+    console.error('UNHANDLED REJECTION:', reason);
+});
+
+process.on('uncaughtException', (err) => {
+    console.error('UNCAUGHT EXCEPTION:', err);
 });

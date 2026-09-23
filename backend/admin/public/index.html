@@ -1,0 +1,106 @@
+﻿<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#0B2447">
+<title>AlkilApp Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/styles.css?v=26">
+</head>
+<body>
+<div id="app">
+  <!-- Sidebar -->
+  <aside id="sidebar" class="sidebar" role="navigation" aria-label="NavegaciÃ³n principal">
+    <div class="sidebar-header">
+      <a href="/" class="logo" data-page="dashboard">
+        <svg viewBox="0 0 108 108" width="36" height="36"><rect width="108" height="108" rx="20" fill="#0B2447"/><path fill="#FF6B5E" d="M54 32 L30 56 L34 56 L34 76 L74 76 L74 56 L78 56 Z M44 76 L44 62 L64 62 L64 76 Z"/></svg>
+        <span>AlkilApp Admin</span>
+      </a>
+    </div>
+    <nav class="sidebar-nav" aria-label="Secciones">
+      <a href="/" class="nav-item" data-page="dashboard">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        <span>Dashboard</span>
+      </a>
+      <a class="nav-item" data-page="verificaciones" href="/verificaciones">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        <span>Verificaciones</span>
+        <span class="nav-badge" id="badge-verificaciones" style="display:none">0</span>
+      </a>
+      <a class="nav-item" data-page="publicaciones" href="/publicaciones">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 13.73V21a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-2"/><path d="M7 3v4"/><path d="M17 3v4"/><path d="M3 8h18"/><path d="M12 17v5"/></svg>
+        <span>Publicaciones</span>
+        <span class="nav-badge" id="badge-publicaciones" style="display:none">0</span>
+      </a>
+      <a class="nav-item" data-page="reportes" href="/reportes">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <span>Denuncias</span>
+        <span class="nav-badge" id="badge-reportes" style="display:none">0</span>
+      </a>
+      <a class="nav-item" data-page="usuarios" href="/usuarios">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        <span>Usuarios</span>
+      </a>
+      <a class="nav-item" data-page="stats" href="/stats">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+        <span>EstadÃ­sticas</span>
+      </a>
+    </nav>
+    <div class="sidebar-footer">
+      <button id="logoutBtn" class="btn-logout" title="Cerrar sesiÃ³n">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        <span>Salir</span>
+      </button>
+      <div class="sidebar-version">v1.43</div>
+    </div>
+  </aside>
+
+  <!-- Mobile sidebar overlay -->
+  <div id="sidebarOverlay" class="sidebar-overlay" aria-hidden="true"></div>
+
+  <!-- Main content -->
+  <main id="main" class="main" role="main">
+    <!-- Top bar -->
+    <header class="topbar">
+      <button id="menuToggle" class="menu-toggle" aria-label="Abrir menÃº" aria-expanded="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+      <div class="topbar-search" role="search">
+        <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="search" id="globalSearch" placeholder="Buscar en toda la app..." aria-label="BÃºsqueda global">
+        <kbd class="search-hint">âŒ˜K</kbd>
+      </div>
+      <div class="topbar-actions">
+        <button id="themeToggle" class="icon-btn" aria-label="Cambiar tema" title="Cambiar tema">
+          <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+          <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        </button>
+        <div class="user-menu">
+          <div class="user-avatar" id="userAvatar">A</div>
+          <div class="user-info">
+            <span class="user-name" id="userName">Admin</span>
+            <span class="user-role" id="userRole">Administrador</span>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Page content -->
+    <div id="pageContent" class="page-content" role="region" aria-live="polite">
+      <!-- Dynamic content injected here -->
+    </div>
+  </main>
+</div>
+
+<!-- Toast container -->
+<div id="toastContainer" class="toast-container" aria-live="polite" aria-atomic="true"></div>
+
+<!-- Modals -->
+<div id="modalRoot"></div>
+
+<script type="module" src="/js/app.js?v=26"></script>
+</body>
+</html>

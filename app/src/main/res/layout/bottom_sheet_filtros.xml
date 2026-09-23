@@ -34,10 +34,11 @@
         android:textSize="12sp" />
 
     <TextView
+        android:id="@+id/tvLblFiltroDepartamento"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="14dp"
-        android:text="@string/filtros_departamento"
+        android:text="@string/filtros_seleccione_departamento"
         android:textColor="@color/text_secondary"
         android:textSize="12sp"
         android:textStyle="bold" />
@@ -52,10 +53,11 @@
         android:paddingEnd="12dp" />
 
     <TextView
+        android:id="@+id/tvLblFiltroDistrito"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="10dp"
-        android:text="@string/filtros_distrito"
+        android:text="@string/filtros_seleccione_distrito"
         android:textColor="@color/text_secondary"
         android:textSize="12sp"
         android:textStyle="bold" />

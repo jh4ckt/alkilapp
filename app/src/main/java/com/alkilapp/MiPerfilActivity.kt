@@ -30,7 +30,7 @@ class MiPerfilActivity : AppCompatActivity() {
 
     private var fotoBase64: String? = null
     private val valoresTipo = arrayOf("dueno", "inquilino", "ambos")
-    private val departamentos = resources.getStringArray(R.array.departamentos_peru).toList()
+    private lateinit var departamentos: List<String>
 
     private val fotoLauncher = registerForActivityResult(
         ActivityResultContracts.PickVisualMedia()
@@ -64,7 +64,7 @@ class MiPerfilActivity : AppCompatActivity() {
             resources.getStringArray(R.array.tipos_usuario)
         ).apply { setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
 
-        val departamentos = resources.getStringArray(R.array.departamentos_peru).toList()
+        departamentos = resources.getStringArray(R.array.departamentos_peru).toList()
         binding.spPerfilZonaDepartamento.adapter = ArrayAdapter(
             this,
             android.R.layout.simple_spinner_item,
@@ -159,7 +159,7 @@ class MiPerfilActivity : AppCompatActivity() {
             "Junín" -> resources.getStringArray(R.array.ciudades_junin).toList()
             "Lambayeque" -> resources.getStringArray(R.array.ciudades_lambayeque).toList()
             "La Libertad" -> resources.getStringArray(R.array.ciudades_lalibertad).toList()
-            "Lima" -> resources.getStringArray(R.array.ciudades_lima).toList()
+            "Lima" -> resources.getStringArray(R.array.distritos_lima).toList()
             "Loreto" -> resources.getStringArray(R.array.ciudades_loreto).toList()
             "Madre de Dios" -> resources.getStringArray(R.array.ciudades_madrededios).toList()
             "Moquegua" -> resources.getStringArray(R.array.ciudades_moquegua).toList()

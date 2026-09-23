@@ -198,7 +198,7 @@ class RegistrarPropiedadActivity : AppCompatActivity() {
                 "Junín" -> resources.getStringArray(R.array.ciudades_junin).toList()
                 "La Libertad" -> resources.getStringArray(R.array.ciudades_lalibertad).toList()
                 "Lambayeque" -> resources.getStringArray(R.array.ciudades_lambayeque).toList()
-                "Lima" -> resources.getStringArray(R.array.ciudades_lima).toList()
+                "Lima" -> resources.getStringArray(R.array.distritos_lima).toList()
                 "Loreto" -> resources.getStringArray(R.array.ciudades_loreto).toList()
                 "Madre de Dios" -> resources.getStringArray(R.array.ciudades_madrededios).toList()
                 "Moquegua" -> resources.getStringArray(R.array.ciudades_moquegua).toList()
