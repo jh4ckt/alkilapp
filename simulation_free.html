@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head><title>IA Libre sin Propósito</title><script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script></head>
+<body style="margin:0; overflow:hidden;">
+<script>
+class RecurrentNN {
+    constructor(i, h, o) {
+        this.hSize = h;
+        this.wIH = Array.from({length: h}, () => Array.from({length: i + h}, () => Math.random()*2-1));
+        this.wHO = Array.from({length: o}, () => Array.from({length: h}, () => Math.random()*2-1));
+        this.state = new Array(h).fill(0); // Memoria interna
+    }
+    predict(inp) {
+        let combined = [...inp, ...this.state];
+        this.state = this.wIH.map((r, i) => Math.tanh(r.reduce((a,v,j) => a + v*combined[j], 0)));
+        return this.wHO.map((r, i) => Math.tanh(r.reduce((a,v,j) => a + v*this.state[j], 0)));
+    }
+}
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+const renderer = new THREE.WebGLRenderer();
+renderer.setSize(window.innerWidth, window.innerHeight);
+document.body.appendChild(renderer.domElement);
+camera.position.z = 50;
+
+const agents = Array.from({length: 40}, () => ({
+    mesh: new THREE.Mesh(new THREE.SphereGeometry(0.5), new THREE.MeshBasicMaterial({color: Math.random()*0xffffff})),
+    brain: new RecurrentNN(2, 4, 2),
+    x: Math.random()*40-20, y: Math.random()*40-20
+}));
+agents.forEach(a => scene.add(a.mesh));
+
+function animate() {
+    requestAnimationFrame(animate);
+    agents.forEach(a => {
+        let out = a.brain.predict([a.x/20, a.y/20]);
+        a.x += out[0]; a.y += out[1];
+        a.mesh.position.set(a.x, a.y, 0);
+        // Mutación lenta y constante (la IA cambia su "personalidad" sola con el tiempo)
+        if(Math.random() < 0.01) a.brain.wIH = a.brain.wIH.map(r => r.map(v => v + (Math.random()-0.5)*0.1));
+    });
+    renderer.render(scene, camera);
+}
+animate();
+</script>
+</body>
+</html>

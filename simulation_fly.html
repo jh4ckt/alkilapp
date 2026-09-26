@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+<head><title>IA Estilo Mosca (Funcional)</title><script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script></head>
+<body style="margin:0; overflow:hidden;">
+<script>
+class FlyBrain {
+    constructor() {
+        this.wSensory = Array.from({length: 16}, () => Array.from({length: 8}, () => Math.random()*2-1));
+        this.wMotor = Array.from({length: 2}, () => Array.from({length: 16}, () => Math.random()*2-1));
+    }
+    think(sensors) {
+        let hidden = this.wSensory.map((r, i) => Math.tanh(r.reduce((a,v,j) => a + v*sensors[j], 0)));
+        return this.wMotor.map((r, i) => Math.tanh(r.reduce((a,v,j) => a + v*hidden[j], 0)));
+    }
+}
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+const renderer = new THREE.WebGLRenderer();
+renderer.setSize(window.innerWidth, window.innerHeight);
+document.body.appendChild(renderer.domElement);
+camera.position.z = 60;
+
+// Obstáculos
+const obstacles = Array.from({length: 10}, () => {
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(5,5,5), new THREE.MeshBasicMaterial({color: 0xff0000}));
+    mesh.position.set(Math.random()*60-30, Math.random()*60-30, 0);
+    scene.add(mesh);
+    return mesh;
+});
+
+const raycaster = new THREE.Raycaster();
+const agents = Array.from({length: 30}, () => ({
+    mesh: new THREE.Mesh(new THREE.ConeGeometry(0.5, 1), new THREE.MeshBasicMaterial({color: 0xffffff})),
+    brain: new FlyBrain(),
+    x: Math.random()*40-20, y: Math.random()*40-20, angle: Math.random()*Math.PI*2
+}));
+agents.forEach(a => { scene.add(a.mesh); a.mesh.rotation.z = -a.angle; });
+
+function animate() {
+    requestAnimationFrame(animate);
+    agents.forEach(a => {
+        let sensors = Array.from({length: 8}, (_,i) => {
+            let rayAngle = a.angle + (i/8 - 0.5)*Math.PI; // Rayos en abanico frontal
+            let dir = new THREE.Vector3(Math.cos(rayAngle), Math.sin(rayAngle), 0);
+            raycaster.set(new THREE.Vector3(a.x, a.y, 0), dir);
+            let intersects = raycaster.intersectObjects(obstacles);
+            return intersects.length > 0 ? (1 / (intersects[0].distance + 1)) : 0;
+        });
+        
+        let motor = a.brain.think(sensors);
+        a.angle += motor[0]*0.2;
+        a.x += Math.cos(a.angle)*motor[1]; a.y += Math.sin(a.angle)*motor[1];
+        
+        a.mesh.position.set(a.x, a.y, 0);
+        a.mesh.rotation.z = -a.angle - Math.PI/2;
+    });
+    renderer.render(scene, camera);
+}
+animate();
+</script>
+</body>
+</html>

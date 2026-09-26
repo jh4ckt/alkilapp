@@ -1,0 +1,30 @@
+<resources>
+    <!-- App -->
+    <string name="app_name">AlkilApp</string>
+    
+    <!-- Soporte -->
+    <string name="soporte_titulo">Soporte</string>
+    <string name="soporte_email">Correo electrónico</string>
+    <string name="soporte_asunto">Asunto</string>
+    <string name="soporte_mensaje">Mensaje / Detalle</string>
+    <string name="soporte_enviar">Enviar</string>
+    <string name="soporte_enviando">Enviando...</string>
+    <string name="soporte_enviado">Mensaje enviado. Se abrirá tu cliente de correo.</string>
+    <string name="soporte_error">Error al enviar: %1$s</string>
+    <string name="soporte_campos_requeridos">Completa todos los campos</string>
+    <string name="soporte_email_invalido">Correo electrónico inválido</string>
+    <string name="soporte_enviando">Enviando...</string>
+    <string name="soporte_enviado">Mensaje enviado correctamente</string>
+    <string name="soporte_error">Error al enviar: %1$s</string>
+    <string name="soporte_campos_requeridos">Completa todos los campos</string>
+    <string name="soporte_info">Se abrirá tu cliente de correo para enviar el mensaje a alkilapp2026@gmail.com</string>
+    <string name="soporte_enviar_chooser">Enviar mensaje mediante</string>
+    
+    <!-- Navegación -->
+    <string name="nav_soporte">Soporte</string>
+    <string name="nav_footer">AlkilApp by Jh4ckT</string>
+    
+    <!-- General -->
+    <string name="app_name">AlkilApp</string>
+    <string name="chat_atras">Atrás</string>
+</resources>

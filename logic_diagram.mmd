@@ -1,0 +1,73 @@
+flowchart TD
+    %% Entradas ordenadas
+    A[(A = Lh<br/>Nivel alto)]
+    B[(B = Ll<br/>Nivel bajo)]
+    C[(C = Th<br/>Temp. alta)]
+    D[(D = Tl<br/>Temp. baja)]
+
+    %% Inversores
+    A --> NOT_A[NOT] --> Ap[A']
+    B --> NOT_B[NOT] --> Bp[B']
+    C --> NOT_C[NOT] --> Cp[C']
+    D --> NOT_D[NOT] --> Dp[D']
+
+    %% ALAR1 = C · D'
+    C --> AND_A1[AND]
+    Dp --> AND_A1
+    AND_A1 --> Alar1[Alar1]
+
+    %% ALAR2 = A·B' + C·D
+    A --> AND_A2a[AND]
+    Bp --> AND_A2a
+    AND_A2a --> OR_A2[OR]
+    
+    C --> AND_A2b[AND]
+    D --> AND_A2b
+    AND_A2b --> OR_A2
+    OR_A2 --> Alar2[Alar2]
+
+    %% INHIBICIÓN = Alar1 + Alar2
+    Alar1 --> OR_INH[OR]
+    Alar2 --> OR_INH
+    OR_INH --> INH[INH]
+
+    %% VIN = A' · C' · INH'
+    Ap --> AND_VIN[AND]
+    Cp --> AND_VIN
+    INH -.-> AND_VIN
+    AND_VIN --> Vin[Vin]
+
+    %% VOUT = B · C' · D' · INH'
+    B --> AND_VOUT[AND]
+    Cp --> AND_VOUT
+    Dp --> AND_VOUT
+    INH -.-> AND_VOUT
+    AND_VOUT --> Vout[Vout]
+
+    %% CAL = D · C' · (A' + B) · INH'
+    Ap --> OR_CAL[OR]
+    B --> OR_CAL
+    OR_CAL --> AB[(A'+B)]
+    
+    D --> AND_CAL[AND]
+    Cp --> AND_CAL
+    AB --> AND_CAL
+    INH -.-> AND_CAL
+    AND_CAL --> Cal[Cal]
+
+    %% Estilos simples
+    classDef in fill:#bbdefb,stroke:#1565c0
+    classDef not fill:#ffe0b2,stroke:#ef6c00
+    classDef and fill:#c8e6c9,stroke:#2e7d32
+    classDef or fill:#f8bbd0,stroke:#c2185b
+    classDef out fill:#e1bee7,stroke:#7b1fa2
+    classDef alm fill:#ffcdd2,stroke:#c62828
+    classDef inh fill:#fff9c4,stroke:#f57f17,stroke-dasharray: 5 5
+
+    class A,B,C,D in
+    class NOT_A,NOT_B,NOT_C,NOT_D not
+    class AND_A1,AND_A2a,AND_A2b,AND_VIN,AND_VOUT,AND_CAL and
+    class OR_A2,OR_CAL,OR_INH or
+    class Vin,Vout,Cal out
+    class Alar1,Alar2 alm
+    class INH inh

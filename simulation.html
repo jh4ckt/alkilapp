@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head><title>Evolución 3D</title><script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script></head>
+<body>
+<script>
+// --- CEREBRO Y EVOLUCIÓN (Tu IA) ---
+class NeuralNetwork {
+    constructor(i, h, o) {
+        this.wIH = Array.from({length: h}, () => Array.from({length: i}, () => Math.random()*2-1));
+        this.wHO = Array.from({length: o}, () => Array.from({length: h}, () => Math.random()*2-1));
+    }
+    predict(inp) {
+        let h = this.wIH.map((r,i) => this.sig(r.reduce((a,v,j) => a + v*inp[j], 0)));
+        return this.wHO.map((r,i) => this.sig(r.reduce((a,v,j) => a + v*h[j], 0)));
+    }
+    sig(x) { return 1 / (1 + Math.exp(-x)); }
+    mutate(r) { this.wIH = this.wIH.map(row => row.map(v => Math.random()<r ? v+(Math.random()*0.4-0.2) : v)); }
+}
+
+// --- ESCENA 3D ---
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+const renderer = new THREE.WebGLRenderer();
+renderer.setSize(window.innerWidth, window.innerHeight);
+document.body.appendChild(renderer.domElement);
+
+camera.position.z = 50;
+const agents = Array.from({length: 20}, () => {
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(1,1,1), new THREE.MeshBasicMaterial({color: 0x00ff00}));
+    scene.add(mesh);
+    return { mesh, brain: new NeuralNetwork(2, 4, 2), x: Math.random()*40-20, y: Math.random()*40-20 };
+});
+
+function animate() {
+    requestAnimationFrame(animate);
+    agents.forEach(a => {
+        let out = a.brain.predict([a.x/20, a.y/20]);
+        a.x += (out[0]-0.5)*2; a.y += (out[1]-0.5)*2;
+        a.mesh.position.set(a.x, a.y, 0);
+    });
+    renderer.render(scene, camera);
+}
+animate();
+</script>
+</body>
+</html>
