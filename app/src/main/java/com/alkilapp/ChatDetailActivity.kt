@@ -1,10 +1,12 @@
 package com.alkilapp
 
-import android.app.AlertDialog
 import android.content.res.ColorStateList
 import android.os.Bundle
+import android.view.MenuItem
 import android.view.View
 import android.view.inputmethod.EditorInfo
+import android.widget.PopupMenu
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.alkilapp.data.Mensaje
@@ -12,6 +14,7 @@ import com.alkilapp.data.PerfilUsuario
 import com.alkilapp.data.TipoMensaje
 import com.alkilapp.databinding.ActivityChatDetailBinding
 import com.alkilapp.ui.MensajeAdapter
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
@@ -54,7 +57,8 @@ class ChatDetailActivity : AppCompatActivity() {
         binding.tvChatListing.text = intent.getStringExtra(ChatListActivity.EXTRA_LISTING)
 
         binding.btnChatDetailBack.setOnClickListener { finish() }
-        binding.btnChatPropuesta.setOnClickListener { mostrarDialogoPropuesta() }
+        binding.btnChatMenu.setOnClickListener { mostrarMenuOpciones() }
+        binding.btnSolicitarAlquiler.setOnClickListener { mostrarDialogoPropuesta() }
         binding.btnEnviar.setOnClickListener { enviarMensaje() }
         binding.etEntrada.setOnEditorActionListener { _, actionId, _ ->
             if (actionId == EditorInfo.IME_ACTION_SEND || actionId == EditorInfo.IME_ACTION_DONE) {
@@ -68,7 +72,7 @@ class ChatDetailActivity : AppCompatActivity() {
 
         if (otroUid.isNotBlank()) cargarPerfil(otroUid)
 
-        // Obtener idPropietario del inmueble para controlar visibilidad del botón "Propuesta"
+        // Obtener idPropietario del inmueble para controlar visibilidad del botón "Solicitar alquiler"
         if (listingId.isNotBlank()) {
             db.collection("propiedades").document(listingId).get()
                 .addOnSuccessListener { doc ->
@@ -106,7 +110,7 @@ class ChatDetailActivity : AppCompatActivity() {
      * - Propiedad no está "finalizado"
      */
     private fun actualizarBotonPropuesta() {
-        val miUid = auth.currentUser?.uid ?: run { binding.btnChatPropuesta.visibility = View.GONE; return }
+        val miUid = auth.currentUser?.uid ?: run { binding.btnSolicitarAlquiler.visibility = View.GONE; return }
         val esPropietario = miUid == idPropietarioDelInmueble
 
         // Obtener estado del chat y de la propiedad
@@ -119,7 +123,7 @@ class ChatDetailActivity : AppCompatActivity() {
                 val propDisponible = propEstado != "finalizado"
 
                 val mostrar = !esPropietario && chatAbierto && propDisponible && listingId.isNotBlank()
-                binding.btnChatPropuesta.visibility = if (mostrar) View.VISIBLE else View.GONE
+                binding.btnSolicitarAlquiler.visibility = if (mostrar) View.VISIBLE else View.GONE
             }
         }
     }
@@ -128,8 +132,8 @@ class ChatDetailActivity : AppCompatActivity() {
         super.onStart()
         ChatVista.actual = chatId
         escucharMensajes()
-        escucharChat()
-        marcarLeido()
+        this.escucharChat()
+        this.marcarLeido()
     }
 
     override fun onStop() {
@@ -226,7 +230,7 @@ class ChatDetailActivity : AppCompatActivity() {
     /** Muestra diálogo para crear y enviar una propuesta de alquiler. */
     private fun mostrarDialogoPropuesta() {
         val miUid = auth.currentUser?.uid ?: return
-        val dialog = AlertDialog.Builder(this)
+        val dialog = MaterialAlertDialogBuilder(this)
         val view = layoutInflater.inflate(R.layout.dialog_propuesta, null)
         val etMonto = view.findViewById<com.google.android.material.textfield.TextInputEditText>(R.id.etPropMonto)
         val etMensaje = view.findViewById<com.google.android.material.textfield.TextInputEditText>(R.id.etPropMensaje)
@@ -389,6 +393,60 @@ class ChatDetailActivity : AppCompatActivity() {
                 )
                 if (otroUid.isNotBlank()) updates["unreadCount.$otroUid"] = FieldValue.increment(1)
                 db.collection("chats").document(chatId).update(updates)
+            }
+    }
+
+    /** Muestra menú de opciones del chat (cerrar chat, etc.). */
+    private fun mostrarMenuOpciones() {
+        val popup = PopupMenu(this@ChatDetailActivity, binding.btnChatMenu)
+        popup.menuInflater.inflate(R.menu.menu_chat, popup.menu)
+        popup.setOnMenuItemClickListener { item: android.view.MenuItem ->
+            when (item.itemId) {
+                R.id.menu_cerrar_chat -> {
+                    confirmarCerrarChat()
+                    true
+                }
+                else -> false
+            }
+        }
+        popup.show()
+    }
+
+    /** Confirma y cierra el chat (cambia estado a "cerrado", no borra historial). */
+    private fun confirmarCerrarChat() {
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.chat_cerrar_confirm_titulo)
+            .setMessage(R.string.chat_cerrar_confirm_msg)
+            .setNegativeButton(R.string.cancelar, null)
+            .setPositiveButton(R.string.chat_cerrar) { _, _ ->
+                cerrarChat()
+            }
+            .show()
+    }
+
+    /** Cierra el chat cambiando su estado a "cerrado" (no borra historial). */
+    private fun cerrarChat() {
+        val miUid = auth.currentUser?.uid ?: return
+        if (chatId.isBlank()) return
+
+        db.collection("chats").document(chatId)
+            .update(mapOf(
+                "estado" to "cerrado",
+                "lastMessage" to getString(R.string.chat_cerrado_sistema),
+                "lastMessageAt" to FieldValue.serverTimestamp()
+            ))
+            .addOnSuccessListener {
+                // Enviar mensaje de sistema
+                enviarMensajeSistema(getString(R.string.chat_cerrado_sistema))
+                // Actualizar UI
+                binding.cardChatCerrado.visibility = View.VISIBLE
+                binding.etEntrada.isEnabled = false
+                binding.btnEnviar.isEnabled = false
+                binding.btnSolicitarAlquiler.visibility = View.GONE
+                Toast.makeText(this, R.string.chat_cerrar_ok, Toast.LENGTH_SHORT).show()
+            }
+            .addOnFailureListener { e ->
+                Toast.makeText(this, getString(R.string.chat_cerrar_error, e.localizedMessage ?: "?"), Toast.LENGTH_LONG).show()
             }
     }
 

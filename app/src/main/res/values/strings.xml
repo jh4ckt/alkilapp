@@ -692,4 +692,11 @@
     <string name="chat_acuerdo_aceptado">El acuerdo ha sido aceptado. El chat queda en estado "acuerdo_cerrado" (48h para coordinar).</string>
     <string name="chat_propuesta_rechazada">La propuesta ha sido rechazada.</string>
     <string name="chat_cerrado_sistema">El chat ha sido cerrado automáticamente.</string>
+    <string name="solicitar_alquiler">Solicitar alquiler</string>
+    <string name="chat_menu_opciones">Opciones del chat</string>
+    <string name="chat_cerrar">Cerrar chat</string>
+    <string name="chat_cerrar_confirm_titulo">¿Cerrar este chat?</string>
+    <string name="chat_cerrar_confirm_msg">El chat quedará cerrado y no podrás enviar más mensajes. No se eliminará el historial.</string>
+    <string name="chat_cerrar_ok">Chat cerrado</string>
+    <string name="chat_cerrar_error">No se pudo cerrar el chat: %1$s</string>
 </resources>
