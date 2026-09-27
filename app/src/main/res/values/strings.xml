@@ -699,4 +699,9 @@
     <string name="chat_cerrar_confirm_msg">El chat quedará cerrado y no podrás enviar más mensajes. No se eliminará el historial.</string>
     <string name="chat_cerrar_ok">Chat cerrado</string>
     <string name="chat_cerrar_error">No se pudo cerrar el chat: %1$s</string>
+    <string name="chat_eliminar">Eliminar chat</string>
+    <string name="chat_eliminar_confirm_titulo">¿Eliminar este chat?</string>
+    <string name="chat_eliminar_confirm_msg">Se eliminará permanentemente el historial de mensajes. Esta acción no se puede deshacer.</string>
+    <string name="chat_eliminar_ok">Chat eliminado</string>
+    <string name="chat_eliminar_error">No se pudo eliminar el chat: %1$s</string>
 </resources>

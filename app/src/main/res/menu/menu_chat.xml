@@ -6,4 +6,9 @@
         android:icon="@drawable/ic_lock"
         android:title="@string/chat_cerrar"
         app:showAsAction="never" />
+    <item
+        android:id="@+id/menu_eliminar_chat"
+        android:icon="@drawable/ic_delete"
+        android:title="@string/chat_eliminar"
+        app:showAsAction="never" />
 </menu>

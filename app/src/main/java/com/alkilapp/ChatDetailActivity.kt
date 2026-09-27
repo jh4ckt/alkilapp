@@ -396,7 +396,7 @@ class ChatDetailActivity : AppCompatActivity() {
             }
     }
 
-    /** Muestra menú de opciones del chat (cerrar chat, etc.). */
+    /** Muestra menú de opciones del chat (cerrar chat, eliminar, etc.). */
     private fun mostrarMenuOpciones() {
         val popup = PopupMenu(this@ChatDetailActivity, binding.btnChatMenu)
         popup.menuInflater.inflate(R.menu.menu_chat, popup.menu)
@@ -404,6 +404,10 @@ class ChatDetailActivity : AppCompatActivity() {
             when (item.itemId) {
                 R.id.menu_cerrar_chat -> {
                     confirmarCerrarChat()
+                    true
+                }
+                R.id.menu_eliminar_chat -> {
+                    confirmarEliminarChat()
                     true
                 }
                 else -> false
@@ -447,6 +451,44 @@ class ChatDetailActivity : AppCompatActivity() {
             }
             .addOnFailureListener { e ->
                 Toast.makeText(this, getString(R.string.chat_cerrar_error, e.localizedMessage ?: "?"), Toast.LENGTH_LONG).show()
+            }
+    }
+
+    /** Confirma y elimina el chat permanentemente (borra el documento y subcolección). */
+    private fun confirmarEliminarChat() {
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.chat_eliminar_confirm_titulo)
+            .setMessage(R.string.chat_eliminar_confirm_msg)
+            .setNegativeButton(R.string.cancelar, null)
+            .setPositiveButton(R.string.chat_eliminar) { _, _ ->
+                eliminarChat()
+            }
+            .show()
+    }
+
+    /** Elimina el chat permanentemente de Firestore (documento + subcolección messages). */
+    private fun eliminarChat() {
+        val miUid = auth.currentUser?.uid ?: return
+        if (chatId.isBlank()) return
+
+        // Eliminar subcolección messages primero (batch)
+        db.collection("chats").document(chatId).collection("messages")
+            .get()
+            .addOnSuccessListener { snap ->
+                val batch = db.batch()
+                snap.documents.forEach { doc ->
+                    batch.delete(doc.reference)
+                }
+                // Eliminar documento del chat
+                batch.delete(db.collection("chats").document(chatId))
+                batch.commit()
+                    .addOnSuccessListener {
+                        Toast.makeText(this, R.string.chat_eliminar_ok, Toast.LENGTH_SHORT).show()
+                        finish() // Cerrar actividad y volver a la lista
+                    }
+                    .addOnFailureListener { e ->
+                        Toast.makeText(this, getString(R.string.chat_eliminar_error, e.localizedMessage ?: "?"), Toast.LENGTH_LONG).show()
+                    }
             }
     }
 
