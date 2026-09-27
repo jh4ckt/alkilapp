@@ -70,6 +70,21 @@ const fecha = (v) => {
 };
 const mostrarCreado = (doc) => fecha(doc.createdAt || doc._creado);
 const ponerCreado = (d) => ({ id: d.id, ...d.data(), _creado: d.createTime ? d.createTime.toDate() : null });
+
+// Color del pill segun el estado real de la publicacion:
+// en revision = amarillo, publicado/disponible = verde, finalizado = gris.
+function pillEstado(estado) {
+    switch (String(estado || '').toLowerCase()) {
+        case 'publicado':
+        case 'disponible': return 'ok';
+        case 'under_review': return 'pend';
+        case 'pendiente': return 'pend';
+        case 'finalizado': return 'grey';
+        case 'pausada': return 'grey';
+        case 'rechazada': return 'bad';
+        default: return 'new';
+    }
+}
 const firmar = (t) => crypto.createHmac('sha256', SECRET).update(t).digest('hex');
 const SESION_TTL = 24 * 60 * 60 * 1000;
 
@@ -217,7 +232,7 @@ async function handleAPI(req, res, url) {
             }
 
             // Publicaciones
-            const pm = ruta.match(/^\/api\/publicaciones\/([^/]+)\/(aprobar|finalizar|destacar|eliminar|estado)$/);
+            const pm = ruta.match(/^\/api\/publicaciones\/([^/]+)\/(aprobar|finalizar|destacar|destacado|eliminar|estado)$/);
             if (pm) {
                 const id = decodeURIComponent(pm[1]);
                 const ref = db.collection('propiedades').doc(id);
@@ -231,10 +246,12 @@ async function handleAPI(req, res, url) {
                 }
                 if (pm[2] === 'estado') {
                     const nuevo = String(data.estado || '').trim();
-                    // Mapear estados UI a internos
+                    // Estados reales de la app + alias historicos de este panel
                     const mapaEstados = {
                         'activa': 'disponible',
+                        'activo': 'disponible',
                         'pendiente': 'pendiente',
+                        'en_revision': 'under_review',
                         'pausada': 'pausada',
                         'rechazada': 'rechazada',
                         'publicado': 'publicado',
@@ -242,16 +259,21 @@ async function handleAPI(req, res, url) {
                         'finalizado': 'finalizado',
                         'under_review': 'under_review'
                     };
-                    const estadoInterno = mapaEstados[nuevo];
+                    const estadoInterno = mapaEstados[nuevo.toLowerCase()];
                     if (!estadoInterno) return json(res, 400, { error: 'estado invalido' });
                     await ref.set({ estado: estadoInterno, estadoCambiadoAdmin: true, estadoCambiadoEn: new Date() }, { merge: true });
-                    return json(res, 200, { ok: true });
+                    return json(res, 200, { ok: true, estado: estadoInterno });
                 }
                 if (pm[2] === 'finalizar') { await ref.set({ estado: 'finalizado' }, { merge: true }); return json(res, 200, { ok: true }); }
-                if (pm[2] === 'destacar') {
+                // `destacar` alterna; `destacado` (el que llama el panel) fija el valor
+                if (pm[2] === 'destacar' || pm[2] === 'destacado') {
                     const doc = await ref.get();
-                    const on = doc.get('isFeatured') === true;
-                    if (on) {
+                    if (!doc.exists) return json(res, 404, { error: 'Publicacion no encontrada' });
+                    const forzado = pm[2] === 'destacado'
+                        ? (data.destacado === true || data.destacado === 'true')
+                        : doc.get('isFeatured') !== true;
+                    const on = forzado;
+                    if (!on) {
                         await ref.set({ isFeatured: false, featuredUntil: null, destacadoDiasRestantes: 0, destacadoEstado: 'retirado' }, { merge: true });
                     } else {
                         const pedidos = Number(doc.get('destacadoDias'));
@@ -259,7 +281,7 @@ async function handleAPI(req, res, url) {
                         const hasta = new Date(Date.now() + dias * 24 * 3600 * 1000);
                         await ref.set({ isFeatured: true, featuredUntil: hasta, destacadoDias: dias, destacadoDiasRestantes: dias, destacadoEstado: 'aprobado', solicitudDestacar: false, destacadoAprobadoEn: new Date(), destacadoAprobadoPor: 'admin-panel' }, { merge: true });
                     }
-                    return json(res, 200, { ok: true });
+                    return json(res, 200, { ok: true, destacado: on });
                 }
             }
 
@@ -364,14 +386,21 @@ async function getPublicaciones(url) {
             (p.barrio && p.barrio.toLowerCase().includes(q)) ||
             (p.idPropietario && p.idPropietario.toLowerCase().includes(q)))
         .filter((p) => !estado || (p.estado || 'disponible') === estado)
-        .filter((p) => !destacado || (destacado === 'si' ? p.isFeatured : !p.isFeatured))
+        .filter((p) => {
+            if (!destacado) return true;
+            // Acepta si/no (el panel) y true/false (API) para no romper callers viejos
+            const pedirSi = destacado === 'si' || destacado === 'true';
+            const pedirNo = destacado === 'no' || destacado === 'false';
+            if (pedirNo) return p.isFeatured !== true;
+            return p.isFeatured === true;
+        })
         .sort((a, b) => (mostrarCreado(b) > mostrarCreado(a) ? 1 : -1));
     const total = docs.length;
     docs = docs.slice((page - 1) * limit, page * limit);
     return { data: docs.map(p => ({
         ...p,
         estado: p.estado || 'disponible',
-        pill: p.estado === 'under_review' ? 'pend' : p.estado === 'finalizado' ? 'grey' : 'ok',
+        pill: pillEstado(p.estado),
         creado: mostrarCreado(p),
         destacadoInfo: p.isFeatured ? {
             dias: p.destacadoDiasRestantes,

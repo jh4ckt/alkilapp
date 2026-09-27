@@ -1,29 +1,29 @@
-Ôªø// ==========================================================================
+// ==========================================================================
 // AlkilApp Admin - Main Application Entry Point
 // ==========================================================================
 
 import { initTheme, toggleTheme, showToast, toastSuccess, toastError, debounce } from './utils/helpers.js';
 import { api } from './services/api.js';
 
-// M√≥dulos de p√°ginas (Carga perezosa / Lazy loaded)
+// MÛdulos de p·ginas (Carga perezosa / Lazy loaded)
 const pageModules = {
-  dashboard: () => import('./components/Dashboard.js?v=26'),
-  verificaciones: () => import('./components/Verificaciones.js?v=26'),
-  publicaciones: () => import('./components/Publicaciones.js?v=26'),
-  reportes: () => import('./components/Reportes.js?v=26'),
-  soporte: () => import('./components/Soporte.js?v=26'),
-  usuarios: () => import('./components/Usuarios.js?v=26'),
-  stats: () => import('./components/Stats.js?v=26'),
+  dashboard: () => import('./components/Dashboard.js?v=27'),
+  verificaciones: () => import('./components/Verificaciones.js?v=27'),
+  publicaciones: () => import('./components/Publicaciones.js?v=27'),
+  reportes: () => import('./components/Reportes.js?v=27'),
+  soporte: () => import('./components/Soporte.js?v=27'),
+  usuarios: () => import('./components/Usuarios.js?v=27'),
+  stats: () => import('./components/Stats.js?v=27'),
 };
 
 const PAGE_TITLES = {
   dashboard: 'Dashboard',
   verificaciones: 'Verificaciones de Identidad',
   publicaciones: 'Publicaciones y Propiedades',
-  reportes: 'Denuncias y Moderaci√≥n',
+  reportes: 'Denuncias y ModeraciÛn',
   soporte: 'Soporte e Incidentes',
-  usuarios: 'Gesti√≥n de Usuarios',
-  stats: 'Estad√≠sticas y Anal√≠ticas',
+  usuarios: 'GestiÛn de Usuarios',
+  stats: 'EstadÌsticas y AnalÌticas',
 };
 
 class AdminApp {
@@ -51,19 +51,19 @@ class AdminApp {
     // Alternar Tema (Oscuro / Claro)
     document.getElementById('themeToggle')?.addEventListener('click', () => toggleTheme());
 
-    // Control del Men√∫ Lateral (Mobile)
+    // Control del Men˙ Lateral (Mobile)
     document.getElementById('menuToggle')?.addEventListener('click', () => this.toggleSidebar());
     document.getElementById('sidebarOverlay')?.addEventListener('click', () => this.closeSidebar());
 
-    // Enlaces de Navegaci√≥n
+    // Enlaces de NavegaciÛn
     document.querySelectorAll('.nav-item').forEach(link => {
       link.addEventListener('click', e => this.handleNav(e));
     });
 
-    // Cerrar Sesi√≥n
+    // Cerrar SesiÛn
     document.getElementById('logoutBtn')?.addEventListener('click', () => this.logout());
 
-    // B√∫squeda Global (Teclado + Input)
+    // B˙squeda Global (Teclado + Input)
     const searchInput = document.getElementById('globalSearch');
     if (searchInput) {
       searchInput.addEventListener('input', debounce(e => {
@@ -81,7 +81,7 @@ class AdminApp {
       });
     }
 
-    // Manejar botones Atr√°s / Adelante del navegador
+    // Manejar botones Atr·s / Adelante del navegador
     window.addEventListener('popstate', () => this.loadPage(this.getCurrentPage()));
   }
 
@@ -121,7 +121,7 @@ class AdminApp {
     if (this.isLoading) return;
     this.isLoading = true;
 
-    // Actualizar estado activo en men√∫ de navegaci√≥n
+    // Actualizar estado activo en men˙ de navegaciÛn
     document.querySelectorAll('.nav-item').forEach(l => {
       l.classList.toggle('active', l.dataset.page === page);
     });
@@ -136,15 +136,15 @@ class AdminApp {
         this.pageInstance = null;
       }
 
-      // Cargar m√≥dulo din√°micamente
+      // Cargar mÛdulo din·micamente
       const loader = pageModules[page];
-      if (!loader) throw new Error(`P√°gina no encontrada: "${page}"`);
+      if (!loader) throw new Error(`P·gina no encontrada: "${page}"`);
 
       if (container) {
         container.innerHTML = `
           <div class="loading-state" style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 80px 20px; color: var(--text-muted, #64748b);">
             <div class="spinner" style="width: 36px; height: 36px; border: 3px solid rgba(0,0,0,0.1); border-top-color: var(--primary-color, #3b82f6); border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 1rem;"></div>
-            <p style="font-size: 0.875rem; font-weight: 500; margin: 0;">Cargando m√≥dulo...</p>
+            <p style="font-size: 0.875rem; font-weight: 500; margin: 0;">Cargando mÛdulo...</p>
           </div>
         `;
       }
@@ -152,21 +152,21 @@ class AdminApp {
       const module = await loader();
       const PageClass = module.default;
 
-      // Instanciar y renderizar el componente envi√°ndole la instancia de API
+      // Instanciar y renderizar el componente envi·ndole la instancia de API
       this.pageInstance = new PageClass(api);
       
       if (container) {
         await this.pageInstance.render(container);
       }
 
-      // Actualizar t√≠tulo del documento
+      // Actualizar tÌtulo del documento
       document.title = `AlkilApp Admin - ${PAGE_TITLES[page] || page}`;
 
       // Actualizar badges en sidebar
       await this.updateBadges();
 
     } catch (err) {
-      console.error('Error al cargar la p√°gina:', err);
+      console.error('Error al cargar la p·gina:', err);
       if (container) {
         container.innerHTML = `
           <div class="empty-state" style="text-align: center; padding: 60px 20px; background: var(--card-bg, #fff); border-radius: 12px; border: 1px solid var(--border-color, #e2e8f0); margin: 20px 0;">
@@ -229,7 +229,7 @@ class AdminApp {
     try {
       await api.post('/logout').catch(() => fetch('/logout', { method: 'POST', credentials: 'include' }));
     } catch (e) {
-      console.warn('Error en cierre de sesi√≥n:', e);
+      console.warn('Error en cierre de sesiÛn:', e);
     } finally {
       window.location.href = '/login';
     }
@@ -247,7 +247,7 @@ class AdminApp {
   }
 }
 
-// Estilo de animaci√≥n inyectado din√°micamente para el spinner
+// Estilo de animaciÛn inyectado din·micamente para el spinner
 const style = document.createElement('style');
 style.textContent = `
   @keyframes spin {
@@ -257,14 +257,14 @@ style.textContent = `
 `;
 document.head.appendChild(style);
 
-// Inicializar la aplicaci√≥n cuando el DOM est√© listo
+// Inicializar la aplicaciÛn cuando el DOM estÈ listo
 document.addEventListener('DOMContentLoaded', async () => {
   const app = new AdminApp();
-  window.adminApp = app; // Exposici√≥n global para depuraci√≥n y eventos de actualizaci√≥n
+  window.adminApp = app; // ExposiciÛn global para depuraciÛn y eventos de actualizaciÛn
   await app.init();
 });
 
 // Manejo global de promesas no capturadas
 window.addEventListener('unhandledrejection', e => {
-  console.error('Excepci√≥n no controlada:', e.reason);
+  console.error('ExcepciÛn no controlada:', e.reason);
 });

@@ -289,7 +289,10 @@ html[data-theme="dark"] .icon-btn .icon-moon { display: block; }
 .btn-secondary { background: var(--bg-secondary); color: var(--text); border: 1px solid var(--border); }
 .btn-secondary:hover:not(:disabled) { background: var(--border); }
 .btn-danger { background: var(--danger-light); color: var(--danger); }
-.btn-danger:hover:not(:disabled) { background: var(--danger); color: #fff; }
+   .btn-danger:hover:not(:disabled) { background: var(--danger); color: #fff; }
+.btn-success { background: #16A34A; color: #fff; border: 1px solid #15803D; }
+   .btn-success:hover:not(:disabled) { background: #15803D; }
+.btn-success:disabled { opacity: 0.6; cursor: not-allowed; }
 .btn-gold { background: var(--gold-light); color: var(--gold); }
 .btn-gold:hover:not(:disabled) { background: var(--gold); color: var(--text-inverse); }
 .btn-ghost { background: transparent; color: var(--text-secondary); }

@@ -240,10 +240,13 @@ export default class Dashboard {
         const precioFormatted = typeof p.precio === 'number' ? formatCurrency(p.precio) : (p.precio || '-');
         const fechaFormatted = p.creado ? formatRelative(p.creado) : '-';
         
-        let pillClass = 'pill grey';
-        if (p.estado === 'activa') pillClass = 'pill ok';
-        else if (p.estado === 'pendiente') pillClass = 'pill pend';
-        else if (p.estado === 'rechazada' || p.estado === 'pausada') pillClass = 'pill bad';
+        // Mismos estados reales que el panel de Publicaciones:
+        // publicado/disponible = verde, en revisión = amarillo, finalizado = gris
+        let pillClass = 'pill new';
+        if (p.estado === 'publicado' || p.estado === 'disponible') pillClass = 'pill ok';
+        else if (p.estado === 'under_review' || p.estado === 'pendiente') pillClass = 'pill pend';
+        else if (p.estado === 'finalizado' || p.estado === 'pausada') pillClass = 'pill grey';
+        else if (p.estado === 'rechazada') pillClass = 'pill bad';
 
         return `
           <tr>

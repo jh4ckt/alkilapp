@@ -3,6 +3,19 @@
 // ==========================================================================
 import { formatCurrency, formatDate, showToast, debounce } from '../utils/helpers.js';
 
+// Estados REALES que usa la app Android y la colección `propiedades`.
+// Si esta lista no coincide con lo que hay en Firestore, el <select> no puede
+// mostrar el estado actual y el botón Guardar nunca se habilita (bug corregido:
+// faltaban under_review / publicado / disponible / finalizado).
+export const ESTADOS = [
+  { valor: 'under_review', etiqueta: 'En revisión' },
+  { valor: 'pendiente', etiqueta: 'Pendiente' },
+  { valor: 'publicado', etiqueta: 'Publicado' },
+  { valor: 'disponible', etiqueta: 'Disponible' },
+  { valor: 'pausada', etiqueta: 'Pausada' },
+  { valor: 'finalizado', etiqueta: 'Finalizado' },
+];
+
 export default class Publicaciones {
   constructor(api) {
     this.api = api;
@@ -55,10 +68,7 @@ export default class Publicaciones {
           <label class="filter-label" style="display: block; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted, #64748b); margin-bottom: 0.375rem;">Estado</label>
           <select id="estadoFilter" class="form-select" style="width: 100%; padding: 0.5rem 0.75rem; border: 1px solid var(--border-color, #cbd5e1); border-radius: 0.5rem; font-size: 0.875rem; background-color: var(--card-bg, #fff);">
             <option value="">Todos los estados</option>
-            <option value="activa" ${this.filters.estado === 'activa' ? 'selected' : ''}>Activas</option>
-            <option value="pendiente" ${this.filters.estado === 'pendiente' ? 'selected' : ''}>Pendientes</option>
-            <option value="pausada" ${this.filters.estado === 'pausada' ? 'selected' : ''}>Pausadas</option>
-            <option value="rechazada" ${this.filters.estado === 'rechazada' ? 'selected' : ''}>Rechazadas</option>
+            ${ESTADOS.map(e => `<option value="${e.valor}" ${this.filters.estado === e.valor ? 'selected' : ''}>${e.etiqueta}</option>`).join('')}
           </select>
         </div>
 
@@ -66,8 +76,8 @@ export default class Publicaciones {
           <label class="filter-label" style="display: block; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted, #64748b); margin-bottom: 0.375rem;">Destacado</label>
           <select id="destacadoFilter" class="form-select" style="width: 100%; padding: 0.5rem 0.75rem; border: 1px solid var(--border-color, #cbd5e1); border-radius: 0.5rem; font-size: 0.875rem; background-color: var(--card-bg, #fff);">
             <option value="">Todos</option>
-            <option value="true" ${this.filters.destacado === 'true' ? 'selected' : ''}>Sí (Destacadas)</option>
-            <option value="false" ${this.filters.destacado === 'false' ? 'selected' : ''}>No</option>
+            <option value="si" ${this.filters.destacado === 'si' ? 'selected' : ''}>Sí (Destacadas)</option>
+            <option value="no" ${this.filters.destacado === 'no' ? 'selected' : ''}>No</option>
           </select>
         </div>
 
@@ -188,8 +198,16 @@ export default class Publicaciones {
       }
     });
 
-    // Delegación de eventos para clicks en guardar o toggle destacado
+    // Delegación de eventos para clicks en guardar, aprobar o toggle destacado
     tbody?.addEventListener('click', async (e) => {
+      const aprobarBtn = e.target.closest('.aprobar-btn');
+      if (aprobarBtn) {
+        const id = aprobarBtn.dataset.id;
+        showToast('Aprobando publicación...', 'info');
+        await this.guardarEstado(id, 'publicado', aprobarBtn, null, 'publicado');
+        return;
+      }
+
       const saveBtn = e.target.closest('.save-status-btn');
       if (saveBtn && !saveBtn.disabled) {
         const id = saveBtn.dataset.id;
@@ -198,6 +216,7 @@ export default class Publicaciones {
 
         const nuevoEstado = selectEl.value;
         await this.guardarEstado(id, nuevoEstado, saveBtn, selectEl);
+        return;
       }
 
       const starBtn = e.target.closest('.toggle-destacado-btn');
@@ -284,7 +303,9 @@ export default class Publicaciones {
 
       const imagenUrl = pub.imagenPrincipal || pub.imagenes?.[0] || '/assets/placeholder-house.svg';
       const estado = pub.estado || 'pendiente';
-      const esDestacado = Boolean(pub.destacado);
+      // La collection guarda el destacado en `isFeatured` (no `destacado`): leer
+      // `destacado` dejaba la estrella siempre vacia y el toggle nunca acertaba.
+      const esDestacado = pub.isFeatured === true || Boolean(pub.destacado);
 
       return `
         <tr style="border-bottom: 1px solid var(--border-color, #f1f5f9); vertical-align: middle; transition: background-color 0.15s ease;" onmouseover="this.style.backgroundColor='var(--hover-bg, #f8fafc)'" onmouseout="this.style.backgroundColor='transparent'">
@@ -338,18 +359,22 @@ export default class Publicaciones {
 
           <!-- Fecha -->
           <td style="padding: 0.875rem 1rem; font-size: 0.8rem; color: var(--text-muted, #64748b); white-space: nowrap;">
-            ${formatDate ? formatDate(pub.createdAt) : (pub.createdAt ? new Date(pub.createdAt).toLocaleDateString() : '-')}
+            ${formatDate ? formatDate(pub.creado || pub.createdAt) : (pub.creado || pub.createdAt || '-')}
           </td>
 
           <!-- Acciones -->
           <td style="padding: 0.875rem 1rem; text-align: center;">
-            <div style="display: flex; align-items: center; justify-content: center; gap: 0.375rem;">
-              
+            <div style="display: flex; align-items: center; justify-content: center; gap: 0.375rem; flex-wrap: wrap;">
+
+              ${estado === 'under_review' ? `
+                <button class="btn btn-sm btn-success aprobar-btn" data-id="${pubId}" style="padding: 0.3rem 0.625rem; font-size: 0.775rem; border-radius: 0.375rem;" title="Aprobar y publicar esta publicación">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:13px;height:13px;"><polyline points="20 6 9 17 4 12"/></svg>
+                  Aprobar
+                </button>` : ''}
+
               <select class="form-select form-select-sm estado-select" data-id="${pubId}" data-original="${estado}" style="width: auto; padding: 0.3rem 0.5rem; font-size: 0.8rem; border-radius: 0.375rem; border: 1px solid var(--border-color, #cbd5e1); background-color: var(--card-bg, #fff);">
-                <option value="activa" ${estado === 'activa' ? 'selected' : ''}>Activa</option>
-                <option value="pendiente" ${estado === 'pendiente' ? 'selected' : ''}>Pendiente</option>
-                <option value="pausada" ${estado === 'pausada' ? 'selected' : ''}>Pausada</option>
-                <option value="rechazada" ${estado === 'rechazada' ? 'selected' : ''}>Rechazada</option>
+                ${ESTADOS.map(e => `<option value="${e.valor}" ${estado === e.valor ? 'selected' : ''}>${e.etiqueta}</option>`).join('')}
+                ${!ESTADOS.some(e => e.valor === estado) ? `<option value="${estado}" selected>${estado} (actual)</option>` : ''}
               </select>
 
               <button class="btn btn-sm btn-secondary save-status-btn" data-id="${pubId}" style="opacity: 0.5; cursor: not-allowed; padding: 0.3rem 0.625rem; font-size: 0.775rem; border-radius: 0.375rem; font-weight: 500;" title="Guardar cambios" disabled>
@@ -369,36 +394,50 @@ export default class Publicaciones {
     }).join('');
   }
 
-  async guardarEstado(id, nuevoEstado, saveBtn, selectEl) {
+  async guardarEstado(id, nuevoEstado, btn, selectEl, estadoForzado = null) {
     if (!id || id === 'undefined' || id === 'null') {
       showToast('Error: No se encontró un ID válido para esta publicación', 'error');
       return;
     }
 
+    const estadoFinal = estadoForzado || (selectEl ? selectEl.value : nuevoEstado);
+    const textoOriginal = btn ? btn.textContent : '';
+    const eraBotonGuardar = btn?.classList.contains('save-status-btn');
+
     try {
-      saveBtn.disabled = true;
-      saveBtn.textContent = 'Guardando...';
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = 'Guardando...';
+      }
 
-      const payload = { estado: nuevoEstado };
-      
-      await this.api.post(`/publicaciones/${id}/estado`, payload);
+      await this.api.post(`/publicaciones/${id}/estado`, { estado: estadoFinal });
 
-      showToast(`Estado actualizado a "${nuevoEstado}" correctamente`, 'success');
+      showToast(
+        `Estado actualizado a "${this.etiquetaEstado(estadoFinal)}" correctamente`,
+        'success'
+      );
 
-      selectEl.dataset.original = nuevoEstado;
-      saveBtn.classList.add('btn-secondary');
-      saveBtn.classList.remove('btn-primary');
-      saveBtn.style.opacity = '0.5';
-      saveBtn.style.cursor = 'not-allowed';
-      saveBtn.disabled = true;
-      saveBtn.textContent = 'Guardar';
+      if (selectEl) {
+        selectEl.dataset.original = estadoFinal;
+        selectEl.value = estadoFinal;
+      }
+      if (btn && eraBotonGuardar) {
+        btn.classList.add('btn-secondary');
+        btn.classList.remove('btn-primary');
+        btn.style.opacity = '0.5';
+        btn.style.cursor = 'not-allowed';
+        btn.disabled = true;
+        btn.textContent = 'Guardar';
+      }
 
       await this.loadData();
     } catch (err) {
       console.error('Error al guardar estado:', err);
       showToast('No se pudo guardar el cambio de estado: ' + (err.message || 'Error del servidor'), 'error');
-      saveBtn.disabled = false;
-      saveBtn.textContent = 'Guardar';
+      if (btn) {
+        btn.disabled = eraBotonGuardar ? false : false;
+        btn.textContent = textoOriginal;
+      }
     }
   }
 
@@ -409,9 +448,7 @@ export default class Publicaciones {
     }
 
     try {
-      const payload = { destacado: nuevoDestacado };
-      
-      await this.api.post(`/publicaciones/${id}/destacado`, payload);
+      await this.api.post(`/publicaciones/${id}/destacado`, { destacado: nuevoDestacado });
 
       showToast(nuevoDestacado ? 'Publicación destacada' : 'Se quitó el estado destacado', 'success');
       await this.loadData();
@@ -423,27 +460,45 @@ export default class Publicaciones {
 
   getBadgeClass(estado) {
     switch (estado?.toLowerCase()) {
-      case 'activa': return 'success';
-      case 'pendiente': return 'warning';
-      case 'pausada': return 'secondary';
-      case 'rechazada': return 'danger';
+      case 'publicado':
+      case 'disponible':
+        return 'success';
+      case 'under_review':
+        return 'warning';
+      case 'finalizado':
+        return 'grey';
+      case 'pendiente':
+        return 'pendiente';
+      case 'pausada':
+        return 'pausada';
       default: return 'info';
     }
   }
 
   getBadgeStyle(estado) {
+    // Colores pedidos: en revision = amarillo, publicado = verde, finalizado = gris.
     switch (estado?.toLowerCase()) {
-      case 'activa':
-        return 'background-color: #ecfdf5; color: #047857; border: 1px solid #a7f3d0;';
+      case 'publicado':
+      case 'disponible':
+        return 'background-color: #DCFCE7; color: #15803D; border: 1px solid #86EFAC;';
+      case 'under_review':
+        return 'background-color: #FEF3C7; color: #B45309; border: 1px solid #FCD34D;';
+      case 'finalizado':
+        return 'background-color: #E2E8F0; color: #475569; border: 1px solid #CBD5E1;';
       case 'pendiente':
-        return 'background-color: #fffbeb; color: #b45309; border: 1px solid #fde68a;';
+        return 'background-color: #FFEDD5; color: #C2410C; border: 1px solid #FDBA74;';
       case 'pausada':
-        return 'background-color: #f1f5f9; color: #475569; border: 1px solid #cbd5e1;';
+        return 'background-color: #E0F2FE; color: #0369A1; border: 1px solid #7DD3FC;';
       case 'rechazada':
-        return 'background-color: #fef2f2; color: #b91c1c; border: 1px solid #fca5a5;';
+        return 'background-color: #FEE2E2; color: #B91C1C; border: 1px solid #FCA5A5;';
       default:
-        return 'background-color: #f0f9ff; color: #0369a1; border: 1px solid #bae6fd;';
+        return 'background-color: #F1F5F9; color: #334155; border: 1px solid #CBD5E1;';
     }
+  }
+
+  // Texto legible del estado (para el <option> desconocido y los toasts)
+  etiquetaEstado(estado) {
+    return ESTADOS.find(e => e.valor === estado)?.etiqueta || estado;
   }
 
   updatePagination() {
