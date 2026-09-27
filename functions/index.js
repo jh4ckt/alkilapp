@@ -3,43 +3,80 @@
  *
  * notificarNuevoTicketSoporte:
  *   Se dispara cuando se crea un documento en la colección "soporte" de Firestore
- *   (evento onCreate) y envía un email HTML de notificación a alkilapp2026@gmail.com
- *   vía Nodemailer + Gmail.
+ *   (evento onCreate) y envía un email HTML de notificación a alkilapp2026@gmail.com.
  *
- * Configuración de credenciales (app password de Gmail, NO la contraseña normal):
- *   firebase functions:config:set gmail.user="alkilapp2026@gmail.com" gmail.pass="xxxx xxxx xxxx xxxx"
- * o bien con variables de entorno (.env en la raíz de functions/):
- *   GMAIL_USER=alkilapp2026@gmail.com
- *   GMAIL_APP_PASSWORD=abcdabcdabcdabcd
+ * Proveedor de correo (en orden de preferencia, se elige el que tenga credenciales):
+ *
+ *   1) Resend (RECOMENDADO) - API HTTP, sin app password ni dominio propio:
+ *        RESEND_API_KEY=re_xxxxxxxxx
+ *        RESEND_FROM="AlkilApp Soporte <onboarding@resend.dev>"
+ *        https://resend.com -> API Keys -> Create API Key (plan gratis: 3000/mes)
+ *        Nota: el remitente `onboarding@resend.dev` solo puede enviar al correo
+ *        con el que se registró la cuenta de Resend.
+ *
+ *   2) Nodemailer + Gmail (fallback) - requiere "contraseña de aplicación",
+ *      que Google ya no ofrece en la mayoría de cuentas personales:
+ *        GMAIL_USER=alkilapp2026@gmail.com
+ *        GMAIL_APP_PASSWORD=abcdabcdabcdabcd
+ *
+ *   Destinatario configurable con SOPORTE_DESTINO (por defecto alkilapp2026@gmail.com).
  */
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
-const nodemailer = require('nodemailer');
 
 if (!admin.apps.length) admin.initializeApp();
 
 // Destinatario de las notificaciones de soporte
-const DESTINO = 'alkilapp2026@gmail.com';
+const DESTINO = process.env.SOPORTE_DESTINO || 'alkilapp2026@gmail.com';
 
 // Credenciales: functions.config() (legado) o variables de entorno
 const cfg = (typeof functions.config === 'function' ? functions.config() : {}) || {};
+const RESEND_API_KEY = process.env.RESEND_API_KEY || '';
+const RESEND_FROM = process.env.RESEND_FROM || 'AlkilApp Soporte <onboarding@resend.dev>';
 const GMAIL_USER = process.env.GMAIL_USER || (cfg.gmail && cfg.gmail.user) || DESTINO;
 const GMAIL_PASS = process.env.GMAIL_APP_PASSWORD || (cfg.gmail && cfg.gmail.pass) || '';
 
-// Transportador perezoso: solo se construye si hay contraseña (evita que el
-// deploy falle en entornos sin secretos configurados aún)
+// Transportador perezoso de Nodemailer: solo se construye si hay contraseña
 let transporter = null;
 function getTransporter() {
   if (transporter) return transporter;
-  if (!GMAIL_PASS) {
-    console.warn('[Soporte] GMAIL_APP_PASSWORD no configurada: el correo NO se enviará.');
-    return null;
-  }
+  if (!GMAIL_PASS) return null;
+  // Requerimiento perezoso: si algún día se quita nodemailer del package.json,
+  // la función sigue funcionando con Resend sin tocar nada.
+  const nodemailer = require('nodemailer');
   transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: { user: GMAIL_USER, pass: GMAIL_PASS },
   });
   return transporter;
+}
+
+// Envío vía Resend (API REST, sin dependencias: fetch global de Node 18+)
+async function enviarConResend({ replyTo, subject, html }) {
+  const res = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${RESEND_API_KEY}`,
+    },
+    body: JSON.stringify({
+      from: RESEND_FROM,
+      to: [DESTINO],
+      subject,
+      html,
+      ...(replyTo ? { reply_to: replyTo } : {}),
+    }),
+  });
+
+  const texto = await res.text();
+  if (!res.ok) {
+    throw new Error(`Resend HTTP ${res.status}: ${texto}`);
+  }
+  try {
+    return JSON.parse(texto);
+  } catch (_) {
+    return { raw: texto };
+  }
 }
 
 // Escape HTML: el mensaje lo escribe el usuario, nunca debe inyectar markup
@@ -128,8 +165,7 @@ exports.notificarNuevoTicketSoporte = functions.firestore
     const data = snap.data() || {};
 
     const asunto = data.asunto || '(sin asunto)';
-    const mailOptions = {
-      from: `"AlkilApp Soporte" <${GMAIL_USER}>`,
+    const mensaje = {
       to: DESTINO,
       replyTo: data.emailContacto || undefined,
       subject: `[Soporte AlkilApp] ${asunto} - Ticket: ${ticketId}`,
@@ -144,18 +180,33 @@ exports.notificarNuevoTicketSoporte = functions.firestore
       }),
     };
 
-    const t = getTransporter();
-    if (!t) {
-      // No reintentamos indefinidamente: el ticket ya quedó registrado en Firestore
-      console.error(`[Soporte] Email NO enviado para ticket ${ticketId}: falta GMAIL_APP_PASSWORD.`);
+    // Sin credenciales: el ticket ya quedó registrado en Firestore y se ve en
+    // el panel admin, así que solo logueamos y salimos (sin reintentos).
+    if (!RESEND_API_KEY && !GMAIL_PASS) {
+      console.error(
+        `[Soporte] Email NO enviado para ticket ${ticketId}: falta RESEND_API_KEY` +
+        ' (o GMAIL_APP_PASSWORD). El ticket sigue visible en el panel admin.'
+      );
       return null;
     }
 
     try {
-      await t.sendMail(mailOptions);
-      console.log(`[Soporte] Email enviado para ticket ${ticketId}`);
+      if (RESEND_API_KEY) {
+        const r = await enviarConResend(mensaje);
+        console.log(`[Soporte] Email enviado (Resend) para ticket ${ticketId} -> id=${(r && r.id) || 'n/a'}`);
+      } else {
+        const t = getTransporter();
+        await t.sendMail({
+          from: `"AlkilApp Soporte" <${GMAIL_USER}>`,
+          to: mensaje.to,
+          replyTo: mensaje.replyTo,
+          subject: mensaje.subject,
+          html: mensaje.html,
+        });
+        console.log(`[Soporte] Email enviado (Gmail) para ticket ${ticketId}`);
+      }
     } catch (error) {
-      // No lanzamos el error: un fallo de Gmail no debe romper el trigger ni
+      // No lanzamos el error: un fallo de correo no debe romper el trigger ni
       // reintentar infinitamente (el ticket sigue vivo en la colección).
       console.error(`[Soporte] Error enviando email del ticket ${ticketId}:`, error.message);
     }
