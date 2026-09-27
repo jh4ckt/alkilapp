@@ -6,6 +6,7 @@ import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.ImageDecoder
+import android.location.Address
 import android.location.Geocoder
 import android.net.Uri
 import android.os.Build
@@ -13,6 +14,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.util.Base64
+import android.util.Log
 import android.view.View
 import android.view.inputmethod.InputMethodManager
 import android.widget.ArrayAdapter
@@ -23,6 +25,7 @@ import android.widget.Toast
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.annotation.StringRes
 import androidx.core.content.ContextCompat
 import androidx.core.widget.doAfterTextChanged
 import com.alkilapp.databinding.ActivityRegistrarPropiedadBinding
@@ -34,12 +37,23 @@ import com.google.android.gms.maps.model.LatLngBounds
 import com.google.android.libraries.places.api.Places
 import com.google.android.libraries.places.api.model.AutocompletePrediction
 import com.google.android.libraries.places.api.model.Place
+import com.google.android.libraries.places.api.model.AddressComponent
 import com.google.android.libraries.places.api.net.FindAutocompletePredictionsRequest
 import com.google.android.libraries.places.api.net.FetchPlaceRequest
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
+import android.annotation.SuppressLint
+import android.view.Gravity
+import java.text.Normalizer
+import java.util.Arrays
 import java.util.Locale
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlin.math.max
 
 /**
@@ -298,6 +312,7 @@ class RegistrarPropiedadActivity : AppCompatActivity() {
     }
 
     private fun buscarSugerencias(texto: String, token: Int) {
+        Log.d("AlkilAppBilling", "buscarSugerencias: texto='$texto', token=$token")
         val request = FindAutocompletePredictionsRequest.builder()
             .setQuery(texto)
             .setCountries(listOf("PE"))
@@ -308,10 +323,12 @@ class RegistrarPropiedadActivity : AppCompatActivity() {
         placesClient.findAutocompletePredictions(request)
             .addOnSuccessListener { res ->
                 if (token != consultaBusquedaActual) return@addOnSuccessListener
+                Log.d("AlkilAppBilling", "buscarSugerencias: ${res.autocompletePredictions.size} predicciones")
                 renderizarSugerencias(res.autocompletePredictions)
             }
             .addOnFailureListener { e ->
                 if (token != consultaBusquedaActual) return@addOnFailureListener
+                Log.e("AlkilAppBilling", "buscarSugerencias error: ${e.message}")
                 binding.llSugerencias.visibility = View.GONE
                 binding.tvPropBuscarEspera.text =
                     getString(R.string.prop_buscar_dir_error, e.localizedMessage ?: "?")
@@ -320,6 +337,7 @@ class RegistrarPropiedadActivity : AppCompatActivity() {
     }
 
     private fun renderizarSugerencias(predicciones: List<AutocompletePrediction>) {
+        Log.d("AlkilAppBilling", "renderizarSugerencias: ${predicciones.size} items")
         val densidad = resources.displayMetrics.density
         binding.llSugerencias.removeAllViews()
         binding.tvPropBuscarEspera.visibility = View.GONE
@@ -354,13 +372,14 @@ class RegistrarPropiedadActivity : AppCompatActivity() {
     private fun seleccionarLugar(pred: AutocompletePrediction) {
         val pedido = FetchPlaceRequest.builder(
             pred.placeId,
-            listOf(Place.Field.ADDRESS, Place.Field.LAT_LNG)
+            listOf(Place.Field.ADDRESS, Place.Field.LAT_LNG, Place.Field.ADDRESS_COMPONENTS)
         ).build()
         placesClient.fetchPlace(pedido)
             .addOnSuccessListener { resp ->
                 val lugar = resp.place
                 val direccion = lugar.address
                 val latlng = lugar.latLng
+                Log.d("AlkilAppBilling", "seleccionarLugar: direccion=$direccion, latlng=$latlng")
                 if (direccion != null) {
                     binding.etPropDireccion.setText(direccion)
                 }
@@ -372,6 +391,112 @@ class RegistrarPropiedadActivity : AppCompatActivity() {
                         "%.6f".format(latlng.latitude),
                         "%.6f".format(latlng.longitude)
                     )
+                }
+                // Extraer componentes de dirección estructurados de Places API
+                val addressComponents = lugar.addressComponents
+                Log.d("AlkilAppBilling", "addressComponents: $addressComponents")
+                if (addressComponents != null) {
+                    val componentsList: List<*> = when {
+                        addressComponents is List<*> -> addressComponents
+                        addressComponents is Array<*> -> addressComponents.toList()
+                        else -> {
+                            val list = mutableListOf<Any>()
+                            if (addressComponents is Iterable<*>) {
+                                for (item in addressComponents) {
+                                    if (item != null) list.add(item)
+                                }
+                            } else if (addressComponents is Array<*>) {
+                                for (item in addressComponents) {
+                                    if (item != null) list.add(item)
+                                }
+                            }
+                            list
+                        }
+                    }
+                    // Extraer componentes administrativos directamente (mejor que código postal)
+                    var departamentoEncontrado = ""
+                    var distritoEncontrado = ""
+                    for (component in componentsList) {
+                        if (component == null) continue
+                        val componentObj = component!! as com.google.android.libraries.places.api.model.AddressComponent
+                        val types = componentObj.types
+                        val nombre = componentObj.name
+                        when {
+                            "administrative_area_level_1" in types -> {
+                                // Nivel administrativo 1 = Departamento/Estado (ej: "Lima", "Arequipa")
+                                departamentoEncontrado = nombre
+                                Log.d("AlkilAppBilling", "Encontrado administrative_area_level_1: $nombre")
+                            }
+                            "administrative_area_level_2" in types -> {
+                                // Nivel 2 = Provincia/Subdistrito (a menudo el distrito en Perú)
+                                if (distritoEncontrado.isBlank()) distritoEncontrado = nombre
+                                Log.d("AlkilAppBilling", "Encontrado administrative_area_level_2: $nombre")
+                            }
+                            "sublocality" in types -> {
+                                // Sublocalidad = Distrito/Barrio
+                                if (distritoEncontrado.isBlank()) distritoEncontrado = nombre
+                                Log.d("AlkilAppBilling", "Encontrado sublocality: $nombre")
+                            }
+                            "locality" in types -> {
+                                // Localidad = Ciudad (fallback para distrito)
+                                if (distritoEncontrado.isBlank()) distritoEncontrado = nombre
+                                Log.d("AlkilAppBilling", "Encontrado locality: $nombre")
+                            }
+                            "sublocality_level_1" in types -> {
+                                // Sublocalidad nivel 1 = Barrio/Distrito específico
+                                if (distritoEncontrado.isBlank()) distritoEncontrado = nombre
+                                Log.d("AlkilAppBilling", "Encontrado sublocality_level_1: $nombre")
+                            }
+                        }
+                    }
+                    // Si no encontramos distrito por componentes, intentar código postal como fallback
+                    if (distritoEncontrado.isBlank()) {
+                        for (component in componentsList) {
+                            if (component == null) continue
+                            val componentObj = component!! as com.google.android.libraries.places.api.model.AddressComponent
+                            if ("postal_code" in componentObj.types) {
+                                val postalCode = componentObj.name
+                                if (!postalCode.isNullOrBlank()) {
+                                    val (departamento, distrito) = departamentoYDistritoDesdePostalCode(postalCode!!)
+                                    if (departamento.isNotBlank() && departamentoEncontrado.isBlank()) {
+                                        departamentoEncontrado = departamento
+                                    }
+                                    if (distrito.isNotBlank() && distritoEncontrado.isBlank()) {
+                                        distritoEncontrado = distrito
+                                    }
+                                    if (departamentoEncontrado.isNotBlank() && distritoEncontrado.isNotBlank()) break
+                                }
+                            }
+                        }
+                    }
+                    Log.d("AlkilAppBilling", "Resultado: departamento='$departamentoEncontrado', distrito='$distritoEncontrado'")
+                    if (departamentoEncontrado.isNotBlank() || distritoEncontrado.isNotBlank()) {
+                        runOnUiThread {
+                            // Seleccionar departamento en spinner
+                            val depArr = resources.getStringArray(R.array.departamentos_peru)
+                            val depIndex = depArr.indexOfFirst { it == departamentoEncontrado }
+                            if (depIndex >= 0) {
+                                binding.spPropDepartamento.setSelection(depIndex)
+                            } else {
+                                Log.w("AlkilAppBilling", "Departamento '$departamentoEncontrado' no encontrado en lista: ${Arrays.toString(resources.getStringArray(R.array.departamentos_peru))}")
+                            }
+                            // El listener del departamento ya actualiza los distritos
+                            binding.spPropDistrito.postDelayed({
+                                val distArr = binding.spPropDistrito.adapter as? ArrayAdapter<*>
+                                val distList = distArr?.let { 
+                                    (0 until it.count).map { index -> it.getItem(index).toString() } 
+                                } ?: emptyList()
+                                val distIndex = distList.indexOfFirst { it == distritoEncontrado }
+                                if (distIndex >= 0) {
+                                    binding.spPropDistrito.setSelection(distIndex)
+                                } else if (distritoEncontrado.isNotBlank()) {
+                                    Log.w("AlkilAppBilling", "Distrito '$distritoEncontrado' no encontrado en lista actual. Lista: ${(0 until binding.spPropDistrito.adapter.count).map { binding.spPropDistrito.adapter.getItem(it).toString() }}")
+                                }
+                            }, 100)
+                        }
+                    } else {
+                        Log.w("AlkilAppBilling", "No se pudo determinar departamento/distrito desde dirección")
+                    }
                 }
                 ocultarTeclado()
                 binding.llSugerencias.removeAllViews()
@@ -394,7 +519,8 @@ class RegistrarPropiedadActivity : AppCompatActivity() {
 
     /**
      * Traduce las coordenadas elegidas en el mapa a una direccion (geocodificacion inversa)
-     * y la rellena en el campo de direccion si este sigue vacio.
+     * y la rellena en el campo de direccion (siempre actualiza al seleccionar en el mapa).
+     * También auto-completa departamento y distrito según código postal.
      */
     private fun rellenarDireccionDesdeMapa(lat: Double, lng: Double) {
         Thread {
@@ -406,12 +532,48 @@ class RegistrarPropiedadActivity : AppCompatActivity() {
             } catch (_: Exception) {
                 null
             }
-            runOnUiThread {
-                if (!direccion.isNullOrBlank() &&
-                    binding.etPropDireccion.text?.toString()?.isBlank() != false
-                ) {
+            Log.d("AlkilAppBilling", "rellenarDireccionDesdeMapa: lat=$lat, lng=$lng, direccion=$direccion")
+            if (!direccion.isNullOrBlank()) {
+                runOnUiThread {
                     binding.etPropDireccion.setText(direccion)
                 }
+                Thread {
+                    try {
+                        val geocoder = Geocoder(this@RegistrarPropiedadActivity, Locale.getDefault())
+                        val addresses = geocoder.getFromLocationName(direccion!!, 1)
+                        if (!addresses.isNullOrEmpty()) {
+                            Log.d("AlkilAppBilling", "geocoder results: ${addresses.size}")
+                            val address = addresses[0]
+                            val postalCode = address.postalCode
+                            Log.d("AlkilAppBilling", "postalCode: $postalCode")
+                            if (!postalCode.isNullOrBlank()) {
+                                val (departamento, distrito) = departamentoYDistritoDesdePostalCode(postalCode!!)
+                                Log.d("AlkilAppBilling", "departamento=$departamento, distrito=$distrito")
+                                if (departamento.isNotBlank()) {
+                                    runOnUiThread {
+                                        val depArr = resources.getStringArray(R.array.departamentos_peru)
+                                        val depIndex = depArr.indexOfFirst { it == departamento }
+                                        if (depIndex >= 0) {
+                                            binding.spPropDepartamento.setSelection(depIndex)
+                                        }
+                                        binding.spPropDistrito.postDelayed({
+                                            val distArr = binding.spPropDistrito.adapter as? ArrayAdapter<*>
+                                            val distList = distArr?.let { 
+                                                (0 until it.count).map { index -> it.getItem(index).toString() } 
+                                            } ?: emptyList()
+                                            val distIndex = distList.indexOfFirst { it == distrito }
+                                            if (distIndex >= 0) {
+                                                binding.spPropDistrito.setSelection(distIndex)
+                                            }
+                                        }, 100)
+                                    }
+                                }
+                            }
+                        }
+                    } catch (e: Exception) {
+                        Log.w("AlkilAppBilling", "Error en geocodificación inversa: ${e.message}")
+                    }
+                }.start()
             }
         }.start()
     }
@@ -616,12 +778,26 @@ class RegistrarPropiedadActivity : AppCompatActivity() {
     private fun guardarPropiedad(editMode: Boolean, propiedadId: String = "") {
         val titulo = binding.etPropTitulo.text.toString().trim()
         if (titulo.isEmpty()) {
-            Toast.makeText(this, R.string.prop_titulo_requerido, Toast.LENGTH_SHORT).show()
+            mostrarError(R.string.prop_titulo_requerido)
             return
         }
-        val precio = binding.etPropPrecio.text.toString().trim().toDoubleOrNull() ?: 0.0
+        val descripcion = binding.etPropDescripcion.text.toString().trim()
+        if (descripcion.isEmpty()) {
+            mostrarError(R.string.prop_descripcion_requerida)
+            return
+        }
+        val precioStr = binding.etPropPrecio.text.toString().trim()
+        if (precioStr.isEmpty()) {
+            mostrarError(R.string.prop_precio_requerido)
+            return
+        }
+        val precio = precioStr.toDoubleOrNull() ?: 0.0
+        if (precio <= 1) {
+            mostrarError(R.string.prop_precio_mayor_uno)
+            return
+        }
         val u = auth.currentUser ?: run {
-            Toast.makeText(this, R.string.auth_requerido_para_agregar, Toast.LENGTH_LONG).show()
+            mostrarError(R.string.auth_requerido_para_agregar, true)
             finish()
             return
         }
@@ -634,6 +810,60 @@ class RegistrarPropiedadActivity : AppCompatActivity() {
         val distrito = binding.spPropDistrito.selectedItem as String
         val barrio = if (distrito == getString(R.string.prop_distrito_sin) || distrito == "Otro") "" else distrito
 
+        // Validaciones obligatorias
+        val tipoIdx = binding.spPropTipo.selectedItemPosition
+        if (tipoIdx < 0 || tipoIdx >= tipos.size) {
+            mostrarError(R.string.prop_tipo_requerido)
+            return
+        }
+        val operIdx = binding.spPropOperacion.selectedItemPosition
+        if (operIdx < 0 || operIdx >= resources.getStringArray(R.array.operaciones).size) {
+            mostrarError(R.string.prop_operacion_requerido)
+            return
+        }
+        val monedaIdx = binding.spPropMoneda.selectedItemPosition
+        if (monedaIdx < 0 || monedaIdx >= monedas.size) {
+            mostrarError(R.string.prop_moneda_requerido)
+            return
+        }
+        if (departamento.isEmpty() || departamento == getString(R.string.prop_departamento_sin)) {
+            mostrarError(R.string.prop_departamento_requerido)
+            return
+        }
+        if (distrito.isEmpty() || distrito == getString(R.string.prop_distrito_sin) || distrito == "Otro") {
+            mostrarError(R.string.prop_distrito_requerido)
+            return
+        }
+        val ambientesStr = binding.etPropAmbientes.text.toString().trim()
+        if (ambientesStr.isEmpty()) {
+            mostrarError(R.string.prop_ambientes_requerido)
+            return
+        }
+        val ambientes = ambientesStr.toIntOrNull() ?: 0
+        if (ambientes <= 0) {
+            mostrarError(R.string.prop_ambientes_requerido)
+            return
+        }
+        val superficieStr = binding.etPropSuperficie.text.toString().trim()
+        if (superficieStr.isEmpty()) {
+            mostrarError(R.string.prop_superficie_requerido)
+            return
+        }
+        val superficie = superficieStr.toDoubleOrNull() ?: 0.0
+        if (superficie <= 0) {
+            mostrarError(R.string.prop_superficie_requerido)
+            return
+        }
+        val direccion = binding.etPropDireccion.text.toString().trim()
+        if (direccion.isEmpty()) {
+            mostrarError(R.string.prop_direccion_requerida)
+            return
+        }
+        if (fotosFormulario.isEmpty()) {
+            mostrarError(R.string.prop_fotos_requeridas)
+            return
+        }
+
         val comodidades = binding.cgPropComodidades.checkedChipIds.mapNotNull { id ->
             (binding.cgPropComodidades.findViewById<com.google.android.material.chip.Chip>(id))
                 ?.text?.toString()
@@ -641,12 +871,12 @@ class RegistrarPropiedadActivity : AppCompatActivity() {
 
         val datos = hashMapOf<String, Any>(
             "titulo" to titulo,
-            "descripcion" to binding.etPropDescripcion.text.toString().trim(),
+            "descripcion" to descripcion,
             "tipo" to tipos[binding.spPropTipo.selectedItemPosition],
             "operacion" to operaciones[binding.spPropOperacion.selectedItemPosition],
             "precio" to precio,
             "moneda" to codigoMoneda,
-            "direccion" to binding.etPropDireccion.text.toString().trim(),
+            "direccion" to direccion,
             "barrio" to barrio,
             "ciudad" to departamento,
             "lat" to latAgregar,
@@ -654,9 +884,8 @@ class RegistrarPropiedadActivity : AppCompatActivity() {
             "imagenUrl" to emptyList<String>(),
             "fotos" to fotosFormulario.toList(),
             "idPropietario" to u.uid,
-            "ambientes" to (binding.etPropAmbientes.text.toString().trim().toLongOrNull() ?: 0L),
-            "superficieM2" to (binding.etPropSuperficie.text.toString().trim().toDoubleOrNull()
-                ?: 0.0),
+            "ambientes" to ambientes,
+            "superficieM2" to superficie,
             "comodidades" to comodidades,
             "publicadoEn" to FieldValue.serverTimestamp()
         )
@@ -692,5 +921,108 @@ class RegistrarPropiedadActivity : AppCompatActivity() {
                     ).show()
                 }
         }
+
+    }
+
+    /**
+     * Mapea código postal a (departamento, distrito).
+     * Retorna par (departamento, distrito) o vacío si no encuentra.
+     */
+    private fun departamentoYDistritoDesdePostalCode(postalCode: String): Pair<String, String> {
+        // Códigos postales principales por departamento/distrito
+        return when (postalCode) {
+            // Lima - distritos principales
+            in listOf("15001", "15002", "15003", "15004", "15005", "15006", "15007", "15008", "15009", "15010",
+                      "15011", "15012", "15013", "15014", "15015", "15016", "15017", "15018", "15019", "15020",
+                      "15021", "15022", "15023", "15024", "15025", "15026", "15027", "15028", "15029", "15030",
+                      "15031", "15032", "15033", "15034", "15035", "15036", "15037", "15038", "15039", "15040",
+                      "15041", "15042", "15043", "15044", "15045", "15046", "15047", "15048", "15049", "15050",
+                      "15051", "15052", "15053", "15054", "15055", "15056", "15057", "15058", "15059", "15060",
+                      "15061", "15062", "15063", "15064", "15065", "15066", "15067", "15067", "15068", "15069", "15070",
+                      "15071", "15072", "15073", "15074", "15075", "15076", "15077", "15078", "15079", "15080",
+                      "15081", "15082", "15083", "15084", "15085", "15086", "15087", "15088", "15089", "15090",
+                      "15091", "15092", "15093", "15094", "15095", "15096", "15097", "15098", "15099", "15100") -> {
+                // Determinar distrito específico por código postal más preciso
+                val distrito = when (postalCode) {
+                    "15001" -> "Lima"
+                    "15002" -> "Ancon"
+                    "15003" -> "Ate"
+                    "15004" -> "Barranco"
+                    "15005" -> "Breña"
+                    "15006" -> "Carabayllo"
+                    "15007" -> "Chaclacayo"
+                    "15008" -> "Chorrillos"
+                    "15009" -> "Cieneguilla"
+                    "15010" -> "Comas"
+                    "15011" -> "El Agustino"
+                    "15012" -> "Independencia"
+                    "15013" -> "Jesus Maria"
+                    "15014" -> "La Molina"
+                    "15015" -> "La Victoria"
+                    "15016" -> "Lince"
+                    "15017" -> "Los Olivos"
+                    "15018" -> "Lurigancho"
+                    "15019" -> "Lurin"
+                    "15020" -> "Magdalena"
+                    "15021" -> "Miraflores"
+                    "15022" -> "Pachacamac"
+                    "15023" -> "Pucusana"
+                    "15024" -> "Pueblo Libre"
+                    "15025" -> "Puente Piedra"
+                    "15026" -> "Punta Hermosa"
+                    "15027" -> "Punta Negra"
+                    "15028" -> "Rimac"
+                    "15029" -> "San Bartolo"
+                    "15030" -> "San Borja"
+                    "15031" -> "San Isidro"
+                    "15032" -> "San Juan de Lurigancho"
+                    "15033" -> "San Juan de Miraflores"
+                    "15034" -> "San Luis"
+                    "15035" -> "San Martin de Porres"
+                    "15036" -> "San Miguel"
+                    "15037" -> "Santa Anita"
+                    "15038" -> "Santa Maria del Mar"
+                    "15039" -> "Santa Rosa"
+                    "15040" -> "Santiago de Surco"
+                    "15041" -> "Surquillo"
+                    "15042" -> "Villa El Salvador"
+                    "15043" -> "Villa Maria del Triunfo"
+                    else -> "Lima"
+                }
+                "Lima" to distrito
+            }
+            // Arequipa
+            in listOf("04001", "04002", "04003") -> "Arequipa" to "Arequipa"
+            // Cusco
+            in listOf("08001", "08002") -> "Cusco" to "Cusco"
+            // Trujillo (La Libertad)
+            in listOf("13001", "13002", "13003") -> "La Libertad" to "Trujillo"
+            // Chiclayo (Lambayeque)
+            in listOf("14001", "14002") -> "Lambayeque" to "Chiclayo"
+            // Piura
+            in listOf("20001", "20002") -> "Piura" to "Piura"
+            // Ica
+            in listOf("11001", "11002") -> "Ica" to "Ica"
+            // Huancayo (Junín)
+            in listOf("12001", "12002") -> "Junin" to "Huancayo"
+            // Tacna
+            in listOf("23001") -> "Tacna" to "Tacna"
+            // Puno
+            in listOf("21001") -> "Puno" to "Puno"
+            // Chiclayo
+            in listOf("14001") -> "Lambayeque" to "Chiclayo"
+            else -> {
+                // Si no hay mapeo específico, usar el geocoder para obtener más detalles
+                "" to ""
+            }
+        }
+    }
+
+    @SuppressLint("ShowToast")
+    private fun mostrarError(@StringRes resId: Int, finishActivity: Boolean = false) {
+        val toast = Toast.makeText(this, resId, Toast.LENGTH_LONG)
+        toast.setGravity(Gravity.CENTER, 0, (-80 * resources.displayMetrics.density).toInt())
+        toast.show()
+        if (finishActivity) finish()
     }
 }

@@ -60,9 +60,14 @@ class PerfilPropietarioActivity : AppCompatActivity() {
         binding = ActivityPerfilPropietarioBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        uid = intent.getStringExtra(EXTRA_UID).orEmpty()
-        listingId = intent.getStringExtra(EXTRA_LISTING_ID).orEmpty()
-        listingTitulo = intent.getStringExtra(EXTRA_LISTING_TITULO).orEmpty()
+        uid = intent.getStringExtra(EXTRA_UID) ?: ""
+        listingId = intent.getStringExtra(EXTRA_LISTING_ID) ?: ""
+        listingTitulo = intent.getStringExtra(EXTRA_LISTING_TITULO) ?: ""
+
+        if (uid.isBlank()) {
+            binding.tvPerfilNoEncontrado.visibility = View.VISIBLE
+            return
+        }
 
         binding.tvPerfilInicial.backgroundTintList = ColorStateList.valueOf(
             coloresAvatar[Math.floorMod(uid.hashCode(), coloresAvatar.size)]
@@ -207,15 +212,17 @@ class PerfilPropietarioActivity : AppCompatActivity() {
     }
 
     private fun cargarFotoBase64(b64: String) {
-        val bytes = try {
-            android.util.Base64.decode(b64, android.util.Base64.NO_WRAP)
-        } catch (_: IllegalArgumentException) {
-            return
+        try {
+            val bytes = android.util.Base64.decode(b64, android.util.Base64.NO_WRAP)
+            val bmp = BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: return
+            handlerUi.post {
+                binding.ivPerfilFoto.setImageBitmap(bmp)
+                binding.ivPerfilFoto.visibility = View.VISIBLE
+                binding.tvPerfilInicial.visibility = View.GONE
+            }
+        } catch (e: Exception) {
+            // Ignore decode errors
         }
-        val bmp = BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: return
-        binding.ivPerfilFoto.setImageBitmap(bmp)
-        binding.ivPerfilFoto.visibility = View.VISIBLE
-        binding.tvPerfilInicial.visibility = View.GONE
     }
 
     private fun descargarBitmap(urlString: String): Bitmap? {
@@ -223,12 +230,14 @@ class PerfilPropietarioActivity : AppCompatActivity() {
             val conexion = URL(urlString).openConnection() as HttpURLConnection
             conexion.connectTimeout = 10000
             conexion.readTimeout = 10000
+            conexion.doInput = true
             val stream = conexion.inputStream
             val bmp = BitmapFactory.decodeStream(stream)
             stream.close()
             conexion.disconnect()
             bmp
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            // Log.e("PerfilPropietario", "Error descargando imagen: ${e.message}")
             null
         }
     }
@@ -436,7 +445,11 @@ class PerfilPropietarioActivity : AppCompatActivity() {
         val miUid = auth.currentUser?.uid
         db.collection("propiedades")
             .whereEqualTo("idPropietario", uid)
-            .addSnapshotListener { snap, _ ->
+            .addSnapshotListener { snap, error ->
+                if (error != null) {
+                    Log.w("AlkilApp", "PerfilPropietario escucharInmuebles error: ${error.message}")
+                    return@addSnapshotListener
+                }
                 if (snap == null) return@addSnapshotListener
                 val docs = snap.documents.mapNotNull { Propiedad.desde(it) }
                     .sortedBy { it.precio }

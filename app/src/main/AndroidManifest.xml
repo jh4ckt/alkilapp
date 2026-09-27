@@ -87,6 +87,10 @@
             android:windowSoftInputMode="adjustResize" />
 
         <activity
+            android:name=".SoporteActivity"
+            android:exported="false" />
+
+        <activity
             android:name=".MapaSeleccionActivity"
             android:exported="false" />
     </application>

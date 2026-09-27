@@ -181,12 +181,10 @@ class MiPerfilActivity : AppCompatActivity() {
                 }
                 val zonaCiu = (d["zonaCiudad"] as? String)
                 if (!zonaCiu.isNullOrBlank()) {
-                    // The ciudad spinner will be populated after departamento selection
-                    // We need to wait for the adapter to be set, then find the ciudad
                     binding.spPerfilZonaCiudad.post {
                         val adapter = binding.spPerfilZonaCiudad.adapter as? ArrayAdapter<String>
                         adapter?.let { ad ->
-                            val ciuIndex = ad.getPosition(zonaCiu!!)
+                            val ciuIndex = ad.getPosition(zonaCiu)
                             if (ciuIndex >= 0) {
                                 binding.spPerfilZonaCiudad.setSelection(ciuIndex)
                             }

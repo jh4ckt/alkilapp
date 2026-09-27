@@ -2,3 +2,4 @@ node_modules/
 credentials/
 .env
 *.log
+admin/alkilapp-seed-sa.json

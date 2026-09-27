@@ -50,6 +50,12 @@ class MisPublicacionesActivity : AppCompatActivity() {
     }
 
     private fun escucharInmuebles(uid: String) {
+        if (uid.isBlank()) {
+            binding.tvMisPubCargando.visibility = View.GONE
+            binding.tvMisPubVacio.visibility = View.VISIBLE
+            binding.tvMisPubVacio.text = getString(R.string.mis_pub_error, "UID vacío")
+            return
+        }
         db.collection("propiedades")
             .whereEqualTo("idPropietario", uid)
             .addSnapshotListener { snap, error ->

@@ -1,35 +1,53 @@
-# Configuración básica de ProGuard/R8 para AlkilApp
+# ProGuard rules for AlkilApp
 
-# Mantener clases de Firebase
+# Keep Firebase classes
 -keep class com.google.firebase.** { *; }
+-keep class com.google.android.gms.** { *; }
 
-# Mantener clases de Google Play Billing
+# Keep Billing classes
 -keep class com.android.billingclient.** { *; }
 
-# Mantener clases de Google Maps
--keep class com.google.android.gms.maps.** { *; }
-
-# Mantener clases de Places SDK
+# Keep Places SDK classes
 -keep class com.google.android.libraries.places.** { *; }
 
-# Mantener clases de Kotlin Coroutines
--keep class kotlinx.coroutines.** { *; }
-
-# Mantener data classes y modelos
--keep class com.alkilapp.data.** { *; }
-
-# Mantener binding views
+# Keep ViewBinding classes
 -keep class com.alkilapp.databinding.** { *; }
 
-# Evitar ofuscar nombres de recursos
--keepclassmembers class **.R$* {
-    public static <fields>;
+# Keep Kotlin coroutines
+-keep class kotlinx.coroutines.** { *; }
+
+# Keep application classes
+-keep class com.alkilapp.** { *; }
+
+# Keep R8/ProGuard from removing unused enum values
+-keepclassmembers enum * {
+    public static **[] values();
+    public static ** valueOf(java.lang.String);
 }
 
-# Mantener anotaciones de Room si se usa
--keep class androidx.room.** { *; }
+# Keep Parcelable implementations
+-keep class * implements android.os.Parcelable {
+    public static final ** CREATOR;
+}
 
-# Reglas para serialización JSON (Gson/Moshi si se usa)
--keepattributes *Annotation*
--keepattributes Signature
--keepattributes EnclosingMethod
+# Keep Serializable implementations
+-keep class * implements java.io.Serializable { *; }
+
+# Don't warn about missing classes
+-dontwarn com.google.android.gms.**
+-dontwarn com.google.firebase.**
+-dontwarn com.android.billingclient.**
+-dontwarn com.google.android.libraries.places.**
+
+# Conservar modelos de datos del paquete de la app
+-keep class com.alkilapp.data.** { *; }
+-keep class com.alkilapp.model.** { *; }
+-keepclassmembers class com.alkilapp.data.** { *; }
+-keepclassmembers class com.alkilapp.model.** { *; }
+
+# Mantener anotaciones y serialización de Firebase Firestore
+-keepattributes *Annotation*, Signature, InnerClasses
+-keepclassmembers class * {
+    @com.google.firebase.firestore.PropertyName <fields>;
+    @com.google.firebase.firestore.PropertyName <methods>;
+}

@@ -61,10 +61,22 @@ data class Propiedad(
     companion object {
         fun desde(doc: DocumentSnapshot): Propiedad? {
             val d = doc.data ?: return null
-            fun s(k: String): String = d[k] as? String ?: ""
+            fun s(k: String): String = (d[k] as? String) ?: ""
             fun n(k: String): Double = (d[k] as? Number)?.toDouble() ?: 0.0
+            fun i(k: String): Int = (d[k] as? Number)?.toInt() ?: 0
             @Suppress("UNCHECKED_CAST")
-            fun l(k: String): List<String> = (d[k] as? List<String>) ?: emptyList()
+            fun l(k: String): List<String> = ((d[k] as? List<*>)?.filterIsInstance<String>()) ?: emptyList()
+            
+            val fotos = (d["fotos"] as? List<*>)?.filterIsInstance<String>() ?: emptyList()
+            val photosUrl = (d["photos"] as? List<*>)?.filterIsInstance<String>() ?: emptyList()
+            
+            val featuredUntil: Long = try {
+                val ts = d["featuredUntil"] as? com.google.firebase.Timestamp
+                ts?.toDate()?.time ?: (d["featuredUntil"] as? Number)?.toLong() ?: 0L
+            } catch (e: Exception) {
+                0L
+            }
+            
             return Propiedad(
                 id = doc.id,
                 titulo = s("titulo"),
@@ -81,16 +93,14 @@ data class Propiedad(
                 idPropietario = s("idPropietario"),
                 contacto = s("contacto"),
                 estado = s("estado"),
-                ambientes = n("ambientes").toInt(),
-                banios = (d["banios"] as? Number)?.toInt()
-                    ?: (d["bathrooms"] as? Number)?.toInt() ?: 0,
+                ambientes = i("ambientes"),
+                banios = i("banios") ?: i("bathrooms") ?: 0,
                 superficieM2 = n("superficieM2"),
                 comodidades = l("comodidades"),
-                fotos = (d["fotos"] as? List<*>)?.filterIsInstance<String>() ?: emptyList(),
-                photosUrl = (d["photos"] as? List<*>)?.filterIsInstance<String>() ?: emptyList(),
-                isFeatured = d["isFeatured"] as? Boolean ?: false,
-                featuredUntil = (d["featuredUntil"] as? com.google.firebase.Timestamp)
-                    ?.toDate()?.time ?: (d["featuredUntil"] as? Number)?.toLong() ?: 0L
+                fotos = fotos,
+                photosUrl = photosUrl,
+                isFeatured = (d["isFeatured"] as? Boolean) ?: false,
+                featuredUntil = featuredUntil
             )
         }
     }

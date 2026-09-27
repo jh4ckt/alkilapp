@@ -384,6 +384,10 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             }
             startActivity(Intent(this, VerificacionActivity::class.java))
         }
+        panel.btnNavSoporte.setOnClickListener {
+            binding.drawerLayout.closeDrawers()
+            startActivity(Intent(this, SoporteActivity::class.java))
+        }
         panel.btnNavSalir.setOnClickListener {
             binding.drawerLayout.closeDrawers()
             cerrarSesion()
@@ -809,9 +813,11 @@ override fun onNothingSelected(parent: android.widget.AdapterView<*>?) {}
                     .title(p.titulo)
                     .snippet(p.precioFormateado)
                     .icon(iconoDefault)
-            )!!
-            marker.tag = p.id
-            marcadores.add(marker)
+            )
+            if (marker != null) {
+                marker.tag = p.id
+                marcadores.add(marker)
+            }
         }
         // Reaplicar la selección previa si el marcador sigue en la zona visible
         if (idMarcadorSeleccionado != null && marcadorSeleccionado == null) {
@@ -1083,13 +1089,11 @@ configurarBadges()
     private fun centrarEn(punto: LatLng, esUbicacionPropia: Boolean) {
         limpiarMarcadores()
         if (esUbicacionPropia) {
-            marcadores.add(
-                mMap.addMarker(
-                    MarkerOptions()
-                        .position(punto)
-                        .title(getString(R.string.my_location_title))
-                )!!
-            )
+            mMap.addMarker(
+                MarkerOptions()
+                    .position(punto)
+                    .title(getString(R.string.my_location_title))
+            )?.let { marcadores.add(it) }
         }
         mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(punto, DEFAULT_CAMERA_ZOOM))
     }

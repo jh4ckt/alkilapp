@@ -137,6 +137,32 @@ service cloud.firestore {
         && favorito.matches('^' + request.auth.uid + '__');
     }
 
+    // SOPORTE E INCIDENTES: el usuario crea SU ticket (usuarioId == uid).
+    // Solo el autor lee/actualiza los suyos; el panel admin (service account)
+    // omite estas reglas para listarlos y cambiar el estado.
+    match /soporte/{ticket} {
+      allow read: if request.auth != null
+        && resource.data.usuarioId == request.auth.uid;
+      allow create: if request.auth != null
+        && request.resource.data.usuarioId == request.auth.uid
+        && request.resource.data.emailContacto is string
+        && request.resource.data.asunto is string
+        && request.resource.data.asunto.size() > 0
+        && request.resource.data.asunto.size() <= 150
+        && request.resource.data.mensaje is string
+        && request.resource.data.mensaje.size() > 0
+        && request.resource.data.mensaje.size() <= 4000
+        && request.resource.data.estado == 'pendiente';
+      // El usuario solo puede marcar SU ticket como resuelto (el admin cambia
+      // el estado libremente con SA).
+      allow update: if request.auth != null
+        && resource.data.usuarioId == request.auth.uid
+        && request.resource.data.estado == 'resuelto'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['estado']);
+      allow delete: if request.auth != null
+        && resource.data.usuarioId == request.auth.uid;
+    }
+
     // Resto: sin acceso
     match /{document=**} {
       allow read, write: if false;

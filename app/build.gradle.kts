@@ -5,7 +5,10 @@ plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("com.google.gms.google-services")
+  // Add the Crashlytics Gradle plugin
+  id("com.google.firebase.crashlytics")
 }
+
 
 val localProps = Properties().apply {
     val f = rootProject.file("local.properties")
@@ -21,14 +24,26 @@ android {
         applicationId = "com.alkilapp"
         minSdk = 24
         targetSdk = 36
-    versionCode = 27
-    versionName = "1.45"
+        versionCode = 33
+        versionName = "1.51"
         manifestPlaceholders["MAPS_API_KEY"] = mapsApiKey
+    }
+
+    signingConfigs {
+        create("release") {
+            storeFile = file("../alkilapp-release.keystore")
+            storePassword = System.getenv("KEYSTORE_PASSWORD") ?: ""
+            keyAlias = System.getenv("KEY_ALIAS") ?: ""
+            keyPassword = System.getenv("KEY_PASSWORD") ?: ""
+        }
     }
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = false
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 
@@ -53,12 +68,16 @@ dependencies {
     implementation("com.google.android.libraries.places:places:3.5.0")
 
     // Google Play Billing: compras in-app (destacados)
-    implementation("com.android.billingclient:billing:7.0.0")
+    implementation("com.android.billingclient:billing:8.0.0")
 
     // Firebase: Firestore (base de datos) + Authentication (registro de usuarios)
     implementation(platform("com.google.firebase:firebase-bom:33.1.1"))
     implementation("com.google.firebase:firebase-firestore")
     implementation("com.google.firebase:firebase-auth")
+
+    // Crashlytics and Analytics (using same BoM 33.1.1)
+    implementation("com.google.firebase:firebase-crashlytics")
+    implementation("com.google.firebase:firebase-analytics")
 
     // Android Jetpack & Material Design 3
     implementation("androidx.core:core-ktx:1.13.1")

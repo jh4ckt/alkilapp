@@ -8,6 +8,23 @@ const path = require('path');
 const crypto = require('crypto');
 const { Firestore } = require('@google-cloud/firestore');
 const { expirarDestacados } = require('./expirar');
+let FieldValue;
+try {
+    const admin = require('firebase-admin');
+    if (!admin.apps.length) {
+        admin.initializeApp({ 
+            credential: admin.credential.applicationDefault(),
+            projectId: 'gen-lang-client-0040505884'
+        });
+    }
+    FieldValue = admin.firestore.FieldValue;
+} catch (e) {
+    console.warn('firebase-admin init failed, FieldValue unavailable:', e.message);
+    // Fallback mock for FieldValue.arrayUnion
+    FieldValue = {
+        arrayUnion: (...elements) => ({ __arrayUnion: elements })
+    };
+}
 
 const PROJECT = 'gen-lang-client-0040505884';
 const DATABASE = 'alkilappdb';
@@ -82,7 +99,20 @@ function leerCuerpo(req) {
     return new Promise((resolve) => {
         let data = '';
         req.on('data', (c) => { data += c; if (data.length > 5_000_000) req.destroy(); });
-        req.on('end', () => resolve(new URLSearchParams(data)));
+        req.on('end', () => {
+            const ct = req.headers['content-type'] || '';
+            if (ct.includes('application/json')) {
+                try {
+                    const obj = JSON.parse(data);
+                    // Return the parsed object directly
+                    resolve(obj && typeof obj === 'object' ? obj : {});
+                } catch {
+                    resolve({});
+                }
+            } else {
+                resolve(Object.fromEntries(new URLSearchParams(data)));
+            }
+        });
     });
 }
 
@@ -116,7 +146,7 @@ async function handleAPI(req, res, url) {
 
     // CORS headers
     res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
+    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
     if (req.method === 'OPTIONS') {
@@ -146,12 +176,37 @@ async function handleAPI(req, res, url) {
             if (ruta === '/api/reportes') return json(res, 200, await getReportes(url));
             if (ruta === '/api/usuarios') return json(res, 200, await getUsuarios(url));
             if (ruta === '/api/stats') return json(res, 200, await getStats(url));
+            if (ruta === '/api/soporte') return json(res, 200, await getSoporte(url));
+        }
+
+        // PATCH routes
+        if (req.method === 'PATCH') {
+            const data = await leerCuerpo(req);
+
+            // Tickets de soporte: cambiar estado
+            const sm = ruta.match(/^\/api\/soporte\/([^/]+)\/estado$/);
+            if (sm) {
+                const id = decodeURIComponent(sm[1]);
+                const nuevo = String(data.estado || '').trim().toLowerCase();
+                const validos = ['pendiente', 'en_proceso', 'atendido', 'resuelto', 'cerrado'];
+                if (!validos.includes(nuevo)) {
+                    return json(res, 400, { error: `estado invalido. Valores: ${validos.join(', ')}` });
+                }
+                const ref = db.collection('soporte').doc(id);
+                const doc = await ref.get();
+                if (!doc.exists) return json(res, 404, { error: 'Ticket no encontrado' });
+                await ref.set({
+                    estado: nuevo,
+                    fechaActualizacion: new Date(),
+                    actualizadoPor: 'admin-panel',
+                }, { merge: true });
+                return json(res, 200, { ok: true, estado: nuevo });
+            }
         }
 
         // POST routes
         if (req.method === 'POST') {
-            const body = await leerCuerpo(req);
-            const data = Object.fromEntries(body);
+            const data = await leerCuerpo(req);
 
             // Verificaciones
             const vm = ruta.match(/^\/api\/verificaciones\/([^/]+)\/(aprobar|rechazar)$/);
@@ -176,9 +231,20 @@ async function handleAPI(req, res, url) {
                 }
                 if (pm[2] === 'estado') {
                     const nuevo = String(data.estado || '').trim();
-                    const validos = ['publicado', 'disponible', 'finalizado', 'under_review', 'pendiente'];
-                    if (!validos.includes(nuevo)) return json(res, 400, { error: 'estado invalido' });
-                    await ref.set({ estado: nuevo, estadoCambiadoAdmin: true, estadoCambiadoEn: new Date() }, { merge: true });
+                    // Mapear estados UI a internos
+                    const mapaEstados = {
+                        'activa': 'disponible',
+                        'pendiente': 'pendiente',
+                        'pausada': 'pausada',
+                        'rechazada': 'rechazada',
+                        'publicado': 'publicado',
+                        'disponible': 'disponible',
+                        'finalizado': 'finalizado',
+                        'under_review': 'under_review'
+                    };
+                    const estadoInterno = mapaEstados[nuevo];
+                    if (!estadoInterno) return json(res, 400, { error: 'estado invalido' });
+                    await ref.set({ estado: estadoInterno, estadoCambiadoAdmin: true, estadoCambiadoEn: new Date() }, { merge: true });
                     return json(res, 200, { ok: true });
                 }
                 if (pm[2] === 'finalizar') { await ref.set({ estado: 'finalizado' }, { merge: true }); return json(res, 200, { ok: true }); }
@@ -195,6 +261,29 @@ async function handleAPI(req, res, url) {
                     }
                     return json(res, 200, { ok: true });
                 }
+            }
+
+            // Usuarios - Cambiar estado
+            const um = ruta.match(/^\/api\/usuarios\/([^/]+)\/estado$/);
+            if (um && req.method === 'POST') {
+                const id = decodeURIComponent(um[1]);
+                const nuevo = String(data.estado || '').trim();
+                const validos = ['activo', 'suspendido', 'desactivado'];
+                if (!validos.includes(nuevo)) return json(res, 400, { error: 'estado invalido' });
+                const motivo = String(data.motivo || '').trim();
+                const reporteId = String(data.reporteId || '').trim();
+                await db.collection('usuarios').doc(id).set({ 
+                    estado: nuevo, 
+                    estadoCambiadoAdmin: true, 
+                    estadoCambiadoEn: new Date(),
+                    historialSanciones: FieldValue.arrayUnion({
+                        estado: nuevo,
+                        motivo,
+                        reporteId,
+                        fecha: new Date()
+                    })
+                }, { merge: true });
+                return json(res, 200, { ok: true });
             }
 
             // Reportes
@@ -221,20 +310,23 @@ function json(res, status, data) {
 
 // ---- API Logic ----
 async function getResumen() {
-    const [prop, verif, rep, usr] = await Promise.all([
+    const [prop, verif, rep, usr, sop] = await Promise.all([
         db.collection('propiedades').count().get(),
         db.collection('verificaciones').count().get(),
         db.collection('reports').count().get(),
         db.collection('usuarios').count().get(),
+        db.collection('soporte').count().get(),
     ]);
     const pendVerif = (await db.collection('verificaciones').where('estado', '==', 'pendiente').get()).size;
     const pendPub = (await db.collection('propiedades').where('estado', '==', 'under_review').get()).size;
     const pendRep = (await db.collection('reports').where('estado', '==', 'pendiente').get()).size;
+    const pendSop = (await db.collection('soporte').where('estado', '==', 'pendiente').get()).size;
     return {
         propiedades: { total: prop.data().count, pendientes: pendPub },
         verificaciones: { total: verif.data().count, pendientes: pendVerif },
         reportes: { total: rep.data().count, pendientes: pendRep },
         usuarios: { total: usr.data().count },
+        soporte: { total: sop.data().count, pendientes: pendSop },
     };
 }
 
@@ -352,6 +444,39 @@ async function getUsuarios(url) {
     }), total, page, limit, totalPages: Math.ceil(total / limit) };
 }
 
+// Tickets de soporte: listado ordenado por fechaCreacion descendente
+async function getSoporte(url) {
+    const q = (url.searchParams.get('q') || '').toLowerCase();
+    const estado = url.searchParams.get('estado') || '';
+    const page = parseInt(url.searchParams.get('page') || '1');
+    const limit = parseInt(url.searchParams.get('limit') || '20');
+    const snap = await db.collection('soporte').limit(500).get();
+    let docs = snap.docs.map(ponerCreado)
+        .filter((t) => !q || (t.asunto && t.asunto.toLowerCase().includes(q)) ||
+            (t.mensaje && t.mensaje.toLowerCase().includes(q)) ||
+            (t.emailContacto && t.emailContacto.toLowerCase().includes(q)) ||
+            (t.usuarioId && t.usuarioId.toLowerCase().includes(q)))
+        .filter((t) => !estado || (t.estado || 'pendiente') === estado)
+        // fechaCreacion descendente (los docs sin fecha van al final)
+        .sort((a, b) => {
+            const ta = a.fechaCreacion ? new Date(a.fechaCreacion).getTime() : 0;
+            const tb = b.fechaCreacion ? new Date(b.fechaCreacion).getTime() : 0;
+            return tb - ta;
+        });
+    const total = docs.length;
+    docs = docs.slice((page - 1) * limit, page * limit);
+    return {
+        data: docs.map(t => ({
+            ...t,
+            estado: t.estado || 'pendiente',
+            pill: t.estado === 'resuelto' || t.estado === 'cerrado' ? 'ok'
+                : t.estado === 'en_proceso' || t.estado === 'atendido' ? 'pend' : 'pend',
+            creado: mostrarCreado(t),
+        })),
+        total, page, limit, totalPages: Math.ceil(total / limit),
+    };
+}
+
 async function getStats(url) {
     const days = parseInt(url.searchParams.get('days') || '30');
     const since = new Date(Date.now() - days * 24 * 3600 * 1000);
@@ -400,8 +525,8 @@ const servidor = http.createServer(async (req, res) => {
         }
         if (ruta === '/login' && req.method === 'POST') {
             const body = await leerCuerpo(req);
-            const inputUser = body.get('user')?.trim() || '';
-            const inputPassword = body.get('password')?.trim() || '';
+            const inputUser = (typeof body.get === 'function' ? body.get('user') : body.user)?.trim() || '';
+            const inputPassword = (typeof body.get === 'function' ? body.get('password') : body.password)?.trim() || '';
             console.log('[LOGIN] Attempt:', {
                 hasUser: !!USER, hasPassword: !!PASSWORD,
                 inputUserLen: inputUser.length, expectedUserLen: USER.length,
@@ -439,7 +564,7 @@ const servidor = http.createServer(async (req, res) => {
         // SPA routes - serve index.html for client-side routing
         if (ruta === '/' || ruta.startsWith('/dashboard') || ruta.startsWith('/verificaciones') ||
             ruta.startsWith('/publicaciones') || ruta.startsWith('/reportes') || ruta.startsWith('/usuarios') ||
-            ruta.startsWith('/stats')) {
+            ruta.startsWith('/soporte') || ruta.startsWith('/stats')) {
             if (!autenticado(req)) {
                 res.writeHead(302, { Location: '/login' });
                 return res.end();

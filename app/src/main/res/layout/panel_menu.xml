@@ -297,51 +297,76 @@
                 android:textSize="15sp"
                 android:textStyle="bold" />
         </LinearLayout>
-    </LinearLayout>
 
-    <View
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1" />
+        <!-- ===== Soporte ===== -->
+        <LinearLayout
+            android:id="@+id/btnNavSoporte"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:background="?attr/selectableItemBackground"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="20dp"
+            android:paddingEnd="20dp">
 
-    <!-- ===== Cerrar sesion (solo con sesion activa) ===== -->
-    <LinearLayout
-        android:id="@+id/btnNavSalir"
-        android:layout_width="match_parent"
-        android:layout_height="52dp"
-        android:background="?attr/selectableItemBackground"
-        android:clickable="true"
-        android:focusable="true"
-        android:gravity="center_vertical"
-        android:orientation="horizontal"
-        android:paddingStart="20dp"
-        android:paddingEnd="20dp"
-        android:visibility="gone">
+            <ImageView
+                android:layout_width="22dp"
+                android:layout_height="22dp"
+                android:contentDescription="@string/nav_soporte"
+                android:src="@drawable/ic_help"
+                android:tint="@color/brand_primary" />
 
-        <ImageView
-            android:layout_width="22dp"
-            android:layout_height="22dp"
-            android:contentDescription="@string/auth_cerrar_sesion"
-            android:src="@drawable/ic_logout"
-            android:tint="@color/alkil_rojo" />
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="16dp"
+                android:text="@string/nav_soporte"
+                android:textColor="@color/text_primary"
+                android:textSize="15sp" />
+        </LinearLayout>
+
+        <!-- ===== Cerrar sesion (solo con sesion activa) ===== -->
+        <LinearLayout
+            android:id="@+id/btnNavSalir"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:background="?attr/selectableItemBackground"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="20dp"
+            android:paddingEnd="20dp"
+            android:visibility="gone">
+
+            <ImageView
+                android:layout_width="22dp"
+                android:layout_height="22dp"
+                android:contentDescription="@string/auth_cerrar_sesion"
+                android:src="@drawable/ic_logout"
+                android:tint="@color/alkil_rojo" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="16dp"
+                android:text="@string/nav_cerrar_sesion"
+                android:textColor="@color/alkil_rojo"
+                android:textSize="15sp" />
+        </LinearLayout>
 
         <TextView
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginStart="16dp"
-            android:text="@string/nav_cerrar_sesion"
-            android:textColor="@color/alkil_rojo"
-            android:textSize="15sp" />
+            android:paddingStart="20dp"
+            android:paddingTop="10dp"
+            android:paddingEnd="20dp"
+            android:paddingBottom="18dp"
+            android:text="@string/nav_footer"
+            android:textColor="@color/text_muted"
+            android:textSize="12sp" />
     </LinearLayout>
 
-    <TextView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:paddingStart="20dp"
-        android:paddingTop="10dp"
-        android:paddingEnd="20dp"
-        android:paddingBottom="18dp"
-        android:text="@string/nav_footer"
-        android:textColor="@color/text_muted"
-        android:textSize="12sp" />
 </LinearLayout>
