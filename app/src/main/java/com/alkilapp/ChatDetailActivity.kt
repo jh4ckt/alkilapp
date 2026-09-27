@@ -34,10 +34,15 @@ class ChatDetailActivity : AppCompatActivity() {
         R.color.avatar_1, R.color.avatar_2, R.color.avatar_3, R.color.avatar_4, R.color.avatar_5
     )
 
-    private var chatId: String = ""
+private var chatId: String = ""
     private var otroUid: String = ""
     private var listingId: String = ""
     private var idPropietarioDelInmueble: String = ""
+
+    // Debounce para evitar duplicados (5 segundos)
+    private var ultimoMensajeEnviado: String = ""
+    private var ultimoMensajeTimestamp: Long = 0
+    private val DEBOUNCE_MS = 5000L // 5 segundos
 
     private val adapter by lazy { MensajeAdapter(
         miUid = auth.currentUser?.uid ?: "",
@@ -78,6 +83,13 @@ class ChatDetailActivity : AppCompatActivity() {
                 .addOnSuccessListener { doc ->
                     if (doc.exists()) {
                         idPropietarioDelInmueble = doc.getString("idPropietario") ?: ""
+                        // Obtener precio y moneda para mostrar en encabezado
+                        val precio = (doc.getDouble("precio") ?: 0.0)
+                        val moneda = (doc.getString("moneda") ?: "PEN")
+                        val op = (doc.getString("operacion") ?: "alquiler")
+                        val precioFormateado = formatearPrecioChat(precio, moneda, op)
+                        binding.tvChatPrecio.text = precioFormateado
+                        binding.tvChatPrecio.visibility = View.VISIBLE
                         actualizarBotonPropuesta()
                     }
                 }
@@ -201,6 +213,14 @@ class ChatDetailActivity : AppCompatActivity() {
         val texto = binding.etEntrada.text.toString().trim()
         val miUid = auth.currentUser?.uid ?: return
         if (texto.isEmpty() || chatId.isBlank()) return
+
+        // Debounce: evitar envío duplicado del mismo texto en ventana corta
+        val ahora = System.currentTimeMillis()
+        if (texto == ultimoMensajeEnviado && (ahora - ultimoMensajeTimestamp) < DEBOUNCE_MS) {
+            return
+        }
+        ultimoMensajeEnviado = texto
+        ultimoMensajeTimestamp = ahora
 
         val ref = db.collection("chats").document(chatId)
             .collection("messages").document()
@@ -497,5 +517,17 @@ class ChatDetailActivity : AppCompatActivity() {
         if (chatId.isBlank()) return
         db.collection("chats").document(chatId)
             .update(mapOf("unreadCount.$miUid" to 0))
+    }
+
+    /** Formatea el precio para mostrar en el encabezado del chat. */
+    private fun formatearPrecioChat(precio: Double, moneda: String, op: String): String {
+        if (precio <= 0) return ""
+        val monto = if (precio == precio.toLong().toDouble()) {
+            precio.toLong().toString()
+        } else {
+            precio.toString()
+        }
+        val simbolo = if (moneda == "PEN") "S/ " else "$ "
+        return if (op == "venta") "$simbolo$monto" else "$simbolo$monto / mes"
     }
 }

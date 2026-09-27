@@ -61,6 +61,7 @@ class MiPerfilActivity : AppCompatActivity() {
         binding.btnPerfilEditar.setOnClickListener { activarModoEdicion() }
         binding.btnPerfilCerrarSesion.setOnClickListener {
             auth.signOut()
+            com.google.android.gms.auth.api.signin.GoogleSignIn.getClient(this, com.google.android.gms.auth.api.signin.GoogleSignInOptions.DEFAULT_SIGN_IN).signOut()
             Toast.makeText(this, R.string.auth_sesion_cerrada, Toast.LENGTH_SHORT).show()
             finish()
         }

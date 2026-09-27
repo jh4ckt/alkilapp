@@ -531,7 +531,7 @@ class PerfilPropietarioActivity : AppCompatActivity() {
             if (esDisponible) {
                 // Botón "Pausar publicación" (solo disponible)
                 val btnPausar = com.google.android.material.button.MaterialButton(this).apply {
-                    text = "Pausar publicacion"
+                    text = getString(R.string.perfil_pausar_publicacion)
                     textSize = 13f
                     isAllCaps = false
                     insetTop = 0
@@ -549,7 +549,7 @@ class PerfilPropietarioActivity : AppCompatActivity() {
             } else if (esPausada) {
                 // Botón "Reactivar publicación" (solo pausada)
                 val btnReactivar = com.google.android.material.button.MaterialButton(this).apply {
-                    text = "Reactivar publicacion"
+                    text = getString(R.string.perfil_reactivar_publicacion)
                     textSize = 13f
                     isAllCaps = false
                     insetTop = 0
@@ -621,8 +621,11 @@ class PerfilPropietarioActivity : AppCompatActivity() {
     }
 
     private fun confirmarFinalizar(p: Propiedad) {
+        val op = p.operacion
+        val tituloConfirm = if (op == "venta") R.string.detalle_finalizar_confirm_titulo_venta else R.string.detalle_finalizar_confirm_titulo
+        val bannerFinalizado = if (op == "venta") R.string.detalle_finalizado_banner_venta else R.string.detalle_finalizado_banner_alquiler
         MaterialAlertDialogBuilder(this)
-            .setTitle(R.string.detalle_finalizar_confirm_titulo)
+            .setTitle(tituloConfirm)
             .setMessage(R.string.detalle_finalizar_confirm_msg)
             .setNegativeButton(R.string.detalle_finalizar_no, null)
             .setPositiveButton(R.string.detalle_finalizar_si) { _, _ ->
@@ -644,19 +647,19 @@ class PerfilPropietarioActivity : AppCompatActivity() {
 
     private fun pausarPublicacion(p: Propiedad) {
         MaterialAlertDialogBuilder(this)
-            .setTitle("Pausar publicacion")
-            .setMessage("La publicacion dejara de mostrarse en el listado. Podras reactivarla cuando quieras.")
-            .setPositiveButton("Pausar") { _, _ ->
+            .setTitle(R.string.perfil_pausar_publicacion)
+            .setMessage(R.string.perfil_pausar_mensaje)
+            .setPositiveButton(R.string.perfil_pausar_publicacion) { _, _ ->
                 db.collection("propiedades").document(p.id)
                     .set(mapOf("estado" to "pausada"), SetOptions.merge())
                     .addOnSuccessListener {
-                        Toast.makeText(this, "Publicacion pausada", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(this, "Publicación pausada", Toast.LENGTH_SHORT).show()
                     }
                     .addOnFailureListener { e ->
                         Toast.makeText(this, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
                     }
             }
-            .setNegativeButton("Cancelar", null)
+            .setNegativeButton(R.string.cancelar, null)
             .show()
     }
 

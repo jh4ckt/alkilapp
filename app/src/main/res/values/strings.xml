@@ -1,6 +1,6 @@
 <resources>
     <string name="app_name">AlkilApp</string>
-    <string name="search_hint">Buscar por inmueble, distrito o zona…</string>
+    <string name="search_hint">Buscar inmueble, distrito, zona…</string>
     <string name="nearby_title">Inmuebles Cercanos</string>
     <string name="my_location_title">Tu Ubicación</string>
     <string name="mi_ubicacion_btn">Mi ubicación</string>
@@ -488,6 +488,10 @@
     <string name="detalle_amb">%1$d hab.</string>
     <string name="detalle_superficie">%1$s m²</string>
     <string name="detalle_comodidades">Comodidades: %1$s</string>
+    <string name="detalle_operacion_venta">Venta</string>
+    <string name="detalle_operacion_alquiler">Alquiler</string>
+    <string name="detalle_operacion_desconocida">—</string>
+    <string name="detalle_precio_periodicidad_alquiler">/ mes</string>
     <string name="ver_perfil">Ver perfil</string>
     <string name="detalle_finalizar_btn">Dar por finalizada la publicación</string>
     <string name="detalle_finalizar_confirm_titulo">¿Ya alquilaste este inmueble?</string>
@@ -497,7 +501,18 @@
     <string name="detalle_finalizar_ok">Publicación finalizada</string>
     <string name="detalle_finalizar_error">No se pudo finalizar la publicación: %1$s</string>
     <string name="detalle_finalizado_banner">Publicación finalizada — este inmueble ya fue alquilado</string>
+    <string name="detalle_finalizado_banner_venta">Publicación finalizada — este inmueble ya fue vendido</string>
+    <string name="detalle_finalizado_banner_alquiler">Publicación finalizada — este inmueble ya fue alquilado</string>
+    <string name="detalle_finalizar_confirm_titulo_venta">¿Ya vendiste este inmueble?</string>
     <string name="detalle_revision_banner">En revisión - un administrador está revisando este inmueble</string>
+
+    <!-- Perfil / Mis publicaciones -->
+    <string name="perfil_pausar_publicacion">Pausar publicación</string>
+    <string name="perfil_pausar_mensaje">La publicación dejará de mostrarse en el listado. Podrás reactivarla cuando quieras.</string>
+    <string name="perfil_reactivar_publicacion">Reactivar publicación</string>
+    <string name="perfil_finalizar_confirm_titulo">¿Finalizar publicación?</string>
+    <string name="perfil_finalizar_confirm_msg">La publicación pasará a estado "Finalizado" y no se mostrará en el listado. ¿Confirmar?</string>
+    <string name="perfil_eliminar_publicacion">Eliminar publicación</string>
 
     <!-- Denuncia -->
     <string name="denuncia_btn">Denunciar anuncio</string>
@@ -620,23 +635,23 @@
 
     <!-- Verificacion de identidad -->
     <string name="verif_titulo">Verificar identidad</string>
-    <string name="verif_subtitulo">Subi una foto de tu documento para obtener la insignia verificada.</string>
+    <string name="verif_subtitulo">Sube una foto de tu documento para obtener la insignia verificada.</string>
     <string name="verif_tipo_documento">Tipo de documento</string>
-    <string name="verif_numero">Numero de documento</string>
-    <string name="verif_numero_requerido">Ingresa el numero de tu documento</string>
+    <string name="verif_numero">Número de documento</string>
+    <string name="verif_numero_requerido">Ingresa el número de tu documento</string>
     <string name="verif_foto_label">Foto del frente del documento</string>
     <string name="verif_foto_elegir">Elegir foto del frente</string>
     <string name="verif_foto_falta">Adjunta la foto del frente de tu documento</string>
-    <string name="verif_foto_reverso_label">Foto del adverso (dorso) del documento</string>
-    <string name="verif_foto_reverso_elegir">Elegir foto del adverso</string>
-    <string name="verif_foto_reverso_falta">Adjunta la foto del adverso de tu documento</string>
-    <string name="verif_enviar">Enviar a revision</string>
+    <string name="verif_foto_reverso_label">Foto del reverso (dorso) del documento</string>
+    <string name="verif_foto_reverso_elegir">Elegir foto del reverso</string>
+    <string name="verif_foto_reverso_falta">Adjunta la foto del reverso de tu documento</string>
+    <string name="verif_enviar">Enviar a revisión</string>
     <string name="verif_ok">Documento enviado. Revisaremos tu identidad pronto.</string>
     <string name="verif_error">No se pudo enviar: %1$s</string>
-    <string name="verif_sesion_requerida">Inicia sesion para verificar tu identidad</string>
-    <string name="verif_estado_pendiente">Tu verificacion esta en revision.</string>
-    <string name="verif_estado_verificado">Tu identidad ya esta verificada.</string>
-    <string name="verif_estado_rechazado">Tu verificacion fue rechazada: %1$s</string>
+    <string name="verif_sesion_requerida">Inicia sesión para verificar tu identidad</string>
+    <string name="verif_estado_pendiente">Tu verificación está en revisión.</string>
+    <string name="verif_estado_verificado">Tu identidad ya está verificada.</string>
+    <string name="verif_estado_rechazado">Tu verificación fue rechazada: %1$s</string>
 
     <!-- Menu lateral -->
     <string name="nav_invitado">Sin sesion</string>

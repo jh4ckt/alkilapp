@@ -99,6 +99,13 @@ class PropiedadDetalleActivity : AppCompatActivity() {
             moneda,
             op
         )
+        // Etiqueta de operación (Venta/Alquiler)
+        binding.tvDetOperacion.text = when (op) {
+            "venta" -> getString(R.string.detalle_operacion_venta)
+            "alquiler" -> getString(R.string.detalle_operacion_alquiler)
+            else -> getString(R.string.detalle_operacion_desconocida)
+        }
+        binding.tvDetOperacion.visibility = View.VISIBLE
 
         val vistasPill = listOf(binding.tvDetallePill, binding.tvDetDestacado)
         vistasPill.forEach { it.visibility = if (isFeatured) View.VISIBLE else View.GONE }
@@ -261,6 +268,13 @@ class PropiedadDetalleActivity : AppCompatActivity() {
             moneda,
             op
         )
+        // Etiqueta de operación (Venta/Alquiler)
+        binding.tvDetOperacion.text = when (op) {
+            "venta" -> getString(R.string.detalle_operacion_venta)
+            "alquiler" -> getString(R.string.detalle_operacion_alquiler)
+            else -> getString(R.string.detalle_operacion_desconocida)
+        }
+        binding.tvDetOperacion.visibility = View.VISIBLE
 
         val vistasPill = listOf(binding.tvDetallePill, binding.tvDetDestacado)
         vistasPill.forEach { it.visibility = if (isFeatured) View.VISIBLE else View.GONE }
@@ -358,6 +372,7 @@ class PropiedadDetalleActivity : AppCompatActivity() {
         val ciudad = intent.getStringExtra(EXTRA_CIUDAD).orEmpty()
         return listOf(dir, barrio, ciudad)
             .filter { it.isNotBlank() }
+            .distinct()
             .joinToString(", ")
     }
 
@@ -596,8 +611,11 @@ class PropiedadDetalleActivity : AppCompatActivity() {
 
     private fun confirmarFinalizar() {
         if (propId.isBlank()) return
+        val op = intent.getStringExtra(EXTRA_OPERACION) ?: "alquiler"
+        val tituloConfirm = if (op == "venta") R.string.detalle_finalizar_confirm_titulo_venta else R.string.detalle_finalizar_confirm_titulo
+        val bannerFinalizado = if (op == "venta") R.string.detalle_finalizado_banner_venta else R.string.detalle_finalizado_banner_alquiler
         com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
-            .setTitle(R.string.detalle_finalizar_confirm_titulo)
+            .setTitle(tituloConfirm)
             .setMessage(R.string.detalle_finalizar_confirm_msg)
             .setNegativeButton(R.string.detalle_finalizar_no, null)
             .setPositiveButton(R.string.detalle_finalizar_si) { _, _ ->
@@ -606,6 +624,7 @@ class PropiedadDetalleActivity : AppCompatActivity() {
                     .addOnSuccessListener {
                         Toast.makeText(this, R.string.detalle_finalizar_ok, Toast.LENGTH_SHORT).show()
                         binding.btnFinalizarPub.visibility = View.GONE
+                        binding.tvDetFinalizado.text = getString(bannerFinalizado)
                         binding.tvDetFinalizado.visibility = View.VISIBLE
                         binding.btnChatPropietario.visibility = View.GONE
                     }

@@ -395,7 +395,9 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     }
 
     private fun cerrarSesion() {
+        // Cerrar sesión en Firebase y Google para forzar selector de cuentas al reingresar
         auth.signOut()
+        com.google.android.gms.auth.api.signin.GoogleSignIn.getClient(this, com.google.android.gms.auth.api.signin.GoogleSignInOptions.DEFAULT_SIGN_IN).signOut()
         favoritosSet = Favoritos.locales(this)
         soloFavoritos = false
         zonaConfigurada = false
@@ -441,8 +443,10 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         escucharPropiedades()
     }
 
-    /** Carga la zona por defecto del usuario (departamento + ciudad) desde Firestore
-     * y la aplica al adapter para filtrar el listado por defecto. */
+/** Carga la zona por defecto del usuario (departamento + ciudad) desde Firestore
+     * PERO NO la aplica como filtro automático; solo marca que tiene zona configurada.
+     * El filtro por zona se aplica solo si el usuario lo selecciona explícitamente
+     * o si GPS no está disponible tras un tiempo razonable. */
     private fun cargarZonaUsuario() {
         val u = auth.currentUser ?: return
         db.collection("usuarios").document(u.uid).get()
@@ -452,13 +456,14 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
                 val dep = d["zonaDepartamento"] as? String
                 val ciu = d["zonaCiudad"] as? String
                 if (!dep.isNullOrBlank() || !ciu.isNullOrBlank()) {
-                    adapter.setZona(dep, ciu)
+                    // NO aplicamos el filtro automáticamente; solo guardamos que tiene zona
+                    // El filtro por zona se activa solo si el usuario lo selecciona en Filtros
+                    // o si GPS falla tras un timeout (no implementado: GPS tiene prioridad)
                     zonaConfigurada = true
                 }
-                // Mostrar/ocultar empty state según zona y resultados
                 actualizarEmptyState()
             }
-            .addOnFailureListener { }
+.addOnFailureListener { }
     }
 
     /** Muestra u oculta el estado vacío (llSheetVacio) cuando la zona del usuario no tiene inmuebles
