@@ -584,6 +584,7 @@ class PropiedadDetalleActivity : AppCompatActivity() {
             Intent(this, ChatDetailActivity::class.java).apply {
                 putExtra(ChatListActivity.EXTRA_CHAT_ID, chatId)
                 putExtra(ChatListActivity.EXTRA_LISTING, listingTitle)
+                putExtra(ChatListActivity.EXTRA_LISTING_ID, propId)
                 putExtra(ChatListActivity.EXTRA_OTRO_UID, otro)
             }
         )

@@ -1,4 +1,4 @@
-{
+﻿{
   "name": "alkilapp-backend",
   "version": "1.1.0",
   "private": true,
@@ -14,10 +14,15 @@
     "destacar": "node destacar.js",
     "expirar": "node expirar.js",
     "reglas": "node reglas.js",
+    "reglas:test": "firebase emulators:exec --only firestore --project gen-lang-client-0040505884 \"node test-reglas-chat.js\"",
     "admin": "node admin/server.js"
   },
   "dependencies": {
     "@google-cloud/firestore": "^7.11.0",
     "firebase-admin": "^14.4.0"
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^5.0.2",
+    "firebase-tools": "^15.31.0"
   }
 }

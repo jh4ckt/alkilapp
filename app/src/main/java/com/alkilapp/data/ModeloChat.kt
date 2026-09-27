@@ -14,7 +14,9 @@ data class ChatAlkil(
     val otrosParticipantes: List<String>,
     val lastMessage: String,
     val lastMessageAt: Long,
-    val unreadMio: Int
+    val unreadMio: Int,
+    val estado: String = "abierto",
+    val acuerdo: Map<String, Any>? = null
 ) {
     companion object {
         fun desde(doc: DocumentSnapshot, miUid: String): ChatAlkil? {
@@ -32,10 +34,17 @@ data class ChatAlkil(
                 otrosParticipantes = otros,
                 lastMessage = d["lastMessage"] as? String ?: "",
                 lastMessageAt = lastAt,
-                unreadMio = unread.toInt()
+                unreadMio = unread.toInt(),
+                estado = d["estado"] as? String ?: "abierto",
+                acuerdo = d["acuerdo"] as? Map<String, Any>
             )
         }
     }
+}
+
+/** Tipo de mensaje en el chat. */
+enum class TipoMensaje {
+    TEXTO, PROPUESTA, SISTEMA
 }
 
 /** Un mensaje dentro de un chat (subcolección "chats/{chatId}/messages"). */
@@ -43,18 +52,36 @@ data class Mensaje(
     val messageId: String,
     val senderId: String,
     val text: String,
-    val sentAt: Long
+    val sentAt: Long,
+    val tipo: TipoMensaje = TipoMensaje.TEXTO,
+    val propuestaId: String? = null,
+    val propuestoPor: String? = null,
+    val monto: Double? = null,
+    val moneda: String = "PEN",
+    val propuestaEstado: String? = null,
+    val respondidoPor: String? = null,
+    val respondidoAt: Long? = null
 ) {
     companion object {
         fun desde(doc: DocumentSnapshot): Mensaje? {
             val d = doc.data ?: return null
             val sentAt = (d["sentAt"] as? Timestamp)?.toDate()?.time
                 ?: (d["sentAt"] as? Date)?.time ?: 0L
+            val tipo = TipoMensaje.valueOf((d["tipo"] as? String)?.uppercase() ?: "TEXTO")
             return Mensaje(
                 messageId = d["messageId"] as? String ?: doc.id,
                 senderId = d["senderId"] as? String ?: "",
                 text = d["text"] as? String ?: "",
-                sentAt = sentAt
+                sentAt = sentAt,
+                tipo = tipo,
+                propuestaId = d["propuestaId"] as? String,
+                propuestoPor = d["propuestoPor"] as? String,
+                monto = (d["monto"] as? Number)?.toDouble(),
+                moneda = d["moneda"] as? String ?: "PEN",
+                propuestaEstado = d["propuestaEstado"] as? String,
+                respondidoPor = d["respondidoPor"] as? String,
+                respondidoAt = (d["respondidoAt"] as? Timestamp)?.toDate()?.time
+                    ?: (d["respondidoAt"] as? Date)?.time
             )
         }
     }

@@ -4,37 +4,10 @@ service cloud.firestore {
 
     // PROPIEDADES: fichas publicas. Solo autenticados pueden crear;
     // update/delete SOLO el dueno (para "dar por finalizada" la publicacion).
-    //
-    // EXCEPCION (acuerdo de alquiler aceptado): cuando el dueno publica una
-    // propuesta escribe "acuerdoPendiente" con el chat y la propuesta. El otro
-    // participante (el arrendatario) puede entonces poner el inmueble en
-    // "pausada" para despublicarlo, y SOLO cambiando ese campo, y solo si el
-    // chat ya consta como acuerdo aceptado. El dueño siempre puede cambiarlo.
     match /propiedades/{propiedad} {
-      function acuerdoAceptado(uid) {
-        // OJO: los chats antiguos y las publicaciones sin acuerdo NO tienen estos
-        // campos. Leerlos con ".campo" da error de evaluacion (= deny), asi que
-        // siempre se leen con .data.get(campo, valorPorDefecto). El id del chat se
-        // usa como parametro del path (no como $(...) del match) porque dentro de
-        // una funcion el emulador no resuelve bien los wildcards del path.
-        let ap = resource.data.get('acuerdoPendiente', {});
-        let chatId = ap.get('chatId', '');
-        return ap is map
-          && chatId is string
-          && chatId.size() > 0
-          && exists(/databases/$(database)/documents/chats/$(chatId))
-          && uid in get(/databases/$(database)/documents/chats/$(chatId)).data.get('participants', [])
-          && get(/databases/$(database)/documents/chats/$(chatId)).data.get('acuerdo', {}).get('estado', '') == 'aceptada'
-          && get(/databases/$(database)/documents/chats/$(chatId)).data.get('acuerdo', {}).get('propuestaId', '') == ap.get('propuestaId', '');
-      }
       allow read: if true;
       allow create: if request.auth != null;
-      allow update: if request.auth != null
-        && (request.auth.uid == resource.data.idPropietario
-            || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['estado'])
-                && request.resource.data.estado == 'pausada'
-                && acuerdoAceptado(request.auth.uid)));
-      allow delete: if request.auth != null
+      allow update, delete: if request.auth != null
         && request.auth.uid == resource.data.idPropietario;
     }
 
@@ -77,94 +50,35 @@ service cloud.firestore {
         && request.resource.data.participants.size() >= 2
         && request.resource.data.participants.size() <= 10
         && request.auth.uid in request.resource.data.participants;
-      // Estados validos del chat: "abierto", "cerrado" (manual o automatico a
-      // las 48h) y "acuerdo_cerrado" (acuerdo aceptado, sigue escribible 48h).
-      // No se puede inventar otro estado ni saltarse la lista cerrada.
-      allow update: if request.auth != null
-        && request.auth.uid in resource.data.participants
-        // La lista de participantes es inmutable: nadie se cuela ni expulsa a otro.
-        && request.resource.data.participants == resource.data.participants
-        && (!('estado' in request.resource.data)
-            || request.resource.data.estado in ['abierto', 'cerrado', 'acuerdo_cerrado']);
-      allow delete: if request.auth != null
+      allow update, delete: if request.auth != null
         && request.auth.uid in resource.data.participants;
     }
 
     // MENSAJES: solo participantes del chat pueden leer; al crear el mensaje debe
     // pertenecer al autor ("senderId") y tener texto 1..1000 chars. Si el inmueble
     // asociado fue finalizado/alquilado, el chat queda cerrado (no se crean mas mensajes).
-    //
-    // Tipos de mensaje (campo "tipo"): "texto" (normal), "propuesta" (tarjeta de
-    // acuerdo) y "sistema" (avisos como "el chat ha sido cerrado"). Los chats
-    // antiguos no tienen "tipo": se tratan como "texto".
     match /chats/{chat}/messages/{message} {
-      // OJO (get() + wildcards): dentro de una funcion, get() solo resuelve bien
-      // si el id del documento se recibe como PARAMETRO. Si el helper usa el
-      // wildcard del match ($(chat)) directamente, get() devuelve null y la regla
-      // entera acaba en error de evaluacion (= deny). Por eso estos helpers
-      // reciben chatId como argumento y no usan $(chat) por su cuenta.
-      //
-      // Ademas, chats y publicaciones antiguos pueden no tener "listingId",
-      // "estado" o "acuerdoPendiente": todo se lee con .data.get(campo, defecto)
-      // para que un documento legacy no bloquee la conversacion.
-      function chatParticipa(chatId, uid) {
-        return get(/databases/$(database)/documents/chats/$(chatId)).data is map
-          && uid in get(/databases/$(database)/documents/chats/$(chatId)).data.get('participants', []);
+      function chatParticipa(uid) {
+        return get(/databases/$(database)/documents/chats/$(chat)).data is map
+          && uid in get(/databases/$(database)/documents/chats/$(chat)).data.participants;
       }
-      // listingId del inmueble del chat, o "" si el chat no existe o no lo tiene.
-      function chatListingId(chatId) {
-        return get(/databases/$(database)/documents/chats/$(chatId)).data is map
-          && get(/databases/$(database)/documents/chats/$(chatId)).data.get('listingId', '') is string
-          ? get(/databases/$(database)/documents/chats/$(chatId)).data.get('listingId', '')
-          : '';
+      function inmuebleCerrado() {
+        let c = get(/databases/$(database)/documents/chats/$(chat));
+        return c.exists
+          && c.data.listingId is string
+          && c.data.listingId.size() > 0
+          && exists(/databases/$(database)/documents/propiedades/$(c.data.listingId))
+          && get(/databases/$(database)/documents/propiedades/$(c.data.listingId)).data.estado == 'finalizado';
       }
-      // El chat esta cerrado (a mano o automaticamente a las 48h del acuerdo).
-      // Los chats antiguos no tienen "estado": se consideran "abierto".
-      function chatCerrado(chatId) {
-        return get(/databases/$(database)/documents/chats/$(chatId)).data is map
-          && get(/databases/$(database)/documents/chats/$(chatId)).data.get('estado', 'abierto') == 'cerrado';
-      }
-      // El inmueble de este chat esta alquilado/finalizado: el chat se cierra.
-      function inmuebleCerrado(chatId) {
-        return chatListingId(chatId).size() > 0
-          && exists(/databases/$(database)/documents/propiedades/$(chatListingId(chatId)))
-          && get(/databases/$(database)/documents/propiedades/$(chatListingId(chatId))).data.get('estado', '') == 'finalizado';
-      }
-      // El usuario es el DUENO del inmueble de este chat (el unico que propone).
-      function esPropietario(chatId, uid) {
-        return chatListingId(chatId).size() > 0
-          && exists(/databases/$(database)/documents/propiedades/$(chatListingId(chatId)))
-          && get(/databases/$(database)/documents/propiedades/$(chatListingId(chatId))).data.get('idPropietario', '') == uid;
-      }
-      // Tipo declarado, normalizando los mensajes antiguos (sin "tipo" = texto).
-      function tipoMensaje() {
-        return request.resource.data.get('tipo', 'texto');
-      }
-      allow read: if request.auth != null && chatParticipa(chat, request.auth.uid);
+      allow read: if request.auth != null && chatParticipa(request.auth.uid);
       allow create: if request.auth != null
-        && chatParticipa(chat, request.auth.uid)
-        && !inmuebleCerrado(chat)
+        && chatParticipa(request.auth.uid)
+        && !inmuebleCerrado()
         && request.resource.data.senderId == request.auth.uid
         && request.resource.data.text is string
         && request.resource.data.text.size() > 0
-        && request.resource.data.text.size() <= 1000
-        && tipoMensaje() in ['texto', 'propuesta', 'sistema']
-        // En un chat cerrado (manual o automatico a las 48h) ya no se escribe, pero
-        // el aviso de cierre SI puede añadirse: por eso los mensajes de sistema se
-        // permiten siempre y el resto no.
-        && (!chatCerrado(chat) || tipoMensaje() == 'sistema')
-        // Solo el dueño del inmueble puede proponer un acuerdo de alquiler.
-        && (tipoMensaje() != 'propuesta' || esPropietario(chat, request.auth.uid));
-      // Al responder una propuesta SOLO se puede tocar su estado/respuesta, y nunca
-      // el propio proponente: el acuerdo no puede aceptarse a si mismo.
-      allow update: if request.auth != null
-        && chatParticipa(chat, request.auth.uid)
-        && request.resource.data.diff(resource.data).affectedKeys()
-             .hasOnly(['propuestaEstado', 'respondidoPor', 'respondidoAt'])
-        && (resource.data.get('tipo', 'texto') != 'propuesta'
-            || (request.resource.data.get('propuestaEstado', '') in ['aceptada', 'rechazada']
-                && resource.data.propuestoPor != request.auth.uid));
-      allow delete: if request.auth != null && chatParticipa(chat, request.auth.uid);
+        && request.resource.data.text.size() <= 1000;
+      allow update, delete: if request.auth != null && chatParticipa(request.auth.uid);
     }
 
     // DENUNCIAS (moderacion): lectura para autenticados; cada usuario crea/borra

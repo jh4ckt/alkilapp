@@ -89,7 +89,7 @@ public class BillingManagerJava {
                 .setProductList(List.of(
                         QueryProductDetailsParams.Product.newBuilder()
                                 .setProductId(productId)
-                                .setProductType(BillingClient.ProductType.INAPP)
+                                .setProductType(BillingClient.ProductType.SUBS)
                                 .build()
                 ))
                 .build();

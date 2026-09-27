@@ -1,5 +1,6 @@
 package com.alkilapp
 
+import android.app.AlertDialog
 import android.content.res.ColorStateList
 import android.os.Bundle
 import android.view.View
@@ -8,6 +9,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.alkilapp.data.Mensaje
 import com.alkilapp.data.PerfilUsuario
+import com.alkilapp.data.TipoMensaje
 import com.alkilapp.databinding.ActivityChatDetailBinding
 import com.alkilapp.ui.MensajeAdapter
 import com.google.firebase.auth.FirebaseAuth
@@ -15,6 +17,7 @@ import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
 import java.util.Locale
+import java.util.concurrent.atomic.AtomicBoolean
 
 class ChatDetailActivity : AppCompatActivity() {
 
@@ -32,7 +35,11 @@ class ChatDetailActivity : AppCompatActivity() {
     private var otroUid: String = ""
     private var listingId: String = ""
 
-    private val adapter by lazy { MensajeAdapter(auth.currentUser?.uid ?: "") }
+    private val adapter by lazy { MensajeAdapter(
+        miUid = auth.currentUser?.uid ?: "",
+        onAceptar = { m -> aceptarPropuesta(m) },
+        onRechazar = { m -> rechazarPropuesta(m) }
+    ) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -162,6 +169,7 @@ class ChatDetailActivity : AppCompatActivity() {
                     "messageId" to ref.id,
                     "senderId" to miUid,
                     "text" to texto,
+                    "tipo" to "texto",
                     "sentAt" to FieldValue.serverTimestamp()
                 )
             )
@@ -174,6 +182,175 @@ class ChatDetailActivity : AppCompatActivity() {
                 db.collection("chats").document(chatId).update(updates)
             }
         binding.etEntrada.text?.clear()
+    }
+
+    /** Muestra diálogo para crear y enviar una propuesta de alquiler. */
+    private fun mostrarDialogoPropuesta() {
+        val miUid = auth.currentUser?.uid ?: return
+        val dialog = AlertDialog.Builder(this)
+        val view = layoutInflater.inflate(R.layout.dialog_propuesta, null)
+        val etMonto = view.findViewById<com.google.android.material.textfield.TextInputEditText>(R.id.etPropMonto)
+        val etMensaje = view.findViewById<com.google.android.material.textfield.TextInputEditText>(R.id.etPropMensaje)
+
+        dialog.setView(view)
+            .setTitle(R.string.nueva_propuesta)
+            .setPositiveButton(R.string.enviar) { _, _ ->
+                val montoStr = etMonto.text.toString().trim()
+                val mensaje = etMensaje.text.toString().trim()
+                if (montoStr.isNotEmpty()) {
+                    enviarPropuesta(montoStr.toDouble(), if (mensaje.isEmpty()) getString(R.string.propuesta_alquiler) else mensaje)
+                }
+            }
+            .setNegativeButton(R.string.cancelar, null)
+            .show()
+    }
+
+    /** Envía una propuesta de alquiler como mensaje tipo "propuesta". */
+    private fun enviarPropuesta(monto: Double, texto: String) {
+        val miUid = auth.currentUser?.uid ?: return
+        if (chatId.isBlank()) return
+
+        val propuestaId = db.collection("chats").document(chatId)
+            .collection("messages").document().id
+
+        val ref = db.collection("chats").document(chatId)
+            .collection("messages").document(propuestaId)
+
+        db.collection("chats").document(chatId)
+            .collection("messages")
+            .document(propuestaId)
+            .set(
+                hashMapOf(
+                    "messageId" to propuestaId,
+                    "senderId" to miUid,
+                    "text" to texto,
+                    "tipo" to "propuesta",
+                    "propuestaId" to propuestaId,
+                    "propuestoPor" to miUid,
+                    "monto" to monto,
+                    "moneda" to "PEN",
+                    "propuestaEstado" to "pendiente",
+                    "sentAt" to FieldValue.serverTimestamp()
+                )
+            )
+            .addOnSuccessListener {
+                val updates = hashMapOf<String, Any>(
+                    "lastMessage" to "Propuesta: $monto PEN",
+                    "lastMessageAt" to FieldValue.serverTimestamp()
+                )
+                if (otroUid.isNotBlank()) updates["unreadCount.$otroUid"] = FieldValue.increment(1)
+                // Actualizar el chat con la propuesta pendiente
+                db.collection("chats").document(chatId)
+                    .update(updates + mapOf("acuerdoPendiente" to hashMapOf(
+                        "propuestaId" to propuestaId,
+                        "propuestoPor" to miUid,
+                        "monto" to monto
+                    )))
+            }
+    }
+
+    /** Acepta una propuesta pendiente. */
+    private fun aceptarPropuesta(m: Mensaje) {
+        val miUid = auth.currentUser?.uid ?: return
+        if (m.propuestaId == null || chatId.isBlank()) return
+
+        val ref = db.collection("chats").document(chatId)
+            .collection("messages").document(m.propuestaId!!)
+
+        ref.update(
+            hashMapOf(
+                "propuestaEstado" to "aceptada",
+                "respondidoPor" to miUid,
+                "respondidoAt" to FieldValue.serverTimestamp()
+            )
+        ).addOnSuccessListener {
+            // Marcar el chat como acuerdo_cerrado y notificar al otro
+            val updates = hashMapOf<String, Any>(
+                "estado" to "acuerdo_cerrado",
+                "acuerdo" to hashMapOf(
+                    "estado" to "aceptada",
+                    "propuestaId" to m.propuestaId!!,
+                    "monto" to m.monto,
+                    "moneda" to m.moneda,
+                    "aceptadoPor" to miUid,
+                    "aceptadoAt" to FieldValue.serverTimestamp()
+                ),
+                "lastMessage" to "Acuerdo aceptado",
+                "lastMessageAt" to FieldValue.serverTimestamp()
+            )
+            if (otroUid.isNotBlank()) updates["unreadCount.$otroUid"] = FieldValue.increment(1)
+            db.collection("chats").document(chatId).update(updates)
+                .addOnSuccessListener {
+                    // Enviar mensaje de sistema
+                    enviarMensajeSistema(getString(R.string.chat_acuerdo_aceptado))
+                    // Registrar acuerdoPendiente en la propiedad (para pausa)
+                    if (listingId.isNotBlank()) {
+                        db.collection("propiedades").document(listingId)
+                            .update(mapOf(
+                                "acuerdoPendiente" to hashMapOf(
+                                    "chatId" to chatId,
+                                    "propuestaId" to m.propuestaId!!,
+                                    "estado" to "aceptada"
+                                )
+                            ))
+                    }
+                }
+        }
+    }
+
+    /** Rechaza una propuesta pendiente. */
+    private fun rechazarPropuesta(m: Mensaje) {
+        val miUid = auth.currentUser?.uid ?: return
+        if (m.propuestaId == null || chatId.isBlank()) return
+
+        val ref = db.collection("chats").document(chatId)
+            .collection("messages").document(m.propuestaId!!)
+
+        ref.update(
+            hashMapOf(
+                "propuestaEstado" to "rechazada",
+                "respondidoPor" to miUid,
+                "respondidoAt" to FieldValue.serverTimestamp()
+            )
+        ).addOnSuccessListener {
+            val updates = hashMapOf<String, Any>(
+                "lastMessage" to "Propuesta rechazada",
+                "lastMessageAt" to FieldValue.serverTimestamp()
+            )
+            if (otroUid.isNotBlank()) updates["unreadCount.$otroUid"] = FieldValue.increment(1)
+            db.collection("chats").document(chatId).update(updates)
+            enviarMensajeSistema(getString(R.string.chat_propuesta_rechazada))
+        }
+    }
+
+    /** Envía un mensaje de tipo "sistema" (avisos como cierre, aceptación, etc.). */
+    private fun enviarMensajeSistema(texto: String) {
+        val miUid = auth.currentUser?.uid ?: return
+        if (chatId.isBlank()) return
+
+        val ref = db.collection("chats").document(chatId)
+            .collection("messages").document()
+
+        db.collection("chats").document(chatId)
+            .collection("messages")
+            .document(ref.id)
+            .set(
+                hashMapOf(
+                    "messageId" to ref.id,
+                    "senderId" to miUid,
+                    "text" to texto,
+                    "tipo" to "sistema",
+                    "sentAt" to FieldValue.serverTimestamp()
+                )
+            )
+            .addOnSuccessListener {
+                val updates = hashMapOf<String, Any>(
+                    "lastMessage" to texto,
+                    "lastMessageAt" to FieldValue.serverTimestamp()
+                )
+                if (otroUid.isNotBlank()) updates["unreadCount.$otroUid"] = FieldValue.increment(1)
+                db.collection("chats").document(chatId).update(updates)
+            }
     }
 
     private fun marcarLeido() {

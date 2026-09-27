@@ -810,6 +810,7 @@ class PerfilPropietarioActivity : AppCompatActivity() {
                     Intent(this, ChatDetailActivity::class.java).apply {
                         putExtra(ChatListActivity.EXTRA_CHAT_ID, chatId)
                         putExtra(ChatListActivity.EXTRA_LISTING, listingTitulo)
+                        putExtra(ChatListActivity.EXTRA_LISTING_ID, listingId)
                         putExtra(ChatListActivity.EXTRA_OTRO_UID, uid)
                     }
                 )

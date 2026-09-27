@@ -678,4 +678,18 @@
     <string name="auth_departamento">Departamento al que perteneces</string>
     <string name="auth_departamento_selecciona">Selecciona tu departamento</string>
     <string name="auth_departamento_requerido">Ingresa tu departamento</string>
+
+    <!-- Chat: propuestas y sistema -->
+    <string name="nueva_propuesta">Nueva propuesta de alquiler</string>
+    <string name="monto">Monto (PEN)</string>
+    <string name="monto_ayuda">Ej: 1500</string>
+    <string name="mensaje_opcional">Mensaje (opcional)</string>
+    <string name="propuesta_alquiler">Propuesta de alquiler</string>
+    <string name="aceptar">Aceptar</string>
+    <string name="rechazar">Rechazar</string>
+    <string name="enviar">Enviar</string>
+    <string name="cancelar">Cancelar</string>
+    <string name="chat_acuerdo_aceptado">El acuerdo ha sido aceptado. El chat queda en estado "acuerdo_cerrado" (48h para coordinar).</string>
+    <string name="chat_propuesta_rechazada">La propuesta ha sido rechazada.</string>
+    <string name="chat_cerrado_sistema">El chat ha sido cerrado automáticamente.</string>
 </resources>

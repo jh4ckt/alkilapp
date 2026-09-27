@@ -47,6 +47,11 @@ Variables:
 - Al aprobar (desde el panel o con `npm run destacar -- --id <id> [--dias N]`), se escribe
   `isFeatured`, `featuredUntil = hoy + destacadoDias`, `destacadoDiasRestantes` y
   `destacadoEstado = 'aprobado'`. Si no se pasa `--dias`, se respeta lo que pidio el usuario.
+- `backend/cerrarChats.js` es el barrido que **cierra los chats con acuerdo cerrado al cumplirse las 48h**
+  - `estado == 'acuerdo_cerrado'` + `acuerdo.respondidoAt <= ahora-48h` -> `estado='cerrado'`,
+    `cerradoMotivo='acuerdo_48h'`, `cerradoPor='sistema'`. El map `acuerdo` se conserva como respaldo.
+  - En la nube: `GET /api/cron/cerrar-chats?clave=<ADMIN_SECRET>`, cada hora via Cloud Scheduler.
+  - Requiere el indice compuesto `chats`: `estado ASC` + `acuerdo.respondidoAt ASC` (ya creado).
 - `backend/expirar.js` es el barrido que **apaga los destacados vencidos**
   (`isFeatured = false`, `destacadoEstado = 'expirado'`, `destacadoDiasRestantes = 0`) y
   actualiza el contador de los vigentes. Es idempotente.

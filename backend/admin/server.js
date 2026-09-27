@@ -8,6 +8,7 @@ const path = require('path');
 const crypto = require('crypto');
 const { Firestore } = require('@google-cloud/firestore');
 const { expirarDestacados } = require('./expirar');
+const { cerrarChatsAcordados } = require('./cerrarChats');
 let FieldValue;
 try {
     const admin = require('firebase-admin');
@@ -175,6 +176,15 @@ async function handleAPI(req, res, url) {
                 return json(res, 403, { error: 'clave invalida' });
             }
             const r = await expirarDestacados(db);
+            return json(res, 200, r);
+        }
+
+        // Cierre automatico de los chats con acuerdo cerrado (48h).
+        if (ruta === '/api/cron/cerrar-chats') {
+            if (!SECRET || url.searchParams.get('clave') !== SECRET) {
+                return json(res, 403, { error: 'clave invalida' });
+            }
+            const r = await cerrarChatsAcordados(db);
             return json(res, 200, r);
         }
 

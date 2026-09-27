@@ -64,6 +64,7 @@
     <color name="alkil_coral">#FF6B5E</color>
     <color name="alkil_coral_dark">#E85548</color>
     <color name="alkil_coral_soft">#FFE4E1</color>
+    <color name="alkil_coral_light">#FFF0EF</color>
 
     <color name="alkil_mint">#3AA37B</color>
     <color name="alkil_mint_soft">#E4F3EC</color>
@@ -77,6 +78,7 @@
     <color name="text_primary">#1E293B</color>
     <color name="text_secondary">#64748B</color>
     <color name="bubble_otro">#F1F5F9</color>
+    <color name="slate_100">#F1F5F9</color>
     <color name="divider">#E2E8F0</color>
 
     <color name="white">#FFFFFF</color>
