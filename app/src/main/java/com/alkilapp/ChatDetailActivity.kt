@@ -34,6 +34,7 @@ class ChatDetailActivity : AppCompatActivity() {
     private var chatId: String = ""
     private var otroUid: String = ""
     private var listingId: String = ""
+    private var idPropietarioDelInmueble: String = ""
 
     private val adapter by lazy { MensajeAdapter(
         miUid = auth.currentUser?.uid ?: "",
@@ -53,6 +54,7 @@ class ChatDetailActivity : AppCompatActivity() {
         binding.tvChatListing.text = intent.getStringExtra(ChatListActivity.EXTRA_LISTING)
 
         binding.btnChatDetailBack.setOnClickListener { finish() }
+        binding.btnChatPropuesta.setOnClickListener { mostrarDialogoPropuesta() }
         binding.btnEnviar.setOnClickListener { enviarMensaje() }
         binding.etEntrada.setOnEditorActionListener { _, actionId, _ ->
             if (actionId == EditorInfo.IME_ACTION_SEND || actionId == EditorInfo.IME_ACTION_DONE) {
@@ -65,7 +67,18 @@ class ChatDetailActivity : AppCompatActivity() {
         binding.rvMensajes.adapter = adapter
 
         if (otroUid.isNotBlank()) cargarPerfil(otroUid)
-        if (listingId.isNotBlank()) vigilarEstadoInmueble()
+
+        // Obtener idPropietario del inmueble para controlar visibilidad del botón "Propuesta"
+        if (listingId.isNotBlank()) {
+            db.collection("propiedades").document(listingId).get()
+                .addOnSuccessListener { doc ->
+                    if (doc.exists()) {
+                        idPropietarioDelInmueble = doc.getString("idPropietario") ?: ""
+                        actualizarBotonPropuesta()
+                    }
+                }
+            vigilarEstadoInmueble()
+        }
     }
 
     /**
@@ -82,8 +95,33 @@ class ChatDetailActivity : AppCompatActivity() {
                     binding.cardChatCerrado.visibility = if (cerrado) View.VISIBLE else View.GONE
                     binding.etEntrada.isEnabled = !cerrado
                     binding.btnEnviar.isEnabled = !cerrado
+                    actualizarBotonPropuesta()
                 }
             }
+    }
+
+    /** Controla visibilidad del botón "Solicitar alquiler":
+     * - Solo visible si NO soy el propietario del inmueble
+     * - Chat estado == "abierto" (no "cerrado" ni "acuerdo_cerrado")
+     * - Propiedad no está "finalizado"
+     */
+    private fun actualizarBotonPropuesta() {
+        val miUid = auth.currentUser?.uid ?: run { binding.btnChatPropuesta.visibility = View.GONE; return }
+        val esPropietario = miUid == idPropietarioDelInmueble
+
+        // Obtener estado del chat y de la propiedad
+        db.collection("chats").document(chatId).get().addOnSuccessListener { chatSnap ->
+            val chatEstado = (chatSnap.data?.get("estado") as? String)?.orEmpty() ?: "abierto"
+            val chatAbierto = chatEstado == "abierto"
+
+            db.collection("propiedades").document(listingId).get().addOnSuccessListener { propSnap ->
+                val propEstado = (propSnap.data?.get("estado") as? String)?.lowercase().orEmpty() ?: "disponible"
+                val propDisponible = propEstado != "finalizado"
+
+                val mostrar = !esPropietario && chatAbierto && propDisponible && listingId.isNotBlank()
+                binding.btnChatPropuesta.visibility = if (mostrar) View.VISIBLE else View.GONE
+            }
+        }
     }
 
     override fun onStart() {
@@ -141,7 +179,7 @@ class ChatDetailActivity : AppCompatActivity() {
             }
     }
 
-    /** Mantiene el encabezado sincronizado con el título del inmueble. */
+    /** Mantiene el encabezado sincronizado con el título del inmueble y actualiza botón propuesta. */
     private fun escucharChat() {
         escuchaChat?.remove()
         escuchaChat = db.collection("chats").document(chatId)
@@ -149,6 +187,7 @@ class ChatDetailActivity : AppCompatActivity() {
                 if (snap?.exists() == true) {
                     val titulo = snap.data?.get("listingTitle") as? String
                     if (!titulo.isNullOrBlank()) binding.tvChatListing.text = titulo
+                    actualizarBotonPropuesta()
                 }
             }
     }

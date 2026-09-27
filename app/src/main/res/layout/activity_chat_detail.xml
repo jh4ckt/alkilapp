@@ -33,6 +33,16 @@
                 android:contentDescription="@string/chat_atras"
                 android:src="@drawable/ic_back" />
 
+            <ImageButton
+                android:id="@+id/btnChatPropuesta"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_marginStart="8dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/detalle_solicitar_alquiler"
+                android:src="@drawable/ic_propuesta"
+                android:visibility="gone" />
+
             <TextView
                 android:id="@+id/tvChatAvatar"
                 android:layout_width="40dp"
