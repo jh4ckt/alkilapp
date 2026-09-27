@@ -25,7 +25,7 @@ android {
         minSdk = 24
         targetSdk = 36
         versionCode = 34
-        versionName = "1.52"
+        versionName = "1.52.3"
         manifestPlaceholders["MAPS_API_KEY"] = mapsApiKey
     }
 
