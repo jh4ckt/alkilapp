@@ -208,12 +208,12 @@
             android:paddingBottom="10dp">
 
             <ImageButton
-                android:id="@+id/btnSolicitarAlquiler"
+                android:id="@+id/btnSolicitarCita"
                 android:layout_width="46dp"
                 android:layout_height="46dp"
                 android:layout_marginEnd="8dp"
                 android:background="?attr/selectableItemBackgroundBorderless"
-                android:contentDescription="@string/solicitar_alquiler"
+                android:contentDescription="@string/agendar_cita"
                 android:padding="11dp"
                 android:src="@drawable/ic_solicitar_alquiler"
                 android:visibility="gone" />

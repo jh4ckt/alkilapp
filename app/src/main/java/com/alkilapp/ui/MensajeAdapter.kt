@@ -28,6 +28,7 @@ class MensajeAdapter(
         const val TYPE_TEXTO = 0
         const val TYPE_PROPUESTA = 1
         const val TYPE_SISTEMA = 2
+        const val TYPE_CITA = 3
     }
 
     private val mensajes = mutableListOf<Mensaje>()
@@ -39,6 +40,7 @@ class MensajeAdapter(
     class TextoHolder(val binding: View) : RecyclerView.ViewHolder(binding)
     class PropuestaHolder(val binding: View) : RecyclerView.ViewHolder(binding)
     class SistemaHolder(val binding: View) : RecyclerView.ViewHolder(binding)
+    class CitaHolder(val binding: View) : RecyclerView.ViewHolder(binding)
 
     fun submitList(nueva: List<Mensaje>) {
         mensajes.clear()
@@ -50,6 +52,7 @@ class MensajeAdapter(
         return when (mensajes[position].tipo) {
             TipoMensaje.PROPUESTA -> TYPE_PROPUESTA
             TipoMensaje.SISTEMA -> TYPE_SISTEMA
+            TipoMensaje.CITA -> TYPE_CITA
             else -> TYPE_TEXTO
         }
     }
@@ -59,6 +62,7 @@ class MensajeAdapter(
         return when (viewType) {
             TYPE_PROPUESTA -> PropuestaHolder(inflater.inflate(R.layout.item_mensaje, parent, false))
             TYPE_SISTEMA -> SistemaHolder(inflater.inflate(R.layout.item_mensaje, parent, false))
+            TYPE_CITA -> CitaHolder(inflater.inflate(R.layout.item_mensaje, parent, false))
             else -> TextoHolder(inflater.inflate(R.layout.item_mensaje, parent, false))
         }
     }
@@ -69,6 +73,7 @@ class MensajeAdapter(
             is TextoHolder -> bindTexto(holder.itemView, m)
             is PropuestaHolder -> bindPropuesta(holder.itemView, m)
             is SistemaHolder -> bindSistema(holder.itemView, m)
+            is CitaHolder -> bindCita(holder.itemView, m)
         }
     }
 
@@ -190,6 +195,67 @@ class MensajeAdapter(
         if (m.sentAt > 0) tvTiempo.text = horaFormato.format(Date(m.sentAt))
 
         llFila.gravity = Gravity.CENTER_HORIZONTAL
+        itemView.setTag(m)
+    }
+
+    private fun bindCita(itemView: View, m: Mensaje) {
+        val ctx = itemView.context
+        val esMio = m.senderId == miUid
+
+        val tvBurbuja = itemView.findViewById<TextView>(R.id.tvBurbuja)
+        val llPropuesta = itemView.findViewById<LinearLayout>(R.id.llPropuesta)
+        val tvSistema = itemView.findViewById<TextView>(R.id.tvSistema)
+        val llFila = itemView.findViewById<LinearLayout>(R.id.llFilaMensaje)
+        val llCita = itemView.findViewById<LinearLayout>(R.id.llCita)
+        val tvCitaFecha = itemView.findViewById<TextView>(R.id.tvCitaFecha)
+        val tvCitaHora = itemView.findViewById<TextView>(R.id.tvCitaHora)
+        val tvCitaEstado = itemView.findViewById<TextView>(R.id.tvCitaEstado)
+        val llCitaBotones = itemView.findViewById<LinearLayout>(R.id.llCitaBotones)
+        val btnAceptar = itemView.findViewById<Button>(R.id.btnCitaAceptar)
+        val btnRechazar = itemView.findViewById<Button>(R.id.btnCitaRechazar)
+
+        tvBurbuja.visibility = View.GONE
+        llPropuesta.visibility = View.GONE
+        tvSistema.visibility = View.GONE
+        llCita.visibility = View.VISIBLE
+
+        tvCitaFecha.text = m.fecha ?: ""
+        tvCitaHora.text = m.hora ?: ""
+
+        val estado = m.citaEstado?.lowercase() ?: "pendiente"
+        tvCitaEstado.text = when (estado) {
+            "aceptada" -> ctx.getString(R.string.cita_estado_aceptada)
+            "rechazada" -> ctx.getString(
+                if (m.solicitadoPor == miUid) R.string.cita_estado_rechazada else R.string.cita_estado_rechazaste
+            )
+            else -> ctx.getString(R.string.cita_estado_pendiente)
+        }
+
+        // Botones solo si soy el destinatario y está pendiente
+        val soyDestinatario = m.solicitadoPor != null && m.solicitadoPor != miUid
+        if (soyDestinatario && estado == "pendiente") {
+            llCitaBotones.visibility = View.VISIBLE
+            btnAceptar.setOnClickListener { onAceptar?.invoke(m) }
+            btnRechazar.setOnClickListener { onRechazar?.invoke(m) }
+        } else {
+            llCitaBotones.visibility = View.GONE
+        }
+
+        // Alineación
+        val marginal = if (esMio) Gravity.END else Gravity.START
+        val grupo = itemView.findViewById<LinearLayout>(R.id.llGrupoMensaje)
+        grupo.gravity = marginal
+
+        if (m.sentAt > 0) {
+            val tvTiempo = itemView.findViewById<TextView>(R.id.tvTiempo)
+            tvTiempo.text = horaFormato.format(Date(m.sentAt))
+            tvTiempo.visibility = View.VISIBLE
+            tvTiempo.layoutParams = (tvTiempo.layoutParams as LinearLayout.LayoutParams).apply { gravity = marginal }
+        } else {
+            val tvTiempo = itemView.findViewById<TextView>(R.id.tvTiempo)
+            tvTiempo.visibility = View.GONE
+        }
+
         itemView.setTag(m)
     }
 

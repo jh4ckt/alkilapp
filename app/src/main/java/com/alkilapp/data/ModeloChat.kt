@@ -16,7 +16,8 @@ data class ChatAlkil(
     val lastMessageAt: Long,
     val unreadMio: Int,
     val estado: String = "abierto",
-    val acuerdo: Map<String, Any>? = null
+    val acuerdo: Map<String, Any>? = null,
+    val deletedForUsers: List<String> = emptyList()
 ) {
     companion object {
         fun desde(doc: DocumentSnapshot, miUid: String): ChatAlkil? {
@@ -36,7 +37,8 @@ data class ChatAlkil(
                 lastMessageAt = lastAt,
                 unreadMio = unread.toInt(),
                 estado = d["estado"] as? String ?: "abierto",
-                acuerdo = d["acuerdo"] as? Map<String, Any>
+                acuerdo = d["acuerdo"] as? Map<String, Any>,
+                deletedForUsers = (d["deletedForUsers"] as? List<*>)?.filterIsInstance<String>() ?: emptyList()
             )
         }
     }
@@ -44,7 +46,7 @@ data class ChatAlkil(
 
 /** Tipo de mensaje en el chat. */
 enum class TipoMensaje {
-    TEXTO, PROPUESTA, SISTEMA
+    TEXTO, PROPUESTA, SISTEMA, CITA
 }
 
 /** Un mensaje dentro de un chat (subcolección "chats/{chatId}/messages"). */
@@ -60,7 +62,12 @@ data class Mensaje(
     val moneda: String = "PEN",
     val propuestaEstado: String? = null,
     val respondidoPor: String? = null,
-    val respondidoAt: Long? = null
+    val respondidoAt: Long? = null,
+    val citaId: String? = null,
+    val solicitadoPor: String? = null,
+    val fecha: String? = null,
+    val hora: String? = null,
+    val citaEstado: String? = null
 ) {
     companion object {
         fun desde(doc: DocumentSnapshot): Mensaje? {
@@ -81,7 +88,12 @@ data class Mensaje(
                 propuestaEstado = d["propuestaEstado"] as? String,
                 respondidoPor = d["respondidoPor"] as? String,
                 respondidoAt = (d["respondidoAt"] as? Timestamp)?.toDate()?.time
-                    ?: (d["respondidoAt"] as? Date)?.time
+                    ?: (d["respondidoAt"] as? Date)?.time,
+                citaId = d["citaId"] as? String,
+                solicitadoPor = d["solicitadoPor"] as? String,
+                fecha = d["fecha"] as? String,
+                hora = d["hora"] as? String,
+                citaEstado = d["citaEstado"] as? String
             )
         }
     }

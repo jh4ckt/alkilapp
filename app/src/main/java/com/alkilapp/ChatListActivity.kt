@@ -54,13 +54,14 @@ class ChatListActivity : AppCompatActivity() {
             return
         }
 
-        // Solo los chats donde yo participo. El fin del mensaje busca marcar leído.
+        // Solo los chats donde yo participo Y no los he "eliminado" (soft delete).
         escuchaChats = db.collection("chats")
             .whereArrayContains("participants", miUid)
             .addSnapshotListener { snap, error ->
                 if (error != null) return@addSnapshotListener
 
                 val chats = snap?.documents?.mapNotNull { ChatAlkil.desde(it, miUid) }
+                    ?.filter { chat -> !chat.deletedForUsers.contains(miUid) }
                     ?.sortedByDescending { it.lastMessageAt }
                     ?: emptyList()
 
