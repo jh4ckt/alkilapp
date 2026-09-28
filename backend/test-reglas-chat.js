@@ -17,7 +17,7 @@ const {
     initializeTestEnvironment,
 } = require('@firebase/rules-unit-testing');
 const {
-    doc, setDoc, updateDoc, addDoc, collection, getDoc, getDocs, serverTimestamp,
+    doc, setDoc, updateDoc, addDoc, deleteDoc, collection, getDoc, getDocs, serverTimestamp,
 } = require('firebase/firestore');
 
 const PROJECT = process.env.GCLOUD_PROJECT || 'gen-lang-client-0040505884';
@@ -72,6 +72,12 @@ const propuesta = (extra = {}) => ({
     senderId: OWNER, text: 'Propuesta de alquiler', tipo: 'propuesta',
     propuestoPor: OWNER, propuestaId: 'p1', monto: 1500, moneda: 'PEN',
     propuestaEstado: 'pendiente', ...extra,
+});
+// Cita de visita: la agenda el INTERESADO (no el dueno) y nace "pendiente".
+const cita = (extra = {}) => ({
+    senderId: RENTER, text: 'Quisiera visitarlo', tipo: 'cita',
+    citaId: 'c1', solicitadoPor: RENTER, fecha: '15/09/2026', hora: '10:30',
+    citaEstado: 'pendiente', ...extra,
 });
 
 /*
@@ -211,8 +217,72 @@ async function fase6_denuncias() {
     }));
 }
 
-/* ------------------------------------------------------------------- runner */
+async function fase7_citas() {
+    console.log('\n7) Citas de visita: las agenda el interesado y las confirma el dueno');
+    await testEnv.clearFirestore();
+    await sembrar(async db => {
+        await setDoc(doc(db, 'chats', CHAT), chatBase());
+        await setDoc(doc(db, 'propiedades', LISTING), propBase());
+        await setDoc(doc(db, 'chats', CHAT, 'messages', 'c1'), cita({ citaId: 'c1' }));
+        await setDoc(doc(db, 'chats', CHAT, 'messages', 'c9'),
+            cita({ citaId: 'c9', citaEstado: 'aceptada', respondidoPor: OWNER }));
+    });
 
+    const sinFecha = cita({ citaId: 'c4' }); delete sinFecha.fecha;
+    const sinHora = cita({ citaId: 'c5' }); delete sinHora.hora;
+
+    await check('el interesado agenda la visita', 'ALLOW', () => crearMsg(RENTER, 'c2', cita({ citaId: 'c2' })));
+    await check('el dueno NO agenda visita', 'DENY', () => crearMsg(OWNER, 'c3', cita({ citaId: 'c3', senderId: OWNER, solicitadoPor: OWNER })));
+    await check('cita en nombre de otro', 'DENY', () => crearMsg(RENTER, 'c6', cita({ citaId: 'c6', solicitadoPor: OWNER })));
+    await check('cita sin fecha', 'DENY', () => crearMsg(RENTER, 'c4', sinFecha));
+    await check('cita sin hora', 'DENY', () => crearMsg(RENTER, 'c5', sinHora));
+    await check('citaId que no es el del mensaje', 'DENY', () => crearMsg(RENTER, 'c7', cita({ citaId: 'otra-cosa' })));
+    await check('cita ya aceptada al crearse', 'DENY', () => crearMsg(RENTER, 'c8', cita({ citaId: 'c8', citaEstado: 'aceptada' })));
+    await check('el dueno ACEPTA la visita', 'ALLOW', () => updMsg(OWNER, 'c1', { citaEstado: 'aceptada', respondidoPor: OWNER, respondidoAt: serverTimestamp() }));
+    await check('el dueno RECHAZA la visita', 'ALLOW', () => crearMsg(RENTER, 'c10', cita({ citaId: 'c10' }))
+        .then(() => updMsg(OWNER, 'c10', { citaEstado: 'rechazada', respondidoPor: OWNER })));
+    await check('el solicitante NO se auto-confirma', 'DENY', () => crearMsg(RENTER, 'c11', cita({ citaId: 'c11' }))
+        .then(() => updMsg(RENTER, 'c11', { citaEstado: 'aceptada', respondidoPor: RENTER })));
+    await check('un tercero NO responde', 'DENY', () => updMsg(AJENO, 'c1', { citaEstado: 'aceptada' }));
+    await check('no se puede cambiar la FECHA', 'DENY', () => updMsg(OWNER, 'c1', { citaEstado: 'aceptada', fecha: '01/01/2030' }));
+    await check('no se puede cambiar el TEXTO', 'DENY', () => updMsg(OWNER, 'c1', { text: ' manipulado' }));
+    await check('no se puede re-responder una cita ya aceptada', 'DENY', () => updMsg(OWNER, 'c9', { citaEstado: 'rechazada', respondidoPor: OWNER }));
+    await check('el interesado registra la cita pendiente en el chat', 'ALLOW', () => updChat(RENTER, {
+        citaPendiente: { citaId: 'c1', solicitadoPor: RENTER, fecha: '15/09/2026', hora: '10:30', estado: 'pendiente' },
+    }));
+    await check('el dueno registra la visita confirmada en el chat', 'ALLOW', () => updChat(OWNER, {
+        cita: { estado: 'aceptada', citaId: 'c1', fecha: '15/09/2026', hora: '10:30', aceptadoPor: OWNER },
+    }));
+    await check('el dueno cambia el estado del chat a cerrado', 'ALLOW', () => updChat(OWNER, { estado: 'cerrado' }));
+    await check('en chat cerrado NO se agenda visita', 'DENY', () => crearMsg(RENTER, 'c12', cita({ citaId: 'c12' })));
+
+    await sembrar(async db => updateDoc(doc(db, 'chats', CHAT), { estado: 'abierto' }));
+    await sembrar(async db => updateDoc(doc(db, 'propiedades', LISTING), { estado: 'finalizado' }));
+    await check('no se agenda visita si el inmueble esta alquilado', 'DENY', () => crearMsg(RENTER, 'c13', cita({ citaId: 'c13' })));
+}
+
+async function fase8_soft_delete() {
+    console.log('\n8) Ocultar el chat (soft delete) y prohibido borrar de verdad');
+    await testEnv.clearFirestore();
+    await sembrar(async db => {
+        await setDoc(doc(db, 'chats', CHAT), chatBase());
+        await setDoc(doc(db, 'propiedades', LISTING), propBase());
+        await setDoc(doc(db, 'chats', CHAT, 'messages', 'm1'), { senderId: RENTER, text: 'hola', tipo: 'texto' });
+    });
+
+    await check('el interesado oculta el chat (su propio uid)', 'ALLOW', () => updChat(RENTER, { deletedForUsers: [RENTER] }));
+    await check('el dueno tambien puede ocultarlo', 'ALLOW', () => updChat(OWNER, { deletedForUsers: [RENTER, OWNER] }));
+    await check('NO se puede quitar un uid de la lista', 'DENY', () => setDoc(doc(dbDe(OWNER), 'chats', CHAT), { deletedForUsers: [RENTER] }, { merge: true }));
+    await check('NO se puede ocultar el chat de otro', 'DENY', () => setDoc(doc(dbDe(OWNER), 'chats', CHAT), { deletedForUsers: [RENTER, OWNER, AJENO] }, { merge: true }));
+    await check('un tercero no toca deletedForUsers', 'DENY', () => updChat(AJENO, { deletedForUsers: [RENTER, OWNER, AJENO] }));
+    await check('un oculto puede seguir escribiendo en su chat', 'ALLOW', () => nuevoMsg(RENTER, { senderId: RENTER, text: 'otro mensaje', tipo: 'texto' }));
+    await check('el historial de un chat oculto sigue legible', 'ALLOW', () => getDocs(collection(dbDe(RENTER), ...MSGS.split('/'))));
+    await check('NO se puede BORRAR el documento del chat', 'DENY', () => deleteDoc(doc(dbDe(OWNER), 'chats', CHAT)));
+    await check('NO se puede BORRAR un mensaje', 'DENY', () => deleteDoc(doc(dbDe(OWNER), ...MSGS.split('/'), 'm1')));
+    await check('un tercero tampoco borra mensajes', 'DENY', () => deleteDoc(doc(dbDe(AJENO), ...MSGS.split('/'), 'm1')));
+}
+
+/* ------------------------------------------------------------------- runner */
 (async () => {
     if (!process.env.FIRESTORE_EMULATOR_HOST) {
         console.error('Falta FIRESTORE_EMULATOR_HOST. Usa:  npm run reglas:test');
@@ -233,6 +303,8 @@ async function fase6_denuncias() {
         await fase4_pausa();
         await fase5_inmueble_finalizado();
         await fase6_denuncias();
+        await fase7_citas();
+        await fase8_soft_delete();
     } finally {
         await testEnv.cleanup();
     }

@@ -390,7 +390,31 @@ async function getPublicaciones(url) {
     const page = parseInt(url.searchParams.get('page') || '1');
     const limit = parseInt(url.searchParams.get('limit') || '20');
     const snap = await db.collection('propiedades').limit(500).get();
-    let docs = snap.docs.map(ponerCreado)
+    
+    // Fetch all owner names in batch
+    const propietarioIds = new Set();
+    const propiedadesRaw = snap.docs.map(ponerCreado);
+    propiedadesRaw.forEach(p => {
+        if (p.idPropietario) propietarioIds.add(p.idPropietario);
+    });
+    
+    // Fetch owner names in batch
+    const propietariosMap = new Map();
+    if (propietarioIds.size > 0) {
+        const chunks = Array.from(propietarioIds);
+        for (let i = 0; i < chunks.length; i += 10) {
+            const chunk = chunks.slice(i, i + 10);
+            const snaps = await Promise.all(chunk.map(id => db.collection('usuarios').doc(id).get()));
+            snaps.forEach(doc => {
+                if (doc.exists) {
+                    const d = doc.data();
+                    propietariosMap.set(doc.id, d.nombre || d.name || d.email?.split('@')[0] || 'Sin nombre');
+                }
+            });
+        }
+    }
+    
+    let docs = propiedadesRaw
         .filter((p) => !q || (p.titulo && p.titulo.toLowerCase().includes(q)) ||
             (p.direccion && p.direccion.toLowerCase().includes(q)) ||
             (p.barrio && p.barrio.toLowerCase().includes(q)) ||
@@ -398,25 +422,35 @@ async function getPublicaciones(url) {
         .filter((p) => !estado || (p.estado || 'disponible') === estado)
         .filter((p) => {
             if (!destacado) return true;
-            // Acepta si/no (el panel) y true/false (API) para no romper callers viejos
             const pedirSi = destacado === 'si' || destacado === 'true';
             const pedirNo = destacado === 'no' || destacado === 'false';
             if (pedirNo) return p.isFeatured !== true;
             return p.isFeatured === true;
         })
         .sort((a, b) => (mostrarCreado(b) > mostrarCreado(a) ? 1 : -1));
+    
     const total = docs.length;
     docs = docs.slice((page - 1) * limit, page * limit);
-    return { data: docs.map(p => ({
-        ...p,
-        estado: p.estado || 'disponible',
-        pill: pillEstado(p.estado),
-        creado: mostrarCreado(p),
-        destacadoInfo: p.isFeatured ? {
-            dias: p.destacadoDiasRestantes,
-            vence: fecha(p.featuredUntil),
-        } : null,
-    })), total, page, limit, totalPages: Math.ceil(total / limit) };
+    
+    return { data: docs.map(p => {
+        const ownerName = p.idPropietario ? propietariosMap.get(p.idPropietario) || 'Propietario sin nombre' : 'Sin propietario';
+        const destacadoTipo = p.isFeatured && p.destacadoDias ? `destacado_${p.destacadoDias}d` : null;
+        
+        return {
+            ...p,
+            propietarioNombre: ownerName,
+            operacion: p.operacion || 'alquiler',
+            tipoInmueble: p.tipo || 'departamento',
+            estado: p.estado || 'disponible',
+            pill: pillEstado(p.estado),
+            creado: mostrarCreado(p),
+            destacadoInfo: p.isFeatured ? {
+                dias: p.destacadoDiasRestantes,
+                vence: fecha(p.featuredUntil),
+                tipo: destacadoTipo,
+            } : null,
+        };
+    }), total, page, limit, totalPages: Math.ceil(total / limit) };
 }
 
 async function getReportes(url) {

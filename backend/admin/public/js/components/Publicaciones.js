@@ -96,16 +96,18 @@ export default class Publicaciones {
               <tr style="background-color: var(--table-header-bg, #f8fafc); border-bottom: 1px solid var(--border-color, #e2e8f0); text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.05em; color: var(--text-muted, #64748b);">
                 <th style="padding: 0.875rem 1rem; font-weight: 600;">Inmueble</th>
                 <th style="padding: 0.875rem 1rem; font-weight: 600;">Propietario</th>
+                <th style="padding: 0.875rem 1rem; font-weight: 600;">Operación</th>
+                <th style="padding: 0.875rem 1rem; font-weight: 600;">Tipo Inmueble</th>
                 <th style="padding: 0.875rem 1rem; font-weight: 600;">Precio</th>
                 <th style="padding: 0.875rem 1rem; font-weight: 600;">Estado Actual</th>
                 <th style="padding: 0.875rem 1rem; font-weight: 600;">Destacado</th>
                 <th style="padding: 0.875rem 1rem; font-weight: 600;">Fecha</th>
-                <th style="padding: 0.875rem 1rem; font-weight: 600; text-align: center;">Acciones</th>
+                <th style="padding: 0.875rem 1rem; font-weight: 600; text-align: center; white-space: nowrap; min-width: 320px;">Acciones</th>
               </tr>
             </thead>
             <tbody id="publicacionesTbody">
               <tr>
-                <td colspan="7" style="padding: 3rem; text-align: center; color: var(--text-muted, #64748b);">
+                <td colspan="9" style="padding: 3rem; text-align: center; color: var(--text-muted, #64748b);">
                   <div style="display: flex; flex-direction: column; align-items: center; gap: 0.5rem;">
                     <div class="spinner" style="width: 24px; height: 24px; border: 2px solid #cbd5e1; border-top-color: #3b82f6; border-radius: 50%; animation: spin 0.8s linear infinite;"></div>
                     <span>Cargando publicaciones...</span>
@@ -258,7 +260,7 @@ export default class Publicaciones {
     if (this.publicaciones.length === 0) {
       tbody.innerHTML = `
         <tr>
-          <td colspan="7" style="padding: 3.5rem 1rem; text-align: center; color: var(--text-muted, #64748b);">
+          <td colspan="9" style="padding: 3.5rem 1rem; text-align: center; color: var(--text-muted, #64748b);">
             <div style="display: flex; flex-direction: column; align-items: center; gap: 0.75rem;">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width: 42px; height: 42px; color: #94a3b8;">
                 <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
@@ -335,6 +337,16 @@ export default class Publicaciones {
             </div>
           </td>
 
+          <!-- Operación -->
+          <td style="padding: 0.875rem 1rem; font-size: 0.85rem; color: var(--text-color, #1e293b); font-weight: 500; text-transform: capitalize; white-space: nowrap;">
+            ${pub.operacion || 'alquiler'}
+          </td>
+
+          <!-- Tipo Inmueble -->
+          <td style="padding: 0.875rem 1rem; font-size: 0.85rem; color: var(--text-color, #1e293b); font-weight: 500; text-transform: capitalize;">
+            ${pub.tipo || 'departamento'}
+          </td>
+
           <!-- Precio -->
           <td style="padding: 0.875rem 1rem; font-weight: 600; color: var(--text-color, #0f172a); font-size: 0.875rem; white-space: nowrap;">
             ${formatCurrency ? formatCurrency(pub.precio || 0) : 'S/ ' + (pub.precio || 0)}
@@ -350,11 +362,16 @@ export default class Publicaciones {
 
           <!-- Destacado -->
           <td style="padding: 0.875rem 1rem; white-space: nowrap;">
-            ${esDestacado 
+            ${pub.destacadoInfo && pub.destacadoInfo.tipo 
               ? `<span style="background: #fef3c7; color: #b45309; border: 1px solid #fde68a; padding: 0.25rem 0.5rem; border-radius: 0.375rem; font-weight: 600; font-size: 0.725rem; display: inline-flex; align-items: center; gap: 0.25rem;">
-                  <svg viewBox="0 0 24 24" fill="currentColor" style="width:12px;height:12px;"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg> DESTACADO
-                </span>` 
-              : `<span style="color: var(--text-muted, #94a3b8); font-size: 0.8rem; font-weight: 400;">Estándar</span>`}
+                  <svg viewBox="0 0 24 24" fill="currentColor" style="width:12px;height:12px;"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg> ${pub.destacadoInfo.tipo}
+                </span>`
+              : (esDestacado 
+                ? `<span style="background: #fef3c7; color: #b45309; border: 1px solid #fde68a; padding: 0.25rem 0.5rem; border-radius: 0.375rem; font-weight: 600; font-size: 0.725rem; display: inline-flex; align-items: center; gap: 0.25rem;">
+                    <svg viewBox="0 0 24 24" fill="currentColor" style="width:12px;height:12px;"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg> DESTACADO
+                  </span>` 
+                : `<span style="color: var(--text-muted, #94a3b8); font-size: 0.8rem; font-weight: 400;">Estándar</span>`)
+            }
           </td>
 
           <!-- Fecha -->
@@ -363,26 +380,26 @@ export default class Publicaciones {
           </td>
 
           <!-- Acciones -->
-          <td style="padding: 0.875rem 1rem; text-align: center;">
-            <div style="display: flex; align-items: center; justify-content: center; gap: 0.375rem; flex-wrap: wrap;">
+          <td style="padding: 0.875rem 1rem; text-align: center; white-space: nowrap; min-width: 360px;">
+            <div style="display: flex; align-items: center; justify-content: center; gap: 0.25rem; flex-wrap: nowrap;">
 
               ${estado === 'under_review' ? `
-                <button class="btn btn-sm btn-success aprobar-btn" data-id="${pubId}" style="padding: 0.3rem 0.625rem; font-size: 0.775rem; border-radius: 0.375rem;" title="Aprobar y publicar esta publicación">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:13px;height:13px;"><polyline points="20 6 9 17 4 12"/></svg>
+                <button class="btn btn-sm btn-success aprobar-btn" data-id="${pubId}" style="padding: 0.25rem 0.5rem; font-size: 0.725rem; border-radius: 0.375rem;" title="Aprobar y publicar esta publicación">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:12px;height:12px;"><polyline points="20 6 9 17 4 12"/></svg>
                   Aprobar
                 </button>` : ''}
 
-              <select class="form-select form-select-sm estado-select" data-id="${pubId}" data-original="${estado}" style="width: auto; padding: 0.3rem 0.5rem; font-size: 0.8rem; border-radius: 0.375rem; border: 1px solid var(--border-color, #cbd5e1); background-color: var(--card-bg, #fff);">
+              <select class="form-select form-select-sm estado-select" data-id="${pubId}" data-original="${estado}" style="width: auto; min-width: 120px; padding: 0.25rem 0.4rem; font-size: 0.75rem; border-radius: 0.375rem; border: 1px solid var(--border-color, #cbd5e1); background-color: var(--card-bg, #fff);">
                 ${ESTADOS.map(e => `<option value="${e.valor}" ${estado === e.valor ? 'selected' : ''}>${e.etiqueta}</option>`).join('')}
                 ${!ESTADOS.some(e => e.valor === estado) ? `<option value="${estado}" selected>${estado} (actual)</option>` : ''}
               </select>
 
-              <button class="btn btn-sm btn-secondary save-status-btn" data-id="${pubId}" style="opacity: 0.5; cursor: not-allowed; padding: 0.3rem 0.625rem; font-size: 0.775rem; border-radius: 0.375rem; font-weight: 500;" title="Guardar cambios" disabled>
+              <button class="btn btn-sm btn-secondary save-status-btn" data-id="${pubId}" style="opacity: 0.5; cursor: not-allowed; padding: 0.25rem 0.5rem; font-size: 0.725rem; border-radius: 0.375rem; font-weight: 500;" title="Guardar cambios" disabled>
                 Guardar
               </button>
 
-              <button class="btn btn-sm btn-secondary toggle-destacado-btn" data-id="${pubId}" data-destacado="${esDestacado}" style="padding: 0.3rem 0.5rem; border-radius: 0.375rem; font-size: 0.8rem; display: inline-flex; align-items: center; justify-content: center; color: ${esDestacado ? '#d97706' : 'var(--text-muted, #64748b)'}; border: 1px solid var(--border-color, #cbd5e1);" title="${esDestacado ? 'Quitar destacado' : 'Marcar como destacado'}">
-                <svg viewBox="0 0 24 24" fill="${esDestacado ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" style="width: 14px; height: 14px;">
+              <button class="btn btn-sm btn-secondary toggle-destacado-btn" data-id="${pubId}" data-destacado="${esDestacado}" style="padding: 0.25rem 0.4rem; border-radius: 0.375rem; font-size: 0.75rem; display: inline-flex; align-items: center; justify-content: center; color: ${esDestacado ? '#d97706' : 'var(--text-muted, #64748b)'}; border: 1px solid var(--border-color, #cbd5e1);" title="${esDestacado ? 'Quitar destacado' : 'Marcar como destacado'}">
+                <svg viewBox="0 0 24 24" fill="${esDestacado ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" style="width: 13px; height: 13px;">
                   <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
                 </svg>
               </button>

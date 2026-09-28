@@ -85,9 +85,19 @@ service cloud.firestore {
         // La lista de participantes es inmutable: nadie se cuela ni expulsa a otro.
         && request.resource.data.participants == resource.data.participants
         && (!('estado' in request.resource.data)
-            || request.resource.data.estado in ['abierto', 'cerrado', 'acuerdo_cerrado']);
-      allow delete: if request.auth != null
-        && request.auth.uid in resource.data.participants;
+            || request.resource.data.estado in ['abierto', 'cerrado', 'acuerdo_cerrado'])
+        // "deletedForUsers" (ocultar chat, NO borrar) solo puede CRECER con el propio
+        // uid del usuario: nadie quita UIDs ni oculta el chat de otro.
+        && (!('deletedForUsers' in request.resource.data)
+            || request.resource.data.deletedForUsers == resource.data.get('deletedForUsers', [])
+            || (request.resource.data.deletedForUsers.size()
+                  == resource.data.get('deletedForUsers', []).size() + 1
+                && request.resource.data.deletedForUsers.hasAll(resource.data.get('deletedForUsers', []))
+                && request.auth.uid in request.resource.data.deletedForUsers
+                && !(request.auth.uid in resource.data.get('deletedForUsers', []))));
+      // NO se permite delete desde el cliente: los chats se ocultan con
+      // "deletedForUsers" para conservar el historial completo (auditoria/soporte).
+      allow delete: if false;
     }
 
     // MENSAJES: solo participantes del chat pueden leer; al crear el mensaje debe
@@ -95,8 +105,8 @@ service cloud.firestore {
     // asociado fue finalizado/alquilado, el chat queda cerrado (no se crean mas mensajes).
     //
     // Tipos de mensaje (campo "tipo"): "texto" (normal), "propuesta" (tarjeta de
-    // acuerdo) y "sistema" (avisos como "el chat ha sido cerrado"). Los chats
-    // antiguos no tienen "tipo": se tratan como "texto".
+    // acuerdo), "cita" (visita agendada) y "sistema" (avisos como "el chat ha
+    // sido cerrado"). Los chats antiguos no tienen "tipo": se tratan como "texto".
     match /chats/{chat}/messages/{message} {
       // OJO (get() + wildcards): dentro de una funcion, get() solo resuelve bien
       // si el id del documento se recibe como PARAMETRO. Si el helper usa el
@@ -140,6 +150,26 @@ service cloud.firestore {
       function tipoMensaje() {
         return request.resource.data.get('tipo', 'texto');
       }
+      // Una cita de visita es un mensaje bien formado: la pide el INTERESADO (no el
+      // dueno), queda "pendiente" y no se puede agendar sobre un inmueble ya
+      // alquilado (inmuebleCerrado, comprobado mas abajo).
+      function citaValida() {
+        return request.resource.data.solicitadoPor == request.auth.uid
+          && !esPropietario(chat, request.auth.uid)
+          && request.resource.data.get('citaId', '') == message
+          && request.resource.data.fecha is string
+          && request.resource.data.fecha.size() > 0
+          && request.resource.data.fecha.size() <= 40
+          && request.resource.data.hora is string
+          && request.resource.data.hora.size() > 0
+          && request.resource.data.hora.size() <= 10
+          && request.resource.data.get('citaEstado', '') == 'pendiente';
+      }
+      // Solo el dueno del inmueble (o el otro participante si el chat no tiene
+      // inmueble) puede confirmar o rechazar una cita ajena.
+      function puedeResponderCita(uid) {
+        return chatListingId(chat).size() == 0 || esPropietario(chat, uid);
+      }
       allow read: if request.auth != null && chatParticipa(chat, request.auth.uid);
       allow create: if request.auth != null
         && chatParticipa(chat, request.auth.uid)
@@ -148,23 +178,39 @@ service cloud.firestore {
         && request.resource.data.text is string
         && request.resource.data.text.size() > 0
         && request.resource.data.text.size() <= 1000
-        && tipoMensaje() in ['texto', 'propuesta', 'sistema']
+        && tipoMensaje() in ['texto', 'propuesta', 'sistema', 'cita']
         // En un chat cerrado (manual o automatico a las 48h) ya no se escribe, pero
         // el aviso de cierre SI puede añadirse: por eso los mensajes de sistema se
         // permiten siempre y el resto no.
         && (!chatCerrado(chat) || tipoMensaje() == 'sistema')
         // Solo el dueño del inmueble puede proponer un acuerdo de alquiler.
-        && (tipoMensaje() != 'propuesta' || esPropietario(chat, request.auth.uid));
-      // Al responder una propuesta SOLO se puede tocar su estado/respuesta, y nunca
-      // el propio proponente: el acuerdo no puede aceptarse a si mismo.
+        && (tipoMensaje() != 'propuesta' || esPropietario(chat, request.auth.uid))
+        // Las citas las agenda el interesado, nunca el dueño del inmueble.
+        && (tipoMensaje() != 'cita' || citaValida());
+      // Responder SOLO cambia el estado de la propuesta o de la cita, y nunca lo
+      // hace el propio autor: ni un acuerdo ni una visita se auto-aprueban, y una
+      // cita ya respondida no se puede volver a cambiar.
       allow update: if request.auth != null
         && chatParticipa(chat, request.auth.uid)
         && request.resource.data.diff(resource.data).affectedKeys()
-             .hasOnly(['propuestaEstado', 'respondidoPor', 'respondidoAt'])
-        && (resource.data.get('tipo', 'texto') != 'propuesta'
-            || (request.resource.data.get('propuestaEstado', '') in ['aceptada', 'rechazada']
-                && resource.data.propuestoPor != request.auth.uid));
-      allow delete: if request.auth != null && chatParticipa(chat, request.auth.uid);
+             .hasOnly(['propuestaEstado', 'citaEstado', 'respondidoPor', 'respondidoAt'])
+        && (
+          (resource.data.get('tipo', 'texto') == 'propuesta'
+            && request.resource.data.diff(resource.data).affectedKeys()
+                 .hasOnly(['propuestaEstado', 'respondidoPor', 'respondidoAt'])
+            && request.resource.data.get('propuestaEstado', '') in ['aceptada', 'rechazada']
+            && resource.data.propuestoPor != request.auth.uid)
+          ||
+          (resource.data.get('tipo', 'texto') == 'cita'
+            && request.resource.data.diff(resource.data).affectedKeys()
+                 .hasOnly(['citaEstado', 'respondidoPor', 'respondidoAt'])
+            && request.resource.data.get('citaEstado', '') in ['aceptada', 'rechazada']
+            && resource.data.get('citaEstado', '') == 'pendiente'
+            && resource.data.solicitadoPor != request.auth.uid
+            && puedeResponderCita(request.auth.uid))
+        );
+      // Los mensajes NO se borran desde el cliente (historial para auditoria).
+      allow delete: if false;
     }
 
     // DENUNCIAS (moderacion): lectura para autenticados; cada usuario crea/borra
