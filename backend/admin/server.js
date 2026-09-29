@@ -6,26 +6,14 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const { Firestore } = require('@google-cloud/firestore');
+// FieldValue viene del mismo paquete que ya se usa para la db. Antes se sacaba de
+// firebase-admin con initializeApp(applicationDefault()) y, si eso fallaba, se
+// caia a un MOCK que devolvia {__arrayUnion:[...]}: al suspender un usuario eso
+// escribia esa basura en historialSanciones en vez de un array. Este paquete no
+// necesita ADC para los sentinelas, asi que ya no hay forma de que sea falso.
+const { Firestore, FieldValue } = require('@google-cloud/firestore');
 const { expirarDestacados } = require('./expirar');
 const { cerrarChatsAcordados } = require('./cerrarChats');
-let FieldValue;
-try {
-    const admin = require('firebase-admin');
-    if (!admin.apps.length) {
-        admin.initializeApp({ 
-            credential: admin.credential.applicationDefault(),
-            projectId: 'gen-lang-client-0040505884'
-        });
-    }
-    FieldValue = admin.firestore.FieldValue;
-} catch (e) {
-    console.warn('firebase-admin init failed, FieldValue unavailable:', e.message);
-    // Fallback mock for FieldValue.arrayUnion
-    FieldValue = {
-        arrayUnion: (...elements) => ({ __arrayUnion: elements })
-    };
-}
 
 const PROJECT = 'gen-lang-client-0040505884';
 const DATABASE = 'alkilappdb';
@@ -622,19 +610,143 @@ async function getSoporte(url) {
     };
 }
 
+// Periodos del selector de la vista Estadisticas (?period=) y su equivalencia
+// en dias. El dashboard sigue llamando con ?days=N.
+const PERIODOS_STATS = { '7d': 7, '30d': 30, '90d': 90, '1y': 365 };
+const MESES_CORTOS = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+
+// Divide el rango pedido en tramos (dia / semana / mes) para poder dibujar la
+// evolucion sin inventar numeros. El tramo mensual va por mes calendario: con
+// ventanas fijas de 30 dias se repiten nombres ("Ene", "Ene", "May", "May").
+function tramosStats(dias) {
+    const ahora = Date.now();
+    const tramos = [];
+
+    if (dias > 90) {
+        const n = Math.max(2, Math.round(dias / 30.44));
+        for (let i = n - 1; i >= 0; i--) {
+            const fin = new Date(ahora);
+            fin.setDate(1);
+            fin.setMonth(fin.getMonth() - i + 1); // primer dia del mes siguiente
+            const ini = new Date(fin);
+            ini.setMonth(ini.getMonth() - 1);
+            tramos.push({
+                ini: ini.getTime(), fin: fin.getTime(),
+                etiqueta: MESES_CORTOS[ini.getMonth()]
+            });
+        }
+        return tramos;
+    }
+
+    const pasoDias = dias <= 7 ? 1 : 7;
+    const n = Math.ceil(dias / pasoDias);
+    for (let i = n - 1; i >= 0; i--) {
+        const fin = ahora - i * pasoDias * 24 * 3600 * 1000;
+        const ini = fin - pasoDias * 24 * 3600 * 1000;
+        const f = new Date(fin);
+        tramos.push({ ini, fin, etiqueta: `${f.getDate()}/${f.getMonth() + 1}` });
+    }
+    return tramos;
+}
+
+// Cuenta quantos documentos caen en cada tramo usando su campo de fecha; si el
+// documento no lo tiene (imports antiguos, seed) cae a la fecha de creacion de
+// Firestore, que es la misma que usa el listado del panel.
+function seriePorTramos(docs, campos, tramos) {
+    const valores = new Array(tramos.length).fill(0);
+    for (const doc of docs) {
+        let v = null;
+        for (const c of campos) {
+            const x = doc.get(c);
+            if (x) { v = x; break; }
+        }
+        if (!v) v = doc.createTime;
+        const t = typeof v?.toDate === 'function' ? v.toDate().getTime() : (v ? new Date(v).getTime() : NaN);
+        if (!Number.isFinite(t)) continue;
+        for (let i = tramos.length - 1; i >= 0; i--) {
+            if (t >= tramos[i].ini && t < tramos[i].fin) { valores[i]++; break; }
+        }
+    }
+    return valores;
+}
+
+// Campo de fecha de cada coleccion. No es el mismo en todas: los usuarios se
+// registran con 'fechaRegistro' y las publicaciones con 'publicadoEn'; solo
+// verificaciones usan 'createdAt'. Se listan en orden de preferencia.
+const CAMPOS_FECHA = {
+    usuarios: ['fechaRegistro', 'createdAt'],
+    propiedades: ['publicadoEn', 'createdAt'],
+};
+
+// Documentos "creados" dentro del rango. Firestore no tiene OR entre campos, asi
+// que se consulta cada candidato y se fusiona por id (un doc nunca se cuenta
+// dos veces). createTime queda como ultimo recurso en seriePorTramos.
+async function documentosEnRango(coleccion, since) {
+    const campos = CAMPOS_FECHA[coleccion] || ['createdAt'];
+    const resultados = await Promise.all(
+        campos.map(c => db.collection(coleccion).where(c, '>=', since).get())
+    );
+    const vistos = new Map();
+    resultados.forEach(s => s.docs.forEach(d => vistos.set(d.id, d)));
+    return [...vistos.values()];
+}
+
+// Suma varios count() sobre los mismos alias de estado (el histórico mezcla
+// 'publicado'/'activo'/'disponible' para lo mismo, ver Property.estadoNormalizado).
+async function contarPorAlias(coleccion, alias) {
+    const counts = await Promise.all(
+        alias.map(e => db.collection(coleccion).where('estado', '==', e).count().get())
+    );
+    return counts.reduce((suma, c) => suma + c.data().count, 0);
+}
+
 async function getStats(url) {
-    const days = parseInt(url.searchParams.get('days') || '30');
-    const since = new Date(Date.now() - days * 24 * 3600 * 1000);
-    const [props, users, chats] = await Promise.all([
-        db.collection('propiedades').where('createdAt', '>=', since).count().get(),
-        db.collection('usuarios').where('createdAt', '>=', since).count().get(),
+    // El selector de la vista Estadisticas envia ?period=7d|30d|90d|1y y el
+    // dashboard ?days=N. Antes solo se leia "days", asi que cambiar el periodo
+    // era un no-op y la vista siempre devolvia los mismos 30 dias.
+    const period = (url.searchParams.get('period') || '').toLowerCase();
+    let dias = PERIODOS_STATS[period];
+    if (!dias) {
+        dias = parseInt(url.searchParams.get('days') || '30', 10);
+        if (!Number.isFinite(dias) || dias <= 0 || dias > 365) dias = 30;
+    }
+    const periodLabel = PERIODOS_STATS[period] ? period : `${dias}d`;
+    const since = new Date(Date.now() - dias * 24 * 3600 * 1000);
+
+    // propsEnRango / usuariosEnRango sustituyen a los count(): el KPI y la
+    // grafica deben salir del MISMO conjunto de documentos, o el "+N del
+    // periodo" no cuadra con la curva.
+    const [propsEnRango, usuariosEnRango, chats, dispPub, pausada, revision, finalizada, apVerif, penVerif, rejVerif] = await Promise.all([
+        documentosEnRango('propiedades', since),
+        documentosEnRango('usuarios', since),
         db.collection('chats').where('lastMessageAt', '>=', since).count().get(),
+        contarPorAlias('propiedades', ['disponible', 'publicado', 'activo']),
+        contarPorAlias('propiedades', ['pausada']),
+        contarPorAlias('propiedades', ['under_review', 'pendiente']),
+        contarPorAlias('propiedades', ['finalizado']),
+        contarPorAlias('verificaciones', ['aprobado']),
+        contarPorAlias('verificaciones', ['pendiente']),
+        contarPorAlias('verificaciones', ['rechazado']),
     ]);
+
+    const tramos = tramosStats(dias);
     return {
-        period: `${days}d`,
-        newPropiedades: props.data().count,
-        newUsuarios: users.data().count,
+        period: periodLabel,
+        dias,
+        newPropiedades: propsEnRango.length,
+        newUsuarios: usuariosEnRango.length,
         newChats: chats.data().count,
+        // Series reales. Antes el endpoint no devolvia ninguna y el front
+        // pintaba datos inventados (Sem 1: 12, Sem 2: 19...).
+        usuariosTrend: { labels: tramos.map(t => t.etiqueta), values: seriePorTramos(usuariosEnRango, CAMPOS_FECHA.usuarios, tramos) },
+        propiedadesTrend: { labels: tramos.map(t => t.etiqueta), values: seriePorTramos(propsEnRango, CAMPOS_FECHA.propiedades, tramos) },
+        propiedadesDist: {
+            disponible: dispPub,
+            pausada,
+            revision,
+            finalizado: finalizada,
+        },
+        verificacionesDist: { aprobadas: apVerif, pendientes: penVerif, rechazadas: rejVerif },
     };
 }
 

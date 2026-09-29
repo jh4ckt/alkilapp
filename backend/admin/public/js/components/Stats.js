@@ -3,6 +3,14 @@
 // ==========================================================================
 import { formatCurrency, formatNumber, formatDate, showToast } from '../utils/helpers.js';
 
+// Etiquetas legibles de los periodos que devuelve /api/stats?period=
+const RANGOS = {
+  '7d': 'Últimos 7 días',
+  '30d': 'Últimos 30 días',
+  '90d': 'Últimos 3 meses',
+  '1y': 'Este año'
+};
+
 export default class Stats {
   constructor(api) {
     this.api = api;
@@ -12,17 +20,22 @@ export default class Stats {
   }
 
   /**
-   * Carga dinámica de Chart.js si no se encuentra globalmente en window
+   * Carga din?mica de Chart.js si no se encuentra globalmente en window.
+   * Se sirve desde /vendor/chart.umd.js (Chart.js v4.4.7, version fijada y
+   * vendorizada en el repo) en vez de la CDN: la CSP del panel es
+   * script-src 'self' y bloqueaba cdn.jsdelivr.net, dejando la vista de
+   * estadisticas sin initializing. Servirlo desde el propio origen mantiene el
+   * CSP estricto y elimina la dependencia de terceros en runtime.
    */
   async ensureChartJsLoaded() {
     if (window.Chart) return true;
 
     return new Promise((resolve, reject) => {
       const script = document.createElement('script');
-      script.src = 'https://cdn.jsdelivr.net/npm/chart.js';
+      script.src = '/vendor/chart.umd.js';
       script.async = true;
       script.onload = () => resolve(true);
-      script.onerror = () => reject(new Error('Error al cargar Chart.js desde la CDN.'));
+      script.onerror = () => reject(new Error('Error al cargar Chart.js (/vendor/chart.umd.js).'));
       document.head.appendChild(script);
     });
   }
@@ -79,6 +92,7 @@ export default class Stats {
             </div>
           </div>
           <h2 id="kpiUsuarios" style="font-size: 1.875rem; font-weight: 700; color: var(--text-color, #0f172a); margin: 0;">-</h2>
+          <p id="notaUsuarios" style="font-size: 0.75rem; color: var(--text-muted, #64748b); margin: 0.2rem 0 0;">-</p>
         </div>
 
         <!-- KPI 2: Publicaciones -->
@@ -90,6 +104,7 @@ export default class Stats {
             </div>
           </div>
           <h2 id="kpiPropiedades" style="font-size: 1.875rem; font-weight: 700; color: var(--text-color, #0f172a); margin: 0;">-</h2>
+          <p id="notaPropiedades" style="font-size: 0.75rem; color: var(--text-muted, #64748b); margin: 0.2rem 0 0;">-</p>
         </div>
 
         <!-- KPI 3: Verificaciones -->
@@ -101,6 +116,7 @@ export default class Stats {
             </div>
           </div>
           <h2 id="kpiVerificaciones" style="font-size: 1.875rem; font-weight: 700; color: var(--text-color, #0f172a); margin: 0;">-</h2>
+          <p id="notaVerificaciones" style="font-size: 0.75rem; color: var(--text-muted, #64748b); margin: 0.2rem 0 0;">-</p>
         </div>
 
         <!-- KPI 4: Denuncias -->
@@ -112,6 +128,7 @@ export default class Stats {
             </div>
           </div>
           <h2 id="kpiReportes" style="font-size: 1.875rem; font-weight: 700; color: var(--text-color, #0f172a); margin: 0;">-</h2>
+          <p id="notaReportes" style="font-size: 0.75rem; color: var(--text-muted, #64748b); margin: 0.2rem 0 0;">-</p>
         </div>
 
       </div>
@@ -144,8 +161,8 @@ export default class Stats {
         <!-- Gráfico 3: Actividad de la Plataforma -->
         <div class="card" style="background: var(--card-bg, #ffffff); border: 1px solid var(--border-color, #e2e8f0); border-radius: 0.875rem; padding: 1.25rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-            <h3 style="font-size: 1rem; font-weight: 600; color: var(--text-color, #0f172a); margin: 0;">Actividad General de la Plataforma</h3>
-            <span style="font-size: 0.75rem; color: var(--text-muted, #64748b); background: #f1f5f9; padding: 0.2rem 0.5rem; border-radius: 0.375rem; font-weight: 500;">Interacciones</span>
+            <h3 style="font-size: 1rem; font-weight: 600; color: var(--text-color, #0f172a); margin: 0;">Altas por Período</h3>
+            <span style="font-size: 0.75rem; color: var(--text-muted, #64748b); background: #f1f5f9; padding: 0.2rem 0.5rem; border-radius: 0.375rem; font-weight: 500;">Publicaciones / Usuarios</span>
           </div>
           <div style="position: relative; height: 280px; width: 100%;">
             <canvas id="chartActivity"></canvas>
@@ -182,16 +199,17 @@ export default class Stats {
 
   async loadData() {
     try {
-      let stats = {};
-      try {
-        stats = await this.api.get(`/stats?period=${this.period}`);
-      } catch (e) {
-        // Fallback si la ruta de /stats no responde
-        stats = await this.api.get('/resumen');
-      }
+      // /stats trae las altas del periodo y las series de las graficas;
+      // /resumen trae los totales (verificaciones, reportes). Se necesitan
+      // ambos: antes solo se pedia /stats y updateKPIs leia claves que ese
+      // endpoint nunca devolvio, asi que los 4 KPI quedaban en 0.
+      const [stats, resumen] = await Promise.all([
+        this.api.get(`/stats?period=${this.period}`),
+        this.api.get('/resumen').catch(() => ({})),
+      ]);
 
       this.data = stats;
-      this.updateKPIs(stats);
+      this.updateKPIs(stats, resumen);
       this.renderCharts(stats);
     } catch (err) {
       console.error('Error al cargar datos de estadísticas:', err);
@@ -199,16 +217,27 @@ export default class Stats {
     }
   }
 
-  updateKPIs(stats = {}) {
-    const kpiUsers = this.container.querySelector('#kpiUsuarios');
-    const kpiProps = this.container.querySelector('#kpiPropiedades');
-    const kpiVerif = this.container.querySelector('#kpiVerificaciones');
-    const kpiRep = this.container.querySelector('#kpiReportes');
+  updateKPIs(stats = {}, resumen = {}) {
+    const rango = RANGOS[stats.period] || 'en el período';
+    const set = (idValor, idNota, valor, nota) => {
+      const el = this.container.querySelector(idValor);
+      const elNota = this.container.querySelector(idNota);
+      if (el) el.textContent = formatNumber(valor || 0);
+      if (elNota) elNota.textContent = nota;
+    };
 
-    if (kpiUsers) kpiUsers.textContent = formatNumber(stats.usuarios?.total || stats.usuariosTotal || 0);
-    if (kpiProps) kpiProps.textContent = formatNumber(stats.propiedades?.total || stats.propiedadesTotal || 0);
-    if (kpiVerif) kpiVerif.textContent = formatNumber(stats.verificaciones?.total || stats.verificacionesTotal || 0);
-    if (kpiRep) kpiRep.textContent = formatNumber(stats.reportes?.total || stats.reportesTotal || 0);
+    const totalUsuarios = resumen.usuarios?.total;
+    const totalProps = resumen.propiedades?.total;
+    set('#kpiUsuarios', '#notaUsuarios', stats.newUsuarios,
+      totalUsuarios != null ? `${formatNumber(totalUsuarios)} en total · ${rango.toLowerCase()}` : rango);
+    set('#kpiPropiedades', '#notaPropiedades', stats.newPropiedades,
+      totalProps != null ? `${formatNumber(totalProps)} en total · ${rango.toLowerCase()}` : rango);
+    // Verificaciones y reportes no tienen serie por periodo: se muestran los
+    // totales reales, con los pendientes de review.
+    set('#kpiVerificaciones', '#notaVerificaciones', resumen.verificaciones?.total,
+      resumen.verificaciones?.pendientes ? `${resumen.verificaciones.pendientes} pendientes de revisión` : 'total registradas');
+    set('#kpiReportes', '#notaReportes', resumen.reportes?.total,
+      resumen.reportes?.pendientes ? `${resumen.reportes.pendientes} pendientes de revisar` : 'total registradas');
   }
 
   renderCharts(data) {
@@ -231,10 +260,7 @@ export default class Stats {
     // 1. Gráfico de Usuarios (Línea suave con área de gradiente)
     const ctxUsers = this.container.querySelector('#chartUsers')?.getContext('2d');
     if (ctxUsers) {
-      const userTrend = data.usuariosTrend || {
-        labels: ['Sem 1', 'Sem 2', 'Sem 3', 'Sem 4'],
-        values: [12, 19, 28, 45]
-      };
+      const userTrend = data.usuariosTrend || { labels: [], values: [] };
 
       const gradient = ctxUsers.createLinearGradient(0, 0, 0, 260);
       gradient.addColorStop(0, 'rgba(59, 130, 246, 0.25)');
@@ -280,19 +306,17 @@ export default class Stats {
     // 2. Gráfico de Propiedades (Dona estilizada)
     const ctxProps = this.container.querySelector('#chartProperties')?.getContext('2d');
     if (ctxProps) {
-      const propDist = data.propiedadesDist || {
-        activa: data.propiedades?.activas || 15,
-        pendiente: data.propiedades?.pendientes || 5,
-        pausada: data.propiedades?.pausadas || 3
-      };
+      // Estados reales devueltos por /api/stats. Sin inventar cifras: si la API
+      // no responde, la dona queda en cero en vez de mostrar numeros de ejemplo.
+      const d = data.propiedadesDist || {};
 
       this.charts.properties = new window.Chart(ctxProps, {
         type: 'doughnut',
         data: {
-          labels: ['Activas', 'Pendientes', 'Pausadas / Inactivas'],
+          labels: ['Disponibles', 'En revisión', 'Pausadas', 'Finalizadas'],
           datasets: [{
-            data: [propDist.activa || 0, propDist.pendiente || 0, propDist.pausada || 0],
-            backgroundColor: ['#10b981', '#f59e0b', '#ef4444'],
+            data: [d.disponible || 0, d.revision || 0, d.pausada || 0, d.finalizado || 0],
+            backgroundColor: ['#10b981', '#f59e0b', '#ef4444', '#64748b'],
             borderWidth: 2,
             borderColor: '#ffffff',
             hoverOffset: 4
@@ -311,27 +335,28 @@ export default class Stats {
     // 3. Gráfico de Actividad de la Plataforma (Barras con esquinas redondeadas)
     const ctxAct = this.container.querySelector('#chartActivity')?.getContext('2d');
     if (ctxAct) {
-      const activity = data.actividad || {
-        labels: ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'],
-        visitas: [120, 150, 180, 220, 190, 240, 310],
-        contactos: [12, 18, 25, 30, 22, 35, 48]
-      };
+      // Antes este bloque pintaba "Búsquedas y Visitas" (120, 150, 180...) y
+      // "Contactos/Mensajes" inventados: la base no registra ninguna visita, asi
+      // que se cambio por las altas reales (publicaciones y usuarios nuevos por
+      // tramo) que si devuelve /api/stats.
+      const propTrend = data.propiedadesTrend || { labels: [], values: [] };
+      const userTrendAlt = data.usuariosTrend || { labels: [], values: [] };
 
       this.charts.activity = new window.Chart(ctxAct, {
         type: 'bar',
         data: {
-          labels: activity.labels,
+          labels: propTrend.labels,
           datasets: [
             {
-              label: 'Búsquedas y Visitas',
-              data: activity.visitas,
+              label: 'Publicaciones nuevas',
+              data: propTrend.values,
               backgroundColor: '#6366f1',
               borderRadius: 6,
               maxBarThickness: 18
             },
             {
-              label: 'Contactos/Mensajes',
-              data: activity.contactos,
+              label: 'Usuarios nuevos',
+              data: userTrendAlt.values,
               backgroundColor: '#10b981',
               borderRadius: 6,
               maxBarThickness: 18
@@ -359,11 +384,7 @@ export default class Stats {
     // 4. Gráfico de Verificaciones (Doughnut/Pie pulido)
     const ctxVerif = this.container.querySelector('#chartVerifications')?.getContext('2d');
     if (ctxVerif) {
-      const verifData = data.verificacionesDist || {
-        aprobadas: data.verificaciones?.aprobadas || 12,
-        pendientes: data.verificaciones?.pendientes || 4,
-        rechazadas: data.verificaciones?.rechazadas || 2
-      };
+      const verifData = data.verificacionesDist || { aprobadas: 0, pendientes: 0, rechazadas: 0 };
 
       this.charts.verifications = new window.Chart(ctxVerif, {
         type: 'doughnut',

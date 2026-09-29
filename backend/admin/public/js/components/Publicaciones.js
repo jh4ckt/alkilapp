@@ -555,4 +555,19 @@ export default class Publicaciones {
     if (prevBtn) prevBtn.disabled = this.currentPage <= 1;
     if (nextBtn) nextBtn.disabled = this.currentPage >= totalPages;
   }
+
+  // Escapar texto/valores antes de meterlos en el HTML. Este componente es el
+  // UNICO que no lo tenia definido (los demas lo declaran en su clase) y sin el
+  // render() reventaba con "this.escape is not a function" y la tabla salia
+  // vacia. Misma implementacion que Reportes/Soporte/Usuarios/Verificaciones.
+  escape(str) {
+    if (!str) return '-';
+    return String(str).replace(/[&<>"']/g, c => ({
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#39;'
+    })[c]);
+  }
 }
