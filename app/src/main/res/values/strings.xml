@@ -2,6 +2,7 @@
     <string name="app_name">AlkilApp</string>
     <string name="search_hint">Buscar inmueble, distrito, zona…</string>
     <string name="nearby_title">Inmuebles Cercanos</string>
+    <string name="nearby_subtitle">Muestra los inmuebles cercanos a tu ubicación en un rango de 5 km</string>
     <string name="my_location_title">Tu Ubicación</string>
     <string name="mi_ubicacion_btn">Mi ubicación</string>
     <string name="location_error">No se logró obtener la ubicación actual</string>
@@ -17,13 +18,13 @@
     <string name="auth_cerrar_sesion">Cerrar sesión</string>
     <string name="ver_mis_publicaciones">Ver mis publicaciones</string>
     <string name="titulo_mis_publicaciones">Mis publicaciones</string>
-    <string name="mis_pub_sesion">Inicia sesion para ver tus publicaciones</string>
+    <string name="mis_pub_sesion">Inicia sesión para ver tus publicaciones</string>
     <string name="mis_pub_cargando">Cargando tus publicaciones...</string>
     <string name="mis_pub_vacio">Aun no has publicado inmuebles</string>
     <string name="mis_pub_cuenta">Cuenta: %1$s</string>
     <string name="mis_pub_error">No se pudo cargar tus publicaciones (%1$s)</string>
     <string name="auth_sesion_cerrada">Sesión cerrada</string>
-    <string name="auth_email_invalido">Ingresá un correo válido</string>
+    <string name="auth_email_invalido">Ingresa un correo válido</string>
     <string name="auth_password_corta">La contraseña debe tener al menos 6 caracteres</string>
     <string name="auth_error">Error: %1$s</string>
     <string name="auth_ok_login">¡Bienvenido de nuevo!</string>
@@ -36,11 +37,13 @@
     <string name="prop_guardar">Guardar</string>
     <string name="prop_hint_titulo">Título (ej: Depto. 2 dorm. céntrico)</string>
     <string name="prop_hint_precio">Precio</string>
-    <string name="prop_hint_direccion">Dirección</string>
+    <string name="prop_hint_direccion">Dirección de la calle</string>
+    <!-- El departamento y el distrito van aparte: la dirección solo lleva la
+         calle, para que la ficha del inmueble no repita la misma zona 3 veces. -->
     <string name="prop_buscar_dir_label">Buscar dirección en Google Maps</string>
-    <string name="prop_buscar_dir_hint">Escribí una dirección… ej: Av. José Larco 1234, Miraflores</string>
-    <string name="prop_buscar_dir_espera">Escribí al menos 3 letras para ver sugerencias</string>
-    <string name="prop_buscar_dir_vacio">Sin resultados. Escribí la dirección manualmente.</string>
+    <string name="prop_buscar_dir_hint">Escribe solo la dirección de la calle. Ej: Av. José Larco 1234</string>
+    <string name="prop_buscar_dir_espera">Escribe al menos 3 letras para ver sugerencias</string>
+    <string name="prop_buscar_dir_vacio">Sin resultados. Escribe la dirección manualmente.</string>
     <string name="prop_buscar_dir_error">No se pudo buscar la dirección: %1$s</string>
     <string name="prop_dir_seleccionada">Ubicación del punto elegido: %1$s, %2$s (GPS)</string>
     <string name="prop_hint_ambientes">Número de habitaciones</string>
@@ -48,13 +51,16 @@
     <string name="prop_comodidades_label">Comodidades</string>
     <string name="prop_hint_descripcion">Descripción</string>
     <string name="prop_ubicacion_info">La ubicación se toma de tu posición actual.</string>
-    <string name="prop_elegir_mapa">Elegir ubicacion en el mapa</string>
-    <string name="prop_ubicacion_mapa_seleccionada">Ubicacion elegida en el mapa: %1$s, %2$s</string>
-    <string name="mapa_seleccion_titulo">Elegir ubicacion</string>
-    <string name="mapa_seleccion_instrucciones">Toca el mapa para colocar el marcador con la ubicacion del inmueble</string>
-    <string name="mapa_seleccion_confirmar">Confirmar ubicacion</string>
+    <string name="prop_zona_autocompletada">Completamos el departamento y el distrito con la ubicación que elegiste. Cámbialos si no corresponde.</string>
+    <string name="prop_zona_no_detectada">No pudimos deducir el departamento o el distrito de ese punto: escríbelos a mano.</string>
+    <string name="prop_direccion_sin_calle">No pudimos deducir la calle de ese punto: escríbela a mano.</string>
+    <string name="prop_elegir_mapa">Elegir ubicación en el mapa</string>
+    <string name="prop_ubicacion_mapa_seleccionada">Ubicación elegida en el mapa: %1$s, %2$s</string>
+    <string name="mapa_seleccion_titulo">Elegir ubicación</string>
+    <string name="mapa_seleccion_instrucciones">Toca el mapa para colocar el marcador con la ubicación del inmueble</string>
+    <string name="mapa_seleccion_confirmar">Confirmar ubicación</string>
     <string name="mapa_seleccion_sin_punto">Toca el mapa para colocar el marcador</string>
-    <string name="mapa_seleccion_mi_ubicacion">Mi ubicacion</string>
+    <string name="mapa_seleccion_mi_ubicacion">Mi ubicación</string>
     <string name="prop_tipo_label">Tipo de inmueble</string>
     <string name="prop_operacion_label">Operación</string>
     <string name="prop_descripcion_requerida">La descripción es obligatoria</string>
@@ -449,7 +455,7 @@
     <string name="nav_foto_perfil">Foto de perfil</string>
     <string name="nav_chats_sin_leer">%1$d chats sin leer</string>
     <string name="chat_titulo_bandeja">Mensajes</string>
-    <string name="chat_bandeja_vacia">Todavía no tenés conversaciones. Tocá un inmueble y escribí al propietario.</string>
+    <string name="chat_bandeja_vacia">Todavía no tienes conversaciones. Toca un inmueble y escribe al propietario.</string>
     <string name="chat_requiere_sesion">Iniciá sesión para ver tus mensajes</string>
     <string name="chat_hint_escribir">Escribí un mensaje…</string>
     <string name="chat_enviar">Enviar mensaje</string>
@@ -532,8 +538,8 @@
     <!-- Denuncia -->
     <string name="denuncia_btn">Denunciar anuncio</string>
     <string name="denuncia_titulo">Denunciar este anuncio</string>
-    <string name="denuncia_subtitulo">Contanos qué está mal. Tu denuncia se revisa y ayuda a mantener AlkilApp seguro.</string>
-    <string name="denuncia_detalle_hint">Contanos más (opcional)</string>
+    <string name="denuncia_subtitulo">Cuéntanos qué está mal. Tu denuncia se revisa y ayuda a mantener AlkilApp seguro.</string>
+    <string name="denuncia_detalle_hint">Cuéntanos más (opcional)</string>
     <string name="denuncia_cancelar">Cancelar</string>
     <string name="denuncia_enviar">Enviar denuncia</string>
     <string name="denuncia_sesion">Iniciá sesión para denunciar</string>
@@ -573,11 +579,11 @@
     <!-- Dejar reseña -->
     <string name="resena_btn">Escribir reseña</string>
     <string name="resena_titulo">Dejá tu reseña</string>
-    <string name="resena_subtitulo">Tocá las estrellas para calificar (1 a 5).</string>
+    <string name="resena_subtitulo">Toca las estrellas para calificar (1 a 5).</string>
     <string name="resena_comentario_hint">Contá tu experiencia (opcional)</string>
     <string name="resena_enviar">Publicar reseña</string>
     <string name="resena_cancelar">Cancelar</string>
-    <string name="resena_falta_rating">Elegí una calificación de 1 a 5 estrellas</string>
+    <string name="resena_falta_rating">Elige una calificación de 1 a 5 estrellas</string>
     <string name="resena_sesion">Iniciá sesión para dejar una reseña</string>
     <string name="resena_ok">¡Gracias! Tu reseña se publicó</string>
     <string name="resena_error">No se pudo publicar: %1$s</string>
@@ -589,7 +595,7 @@
     <string name="perfil_destacar_publicacion">Destacar publicación</string>
     <string name="perfil_destacar_solicitud_enviada">Solicitud enviada al administrador para %1$d días</string>
     <string name="perfil_destacar_error">No se pudo enviar la solicitud: %1$s</string>
-    <string name="perfil_destacar_mensaje">Elegí cuántos días querés destacar la publicación. Tendrá prioridad en el listado y un borde dorado.</string>
+    <string name="perfil_destacar_mensaje">Elige cuántos días quieres destacar la publicación. Tendrá prioridad en el listado y un borde dorado.</string>
     <string name="perfil_destacar_dias">%1$d días</string>
     <string name="perfil_destacar_solicitar">Solicitar</string>
 
@@ -608,7 +614,7 @@
     <string name="perfil_cancelar">Cancelar</string>
     <string name="perfil_ok">Perfil actualizado</string>
     <string name="perfil_error">No se pudo guardar tu perfil: %1$s</string>
-    <string name="perfil_nombre_requerido">Escribí tu nombre</string>
+    <string name="perfil_nombre_requerido">Escribe tu nombre</string>
     <string name="perfil_foto_agregar">Agregar foto</string>
     <string name="perfil_foto_error">No se pudo cargar la imagen</string>
 
@@ -636,17 +642,17 @@
     <string name="auth_crear_cuenta">Crear cuenta</string>
     <string name="auth_nombre">Nombre completo</string>
     <string name="auth_telefono">Celular</string>
-    <string name="auth_telefono_requerido">Escribi tu numero de celular</string>
-    <string name="auth_telefono_corto">Ingresa un numero de celular valido</string>
-    <string name="auth_confirmar">Repetir contrasena</string>
-    <string name="auth_olvide">Olvide mi contrasena</string>
+    <string name="auth_telefono_requerido">Escribe tu número de celular</string>
+    <string name="auth_telefono_corto">Ingresa un número de celular válido</string>
+    <string name="auth_confirmar">Repetir contraseña</string>
+    <string name="auth_olvide">Olvidé mi contraseña</string>
     <string name="auth_o">o</string>
     <string name="auth_procesando">Un momento...</string>
-    <string name="auth_nombre_requerido">Escribi tu nombre</string>
+    <string name="auth_nombre_requerido">Escribe tu nombre</string>
     <string name="auth_pass_no_coincide">Las contrasenas no coinciden</string>
-    <string name="auth_reset_falta_email">Escribi tu correo primero</string>
-    <string name="auth_reset_enviado">Te enviamos un correo para restablecer tu contrasena</string>
-    <string name="auth_legal">Al continuar aceptas los terminos y la politica de privacidad de AlkilApp.</string>
+    <string name="auth_reset_falta_email">Escribe tu correo primero</string>
+    <string name="auth_reset_enviado">Te enviamos un correo para restablecer tu contraseña</string>
+    <string name="auth_legal">Al continuar aceptas los términos y la política de privacidad de AlkilApp.</string>
 
     <!-- Verificacion de identidad -->
     <string name="verif_titulo">Verificar identidad</string>
@@ -669,11 +675,11 @@
     <string name="verif_estado_rechazado">Tu verificación fue rechazada: %1$s</string>
 
     <!-- Menu lateral -->
-    <string name="nav_invitado">Sin sesion</string>
+    <string name="nav_invitado">Sin sesión</string>
     <string name="nav_invitado_hint">Toca para ingresar o crear tu cuenta</string>
     <string name="nav_chats">Mis chats</string>
     <string name="nav_filtros">Filtros</string>
-    <string name="nav_cerrar_sesion">Cerrar sesion</string>
+    <string name="nav_cerrar_sesion">Cerrar sesión</string>
     <string name="nav_footer">AlkilApp by Jh4ckT</string>
     <string name="auth_firma">AlkilApp by Jh4ckT</string>
     <string name="nav_verificar_identidad">Verificar identidad</string>
@@ -688,17 +694,17 @@
     <string name="soporte_info">Tu ticket se registra en el sistema de soporte de AlkilApp y recibirás respuesta en tu correo.</string>
     <string name="soporte_email">Correo</string>
     <string name="soporte_enviando">Enviando...</string>
-    <string name="soporte_requiere_sesion">Inicia sesion para enviar un ticket de soporte</string>
-    <string name="soporte_email_invalido">Correo electronico invalido</string>
+    <string name="soporte_requiere_sesion">Inicia sesión para enviar un ticket de soporte</string>
+    <string name="soporte_email_invalido">Correo electrónico inválido</string>
     <string name="soporte_asunto_largo">El asunto no puede superar 150 caracteres</string>
     <string name="soporte_mensaje_largo">El mensaje no puede superar 4000 caracteres</string>
-    <string name="favoritos_requiere_sesion">Inicia sesion para guardar favoritos</string>
+    <string name="favoritos_requiere_sesion">Inicia sesión para guardar favoritos</string>
     <string name="filtros_solo_favoritos">Solo favoritos</string>
     <string name="filtros_tipo">Tipo de inmueble</string>
     <string name="filtros_habitaciones">Cantidad de habitaciones</string>
     <string name="detalle_compartir">Compartir publicación</string>
     <string name="detalle_compartir_titulo">Compartir "%1$s"</string>
-    <string name="detalle_compartir_texto">Mirá esta publicación en AlkilApp: %1$s</string>
+    <string name="detalle_compartir_texto">Mira esta publicación en AlkilApp: %1$s</string>
     <string-array name="opciones_habitaciones">
         <item>1</item>
         <item>2</item>

@@ -2,19 +2,19 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
     <item
         android:id="@+id/menu_editar"
-        android:title="Editar publicacion"
+        android:title="Editar publicación"
         android:icon="@drawable/ic_editar" />
     <item
         android:id="@+id/menu_destacar"
-        android:title="Destacar publicacion"
+        android:title="Destacar publicación"
         android:icon="@drawable/ic_star" />
     <item
         android:id="@+id/menu_pausar"
-        android:title="Pausar publicacion"
+        android:title="Pausar publicación"
         android:icon="@drawable/ic_pausa" />
     <item
         android:id="@+id/menu_reactivar"
-        android:title="Reactivar publicacion"
+        android:title="Reactivar publicación"
         android:icon="@drawable/ic_play" />
     <item
         android:id="@+id/menu_marcar_alquilado"
@@ -22,6 +22,6 @@
         android:icon="@drawable/ic_check" />
     <item
         android:id="@+id/menu_eliminar"
-        android:title="Eliminar publicacion"
+        android:title="Eliminar publicación"
         android:icon="@drawable/ic_basurero" />
 </menu>

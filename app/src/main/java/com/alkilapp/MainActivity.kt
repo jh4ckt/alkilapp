@@ -498,10 +498,19 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         binding.etBusqueda.doAfterTextChanged { texto ->
             busquedaActual = texto?.toString().orEmpty()
             adapter.filter(busquedaActual)
+            actualizarRadioPorFiltros()
             actualizarZonaMapa(false)
             actualizarEmptyState()
         }
         binding.btnFiltroBuscar.setOnClickListener { abrirDialogoFiltros() }
+    }
+
+    /** Activa/desactiva el filtro de radio según haya filtros explícitos activos. */
+    private fun actualizarRadioPorFiltros() {
+        val hayFiltroExplicito = filtroDepartamento != null || filtroDistrito != null ||
+            filtroTipo != null || filtroHabitaciones != null || soloFavoritos ||
+            busquedaActual.isNotBlank()
+        adapter.setIgnorarRadioPorFiltro(hayFiltroExplicito)
     }
 
     private fun setupBotones() {
@@ -711,6 +720,10 @@ llenar(spinnerDis, listOf(todos))
                 "4 o más" -> 4
                 else -> habSel.toIntOrNull()
             }
+            val hayFiltroExplicito = filtroDepartamento != null || filtroDistrito != null ||
+                filtroTipo != null || filtroHabitaciones != null || soloFavoritos ||
+                busquedaActual.isNotBlank()
+            adapter.setIgnorarRadioPorFiltro(hayFiltroExplicito)
             adapter.setFiltros(
                 filtroDepartamento, filtroDistrito, filtroTipo, filtroHabitaciones
             )
@@ -728,6 +741,7 @@ llenar(spinnerDis, listOf(todos))
             filtroHabitaciones = null
             soloFavoritos = false
             binding.etBusqueda.setText("")
+            adapter.setIgnorarRadioPorFiltro(false)
             adapter.setFiltros(null, null)
             adapter.setSoloFavoritos(false)
             actualizarBotonFiltros()
@@ -754,7 +768,6 @@ llenar(spinnerDis, listOf(todos))
     private fun escucharPropiedades() {
         escuchaPropiedades?.remove()
         escuchaPropiedades = db.collection("propiedades")
-            .orderBy("precio")
             .addSnapshotListener { snap, error ->
                 if (error != null) {
                     Toast.makeText(
@@ -765,7 +778,7 @@ llenar(spinnerDis, listOf(todos))
                     return@addSnapshotListener
                 }
                 val lista = snap?.documents?.mapNotNull { Propiedad.desde(it) }
-                    ?.filter { it.estado != "under_review" && it.estado != "finalizado" } ?: emptyList()
+                    ?.filter { it.estado != "under_review" && it.estado != "finalizado" && it.estado != "pausada" } ?: emptyList()
                 adapter.submitList(lista)
                 actualizarBadges(lista)
                 cargarVerificacionPropietarios(lista)
@@ -800,10 +813,27 @@ llenar(spinnerDis, listOf(todos))
     // Badges estáticos de disponibilidad por zona sobre el mapa
     // ======================================================================
 
+    /** Calcula el radio de búsqueda en km según el nivel de zoom del mapa.
+     * zoom 15 (por defecto) -> 5 km
+     * zoom 5 (todo Perú) -> 3000 km (cubre todo el país)
+     * Cada nivel de zoom alejado duplica el radio. */
+    private fun calcularRadioKmDesdeZoom(zoom: Float): Double {
+        if (zoom >= 15f) return 5.0
+        if (zoom <= 5f) return 3000.0
+        // Cada nivel de zoom out duplica el radio (exponencial base 2)
+        return 5.0 * Math.pow(2.0, 15.0 - zoom)
+    }
+
     private fun configurarBadges() {
         mMap.setOnCameraIdleListener {
             posicionarBadges()
             actualizarMarcadoresEnZonaVisible()
+            // Actualizar radio de búsqueda según zoom (centro = ubicación usuario)
+            if (ultimaUbicacion != null) {
+                val zoom = mMap.cameraPosition.zoom
+                val radioKm = calcularRadioKmDesdeZoom(zoom)
+                adapter.setRadioMaximoKm(radioKm)
+            }
         }
     }
 
@@ -822,13 +852,15 @@ llenar(spinnerDis, listOf(todos))
         return BitmapDescriptorFactory.fromBitmap(bitmap)
     }
 
-    /** Añade/actualiza marcadores solo para inmuebles dentro de la vista actual del mapa. */
+    /** Añade/actualiza marcadores solo para inmuebles dentro de la vista actual del mapa.
+     * Usa todas las propiedades que pasan los filtros de texto/tipo/zona (SIN radio de distancia),
+     * para que los marcadores sigan visibles al acercarse aunque estén fuera del radio actual. */
     private fun actualizarMarcadoresEnZonaVisible() {
         if (!::mMap.isInitialized) return
         if (!::iconoDefault.isInitialized) initIconosMarcadores()
         val bounds = mMap.projection.visibleRegion.latLngBounds
         limpiarMarcadores()
-        val visibles = adapter.visibles().filter { p ->
+        val visibles = adapter.todasParaMapa().filter { p ->
             p.lat != 0.0 && p.lng != 0.0 && bounds.contains(p.ubicacion)
         }
         visibles.forEach { p ->
@@ -998,11 +1030,13 @@ configurarBadges()
         verificarPermisosUbicacion()
     }
 
-    /** Busca la propiedad asociada a un marcador (etiquetado con su id). */
+    /** Busca la propiedad asociada a un marcador (etiquetado con su id).
+     * Usa todasParaMapa() SIN filtro de radio para que el InfoWindow
+     * funcione aunque el marcador esté fuera del radio de 5 km. */
     private fun propiedadDesdeMarcador(marker: Marker): Propiedad? {
         val id = marker.tag as? String ?: return null
         if (id.isBlank()) return null
-        return adapter.visibles().firstOrNull { it.id == id }
+        return adapter.todasParaMapa().firstOrNull { it.id == id }
     }
 
     /** Normaliza el tipo a 4 opciones: habitacion, departamento, casa u otros. */

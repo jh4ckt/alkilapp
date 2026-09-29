@@ -126,6 +126,14 @@ class MisPublicacionesActivity : AppCompatActivity() {
             setTextColor(getColor(R.color.text_primary))
             setTypeface(null, android.graphics.Typeface.BOLD)
         })
+        if (p.esDestacado) {
+            header.addView(ImageView(this).apply {
+                setImageResource(R.drawable.ic_star)
+                layoutParams = LinearLayout.LayoutParams(18.dp, 18.dp).apply { marginStart = 6.dp }
+                setScaleType(ImageView.ScaleType.CENTER)
+                contentDescription = "Destacado"
+            })
+        }
         header.addView(ImageView(this).apply {
             setImageResource(R.drawable.ic_more_vert)
             setColorFilter(getColor(R.color.text_secondary))

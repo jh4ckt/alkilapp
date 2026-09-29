@@ -37,6 +37,8 @@ class PropiedadAdapter(
     private var favoritos: Set<String> = emptySet()
     private var latUsuario: Double? = null
     private var lngUsuario: Double? = null
+    private var radioMaximoKm: Double = 5.0
+    private var ignorarRadioPorFiltro = false
     private var propietariosVerificados: Map<String, Boolean> = emptyMap()
     // Zona por defecto del usuario (desde Mi Perfil)
     private var zonaDepartamento: String? = null
@@ -156,8 +158,32 @@ class PropiedadAdapter(
 
     override fun getItemCount(): Int = items.size
 
-    /** Lista que está mostrando el adapter tras aplicar búsqueda y filtros. */
+    /** Lista que está mostrando el adapter tras aplicar búsqueda y filtros (incluye radio). */
     fun visibles(): List<Propiedad> = items.toList()
+
+    /** Lista completa SIN filtro de radio (para marcadores del mapa).
+     * Siempre reaplica todos los filtros EXCEPTO el de distancia, porque los
+     * marcadores deben aparecer en cuanto entran en la vista del mapa,
+     * independientemente del radio de 5 km. */
+    fun todasParaMapa(): List<Propiedad> {
+        val filtradas = fullList.filter { p ->
+            val buscaOk = query.isEmpty() ||
+                listOf(p.titulo, p.direccion, p.barrio, p.tipo, p.ciudad)
+                    .any { it.lowercase().contains(query) }
+            val deptoEfectivo = filtroDepartamento ?: zonaDepartamento
+            val distritoEfectivo = filtroDistrito
+            val deptoOk = deptoEfectivo == null ||
+                p.ciudad.equals(deptoEfectivo, ignoreCase = true)
+            val distritoOk = distritoEfectivo == null ||
+                p.barrio.equals(distritoEfectivo, ignoreCase = true)
+            val tipoOk = filtroTipo == null || tipoClave(p.tipo) == filtroTipo
+            val habOk = filtroHabitaciones == null ||
+                (if (filtroHabitaciones == 4) p.ambientes >= 4 else p.ambientes == filtroHabitaciones)
+            val favoritoOk = !soloFavoritos || p.id in favoritos
+            buscaOk && deptoOk && distritoOk && tipoOk && habOk && favoritoOk
+        }
+        return filtradas.sortedWith(compareBy<Propiedad> { tier(it) })
+    }
 
     fun submitList(nueva: List<Propiedad>) {
         fullList = nueva
@@ -195,6 +221,19 @@ class PropiedadAdapter(
     fun setUbicacion(lat: Double?, lng: Double?) {
         latUsuario = lat
         lngUsuario = lng
+        aplicar()
+    }
+
+    /** Radio máximo en km para filtrar por distancia (centro = ubicación usuario).
+     * Por defecto 5 km. */
+    fun setRadioMaximoKm(radio: Double) {
+        radioMaximoKm = radio.coerceAtLeast(0.0)
+        aplicar()
+    }
+
+    /** Si true, desactiva el filtro de radio (usado cuando hay filtros explícitos activos). */
+    fun setIgnorarRadioPorFiltro(ignorar: Boolean) {
+        ignorarRadioPorFiltro = ignorar
         aplicar()
     }
 
@@ -297,7 +336,9 @@ class PropiedadAdapter(
             val habOk = filtroHabitaciones == null ||
                 (if (filtroHabitaciones == 4) p.ambientes >= 4 else p.ambientes == filtroHabitaciones)
             val favoritoOk = !soloFavoritos || p.id in favoritos
-            buscaOk && deptoOk && distritoOk && tipoOk && habOk && favoritoOk
+            val distanciaOk = ignorarRadioPorFiltro || latUsuario == null || lngUsuario == null ||
+                distanciaKm(p) == null || distanciaKm(p)!! <= radioMaximoKm
+            buscaOk && deptoOk && distritoOk && tipoOk && habOk && favoritoOk && distanciaOk
         }
         // Orden: destacados > verificados > sin verificar; dentro de cada
         // grupo, primero los mas cercanos a la ubicacion del usuario.

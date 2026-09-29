@@ -110,7 +110,7 @@
                 android:backgroundTint="@color/alkil_coral_soft"
                 android:gravity="center"
                 android:padding="14dp"
-                android:text="Publicacion pausada - no se muestra en el listado"
+                android:text="Publicación pausada - no se muestra en el listado"
                 android:textColor="@color/alkil_primary"
                 android:textSize="13sp"
                 android:textStyle="bold"
