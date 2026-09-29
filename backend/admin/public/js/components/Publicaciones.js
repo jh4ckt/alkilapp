@@ -1,7 +1,7 @@
 // ==========================================================================
 // AlkilApp Admin - Publicaciones Component
 // ==========================================================================
-import { formatCurrency, formatDate, showToast, debounce } from '../utils/helpers.js';
+import { formatCurrency, formatDate, showToast, debounce, openModal } from '../utils/helpers.js';
 
 // Estados REALES que usa la app Android y la colección `propiedades`.
 // Si esta lista no coincide con lo que hay en Firestore, el <select> no puede
@@ -202,11 +202,34 @@ export default class Publicaciones {
 
     // Delegación de eventos para clicks en guardar, aprobar o toggle destacado
     tbody?.addEventListener('click', async (e) => {
+      // Ver la foto de portada en la fila (no se descarga hasta abrir la ficha)
+      const imgCelda = e.target.closest('img[alt="Portada"]');
+      if (imgCelda) {
+        const fila = imgCelda.closest('tr');
+        const idImagen = fila?.querySelector('.ver-preview-btn')?.dataset.id;
+        if (idImagen) {
+          e.stopPropagation();
+          this.verVistaPrevia(idImagen, imgCelda);
+        }
+        return;
+      }
+
+      // Click en el título: ficha completa del inmueble (vista previa)
+      const previewBtn = e.target.closest('.ver-preview-btn');
+      if (previewBtn) {
+        await this.verVistaPrevia(previewBtn.dataset.id);
+        return;
+      }
+
       const aprobarBtn = e.target.closest('.aprobar-btn');
       if (aprobarBtn) {
         const id = aprobarBtn.dataset.id;
-        showToast('Aprobando publicación...', 'info');
-        await this.guardarEstado(id, 'publicado', aprobarBtn, null, 'publicado');
+        // Aprobar abre la vista previa: publicar un inmueble sin haberlo visto
+        // es justo el error que este panel debe evitar.
+        this.verVistaPrevia(id, null, async () => {
+          showToast('Aprobando publicación...', 'info');
+          await this.guardarEstado(id, 'publicado', aprobarBtn, null, 'publicado');
+        });
         return;
       }
 
@@ -303,7 +326,10 @@ export default class Publicaciones {
         pub.telefono || 
         '';
 
-      const imagenUrl = pub.imagenPrincipal || pub.imagenes?.[0] || '/assets/placeholder-house.svg';
+      // El listado ya no trae fotos (son base64 de ~100KB y hacia que la
+      // respuesta pesara mas de 1MB); el backend manda totalFotos y la portada
+      // se pide al abrir la vista previa. Aqui solo el placeholder.
+      const totalFotos = Number(pub.totalFotos) || 0;
       const estado = pub.estado || 'pendiente';
       // La collection guarda el destacado en `isFeatured` (no `destacado`): leer
       // `destacado` dejaba la estrella siempre vacia y el toggle nunca acertaba.
@@ -320,7 +346,6 @@ export default class Publicaciones {
       const escDistrito = e(pub.distrito);
       const escDuenio = e(propietarioNombre);
       const escTelefono = e(propietarioTel);
-      const escPortada = e(imagenUrl);
       const escOperacion = e(pub.operacion || 'alquiler');
       const escTipo = e(pub.tipo || 'departamento');
       const escEstado = e(estado);
@@ -333,14 +358,19 @@ export default class Publicaciones {
       return `
         <tr class="table-row-hover" style="border-bottom: 1px solid var(--border-color, #f1f5f9); vertical-align: middle;">
           
-          <!-- Inmueble (Imagen Preview + Título + Ubicación) -->
+          <!-- Inmueble (portada + Título + Ubicación). El título abre la vista previa. -->
           <td style="padding: 0.875rem 1rem;">
             <div style="display: flex; align-items: center; gap: 0.875rem;">
-              <img src="${escPortada}" data-fallback="/assets/placeholder-house.svg" alt="Portada" style="width: 48px; height: 48px; border-radius: 8px; object-fit: cover; background: #e2e8f0; border: 1px solid #e2e8f0; flex-shrink: 0;">
+              <div style="position: relative; flex-shrink: 0;">
+                <img src="/assets/placeholder-house.svg" alt="Portada" style="width: 48px; height: 48px; border-radius: 8px; object-fit: cover; background: #e2e8f0; border: 1px solid #e2e8f0; display: block;">
+                ${totalFotos > 0 ? `<span title="${totalFotos} foto(s) en la publicación" style="position: absolute; right: -4px; bottom: -4px; display: inline-flex; align-items: center; gap: 2px; background: #0f172a; color: #fff; font-size: 0.625rem; font-weight: 600; line-height: 1; padding: 3px 5px; border-radius: 999px; border: 1.5px solid var(--card-bg, #fff);">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:9px;height:9px;"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>${totalFotos}
+                </span>` : ''}
+              </div>
               <div style="min-width: 0;">
-                <strong style="display: block; font-size: 0.875rem; font-weight: 600; color: var(--text-color, #0f172a); text-overflow: ellipsis; overflow: hidden; white-space: nowrap; max-width: 220px;" title="${escTitulo}">
+                <button type="button" class="ver-preview-btn" data-id="${escId}" title="Ver vista previa del inmueble" style="display: block; max-width: 220px; padding: 0; border: 0; background: none; text-align: left; cursor: pointer; font-size: 0.875rem; font-weight: 600; color: var(--text-color, #0f172a); text-overflow: ellipsis; overflow: hidden; white-space: nowrap; text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 3px;">
                   ${escTitulo}
-                </strong>
+                </button>
                 <small style="color: var(--text-muted, #64748b); font-size: 0.775rem; display: block; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">
                   ${escCiudad} ${escDistrito ? '📍 ' + escDistrito : ''}
                 </small>
@@ -537,6 +567,178 @@ export default class Publicaciones {
   // Texto legible del estado (para el <option> desconocido y los toasts)
   etiquetaEstado(estado) {
     return ESTADOS.find(e => e.valor === estado)?.etiqueta || estado;
+  }
+
+  // ------------------------------------------------------------------
+  // Vista previa del inmueble
+  // ------------------------------------------------------------------
+  // El listado se queda sin fotos (base64 de ~100KB) y las pide aqui, al abrir.
+  // `imagenPinned` es el <img> de la fila cuando se pincha la portada: se
+  // rellena con la foto real para no tener que esperar otra recarga.
+  // `alAprobar` corre tras pulsar "Aprobar y publicar" dentro del modal.
+  async verVistaPrevia(id, imagenPinned = null, alAprobar = null) {
+    if (!id) return;
+    const e = (v) => this.escape(v == null ? '' : v);
+
+    const modal = openModal(
+      '<div style="display: grid; place-items: center; min-height: 180px; color: var(--text-muted, #64748b); font-size: 0.875rem;">Cargando publicación...</div>',
+      { title: 'Vista previa del inmueble' }
+    );
+
+    let pub;
+    try {
+      const res = await this.api.get(`/publicaciones/${encodeURIComponent(id)}`);
+      pub = res?.data;
+    } catch (err) {
+      modal.close();
+      showToast(`No se pudo cargar la publicación: ${err.message || 'error desconocido'}`, 'error');
+      return;
+    }
+    if (!pub) {
+      modal.close();
+      showToast('La publicación no existe o ya fue eliminada', 'error');
+      return;
+    }
+
+    // La foto puede venir como data: base64 o como https. El CSP del panel
+    // (img-src 'self' data: https:) no permitiria ningun otro esquema, y el
+    // backend ya filtra lo que no sea data:image o https.
+    const fotos = (Array.isArray(pub.fotos) ? pub.fotos : []).filter(
+      f => typeof f === 'string' && (f.startsWith('data:image') || f.startsWith('https://'))
+    );
+    if (fotos.length && imagenPinned) {
+      imagenPinned.src = fotos[0];
+      // Si la URL remota muere, vuelve al placeholder (no a la base64 rota).
+      imagenPinned.onerror = () => { imagenPinned.src = '/assets/placeholder-house.svg'; };
+    }
+
+    const pill = this.getBadgeStyle(pub.estado);
+    const precio = pub.precio == null
+      ? '<span style="color: var(--text-muted, #64748b);">Sin precio</span>'
+      : formatCurrency(pub.precio, pub.moneda || 'PEN');
+    const ambientes = pub.ambientes == null ? '-' : pub.ambientes;
+    const superficie = pub.superficieM2 ? `${pub.superficieM2} m²` : '-';
+    const ubicacion = [pub.distrito, pub.barrio, pub.ciudad].filter(Boolean).join(' · ') || '-';
+    const mapa = (pub.lat != null && pub.lng != null)
+      ? `<a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(pub.lat)},${encodeURIComponent(pub.lng)}" target="_blank" rel="noopener noreferrer" style="font-size: 0.8rem; color: #0369a1; text-decoration: underline;">Ver ubicación en Google Maps ↗</a>`
+      : '<span style="font-size: 0.8rem; color: #b45309;">Sin coordenadas registradas</span>';
+
+    const prop = pub.propietario;
+    const propHtml = prop ? `
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <div style="width: 44px; height: 44px; border-radius: 50%; background: var(--border-color, #e2e8f0); display: grid; place-items: center; font-weight: 700; color: var(--text-muted, #64748b); font-size: 0.95rem; flex-shrink: 0;">${e((prop.nombre || '?').trim().charAt(0).toUpperCase())}</div>
+        <div style="min-width: 0;">
+          <div style="font-size: 0.9rem; font-weight: 600; color: var(--text-color, #0f172a);">${e(prop.nombre)}</div>
+          <div style="font-size: 0.8rem; color: var(--text-muted, #64748b);">
+            ${prop.telefono ? `Tel. ${e(prop.telefono)}` : 'Sin teléfono'}
+            ${prop.email ? ` · ${e(prop.email)}` : ''}
+          </div>
+          <div style="font-size: 0.8rem; margin-top: 3px;">
+            ${prop.verificado
+              ? '<span style="color: #047857; font-weight: 600;">✓ Identidad verificada</span>'
+              : '<span style="color: #b45309; font-weight: 600;">⚠ Identidad sin verificar</span>'}
+          </div>
+        </div>
+      </div>` : '<div style="font-size: 0.85rem; color: #b45309; font-weight: 600;">⚠ Sin ficha de propietario (id borrado o sin registro)</div>';
+
+    const galeria = fotos.length ? `
+      <div style="margin-bottom: 16px;">
+        <div class="vp-galeria" style="display: flex; gap: 8px; overflow-x: auto; padding-bottom: 6px;">
+          ${fotos.map((f, i) => `
+            <img class="vp-foto" data-src="${e(f)}" src="${e(f)}" alt="Foto ${i + 1} del inmueble"
+                 style="width: 108px; height: 82px; border-radius: 8px; object-fit: cover; border: 1px solid var(--border-color, #e2e8f0); background: #e2e8f0; cursor: zoom-in; flex-shrink: 0; display: block;">`).join('')}
+        </div>
+        <div style="font-size: 0.75rem; color: var(--text-muted, #64748b); margin-top: 4px;">${pub.totalFotos > fotos.length ? `Mostrando ${fotos.length} de ${pub.totalFotos} fotos · ` : `${fotos.length} foto(s) · `}pincha cualquiera para ampliarla</div>
+      </div>`
+      : '<div style="padding: 28px; text-align: center; background: var(--bg-color, #f8fafc); border: 1px dashed var(--border-color, #cbd5e1); border-radius: 8px; margin-bottom: 16px; color: var(--text-muted, #64748b); font-size: 0.875rem;">Sin fotos en esta publicación</div>';
+
+    const fila = (label, valor) => `
+      <div>
+        <div style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted, #94a3b8); font-weight: 600;">${label}</div>
+        <div style="font-size: 0.875rem; color: var(--text-color, #334155); font-weight: 500;">${valor}</div>
+      </div>`;
+
+    modal.overlay.querySelector('.modal-title').textContent = pub.titulo || 'Vista previa del inmueble';
+    modal.overlay.querySelector('.modal-body').innerHTML = `
+      ${galeria}
+      <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 4px;">
+        <span style="font-size: 1.35rem; font-weight: 700; color: var(--text-color, #0f172a);">${precio}</span>
+        <span style="font-size: 0.8rem; color: var(--text-muted, #64748b); text-transform: uppercase; letter-spacing: 0.03em;">${e(pub.operacion)}</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 14px; flex-wrap: wrap;">
+        <span class="pill" style="${pill}">${e(this.etiquetaEstado(pub.estado))}</span>
+        <span style="font-size: 0.8rem; color: var(--text-muted, #64748b);">${e(pub.tipo)}</span>
+        ${pub.isFeatured ? '<span style="font-size: 0.8rem; color: #b45309; font-weight: 600;">★ Destacado</span>' : ''}
+        ${pub.estadoCambiadoAdmin ? '<span style="font-size: 0.8rem; color: var(--text-muted, #64748b);">editado por admin</span>' : ''}
+      </div>
+
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px; padding: 14px; background: var(--bg-color, #f8fafc); border: 1px solid var(--border-color, #e2e8f0); border-radius: 8px; margin-bottom: 14px;">
+        ${fila('Ambientes', ambientes)}
+        ${fila('Superficie', superficie)}
+        ${fila('Barrio / Ciudad', e(ubicacion))}
+        ${fila('Publicado', pub.publicadoEn ? e(formatDate(pub.publicadoEn)) : '-')}
+      </div>
+
+      <div style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted, #94a3b8); font-weight: 600; margin-bottom: 6px;">Dirección</div>
+      <div style="font-size: 0.875rem; color: var(--text-color, #334155); margin-bottom: 4px;">${e(pub.direccion || '-')}</div>
+      <div style="margin-bottom: 14px;">${mapa}</div>
+
+      ${pub.descripcion ? `
+        <div style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted, #94a3b8); font-weight: 600; margin-bottom: 6px;">Descripción del propietario</div>
+        <div style="font-size: 0.875rem; color: var(--text-color, #334155); white-space: pre-wrap; margin-bottom: 14px;">${e(pub.descripcion)}</div>` : ''}
+
+      ${pub.comodidades?.length ? `
+        <div style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted, #94a3b8); font-weight: 600; margin-bottom: 6px;">Comodidades</div>
+        <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px;">
+          ${pub.comodidades.map(c => `<span style="font-size: 0.775rem; background: var(--bg-color, #f1f5f9); border: 1px solid var(--border-color, #e2e8f0); border-radius: 999px; padding: 3px 10px; color: var(--text-color, #334155);">${e(c)}</span>`).join('')}
+        </div>` : ''}
+
+      <div style="border-top: 1px solid var(--border-color, #e2e8f0); padding-top: 14px;">
+        <div style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted, #94a3b8); font-weight: 600; margin-bottom: 8px;">Propietario</div>
+        ${propHtml}
+      </div>`;
+
+    // Pie con la decisión. Aprobar vive aquí y no solo en la fila: revisar es
+    // el paso obligatorio antes de publicar.
+    const footer = document.createElement('div');
+    footer.className = 'modal-footer';
+    footer.style.cssText = 'display: flex; gap: 0.5rem; justify-content: flex-end; flex-wrap: wrap;';
+    footer.innerHTML = `
+      <button class="btn btn-secondary" data-cerrar style="padding: 0.5rem 1rem; font-size: 0.875rem;">Cerrar</button>
+      ${pub.estado === 'under_review' ? '<button class="btn btn-success" data-aprobar style="padding: 0.5rem 1rem; font-size: 0.875rem;">Aprobar y publicar</button>' : ''}`;
+    modal.overlay.querySelector('.modal').appendChild(footer);
+
+    footer.querySelector('[data-cerrar]')?.addEventListener('click', () => modal.close());
+    footer.querySelector('[data-aprobar]')?.addEventListener('click', async (ev) => {
+      const btn = ev.currentTarget;
+      btn.disabled = true;
+      btn.textContent = 'Aprobando...';
+      modal.close();
+      if (typeof alAprobar === 'function') await alAprobar();
+    });
+
+    // Lupa de fotos: capa fija encima del modal (no dentro de .modal-body, para
+    // que el scroll del modal no la mueva).
+    const sel = modal.overlay.querySelector('.vp-galeria');
+    if (sel) {
+      sel.addEventListener('click', (ev) => {
+        const img = ev.target.closest('.vp-foto');
+        if (!img) return;
+        const box = document.createElement('div');
+        box.style.cssText = 'position: fixed; inset: 0; background: rgba(15, 23, 42, 0.88); display: grid; place-items: center; z-index: 9999; cursor: zoom-out; padding: 24px;';
+        const grande = document.createElement('img');
+        grande.src = img.dataset.src;
+        grande.alt = 'Foto ampliada';
+        grande.style.cssText = 'max-width: 92vw; max-height: 88vh; border-radius: 10px; box-shadow: 0 20px 50px rgba(0,0,0,0.5); background: #0f172a;';
+        const quitar = () => box.remove();
+        box.addEventListener('click', quitar);
+        document.addEventListener('keydown', function esc(ev2) {
+          if (ev2.key === 'Escape') { quitar(); document.removeEventListener('keydown', esc); }
+        });
+        box.appendChild(grande);
+        document.body.appendChild(box);
+      });
+    }
   }
 
   updatePagination() {

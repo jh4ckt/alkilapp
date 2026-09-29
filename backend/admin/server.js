@@ -258,6 +258,15 @@ async function handleAPI(req, res, url) {
             if (ruta === '/api/resumen') return json(res, 200, await getResumen());
             if (ruta === '/api/verificaciones') return json(res, 200, await getVerificaciones(url));
             if (ruta === '/api/publicaciones') return json(res, 200, await getPublicaciones(url));
+            // Detalle de una sola publicacion, para la vista previa del modal.
+            // El listado NO trae las fotos (ver getPublicaciones) porque son
+            // base64 de ~100KB cada una: mandarlas ahi hacia que la respuesta
+            // de 5 filas pasara de 1MB.
+            const pubDet = ruta.match(/^\/api\/publicaciones\/([^/]+)$/);
+            if (pubDet) {
+                const det = await getPublicacionDetalle(decodeURIComponent(pubDet[1]));
+                return json(res, det.status || 200, det);
+            }
             if (ruta === '/api/reportes') return json(res, 200, await getReportes(url));
             if (ruta === '/api/usuarios') return json(res, 200, await getUsuarios(url));
             if (ruta === '/api/stats') return json(res, 200, await getStats(url));
@@ -495,15 +504,21 @@ async function getPublicaciones(url) {
     return { data: docs.map(p => {
         const ownerName = p.idPropietario ? propietariosMap.get(p.idPropietario) || 'Propietario sin nombre' : 'Sin propietario';
         const destacadoTipo = p.isFeatured && p.destacadoDias ? `destacado_${p.destacadoDias}d` : null;
-        
+        // Las fotos NO viajan en el listado: son base64 de ~100KB cada una y
+        // con 5 filas la respuesta pasaba de 1MB. Solo se manda cuantos hay,
+        // para que la fila pueda avisar "3 fotos" y la vista previa las pida
+        // al endpoint de detalle.
+        const { fotos, imagenUrl, ...resto } = p;
+
         return {
-            ...p,
+            ...resto,
             propietarioNombre: ownerName,
             operacion: p.operacion || 'alquiler',
             tipoInmueble: p.tipo || 'departamento',
             estado: p.estado || 'disponible',
             pill: pillEstado(p.estado),
             creado: mostrarCreado(p),
+            totalFotos: (Array.isArray(fotos) ? fotos.length : 0) || (Array.isArray(imagenUrl) ? imagenUrl.length : 0),
             destacadoInfo: p.isFeatured ? {
                 dias: p.destacadoDiasRestantes,
                 vence: fecha(p.featuredUntil),
@@ -511,6 +526,90 @@ async function getPublicaciones(url) {
             } : null,
         };
     }), total, page, limit, totalPages: Math.ceil(total / limit) };
+}
+
+// Detalle completo de una publicacion, incluidas las fotos, para la vista
+// previa del admin. Trae tambien los datos del propietario (verificacion,
+// telefono, email) porque al revisar un inmueble hay que poder juzgar quien
+// lo publico.
+async function getPublicacionDetalle(id) {
+    if (!id || id.length > 150) return { error: 'id invalido', status: 400 };
+    const snap = await db.collection('propiedades').doc(id).get();
+    if (!snap.exists) return { error: 'La publicación no existe', status: 404 };
+
+    const p = { id: snap.id, ...snap.data() };
+
+    // La app Android guarda las fotos como base64 CRUDO, sin el prefijo
+    // "data:image/jpeg;base64," (empieza directo con /9j/ en los .jpg). Un
+    // <img src="/9j/4AAQ..."> no renderiza nada, asi que hay que reconstruir la
+    // data URL: /9j/ es la firma de JPEG, iVBOR de PNG. Solo se aceptan esas
+    // dos familias ademas de https, porque el CSP del panel es
+    // img-src 'self' data: https: y cualquier otro esquema quedaria bloqueado.
+    const aDataUrl = (f) => {
+        if (typeof f !== 'string') return null;
+        const s = f.trim();
+        if (!s) return null;
+        if (s.startsWith('data:image')) return s;
+        if (s.startsWith('https://')) return s;
+        if (s.startsWith('/9j/')) return 'data:image/jpeg;base64,' + s;
+        if (s.startsWith('iVBORw0KGgo')) return 'data:image/png;base64,' + s;
+        return null;
+    };
+
+    const fotos = (Array.isArray(p.fotos) ? p.fotos : []).map(aDataUrl).filter(Boolean);
+    const imagenes = (Array.isArray(p.imagenUrl) ? p.imagenUrl : []).map(aDataUrl).filter(Boolean);
+
+    let propietario = null;
+    if (p.idPropietario) {
+        const du = await db.collection('usuarios').doc(p.idPropietario).get();
+        if (du.exists) {
+            const u = du.data();
+            propietario = {
+                id: du.id,
+                nombre: u.nombre || u.name || 'Sin nombre',
+                email: u.email || null,
+                telefono: u.telefono || null,
+                verificado: u.verificado === true || u.emailVerified === true,
+                trustLevel: u.trustLevel || null,
+                verificaciones: u.verificaciones || null,
+                fechaRegistro: fecha(u.fechaRegistro || u.createdAt),
+            };
+        }
+    }
+
+    return {
+        data: {
+            id: p.id,
+            titulo: p.titulo || 'Sin título',
+            descripcion: p.descripcion || '',
+            direccion: p.direccion || '',
+            barrio: p.barrio || '',
+            ciudad: p.ciudad || '',
+            operacion: p.operacion || 'alquiler',
+            tipo: p.tipo || 'departamento',
+            precio: p.precio ?? null,
+            moneda: p.moneda || 'PEN',
+            ambientes: p.ambientes ?? null,
+            superficieM2: p.superficieM2 ?? null,
+            comodidades: Array.isArray(p.comodidades) ? p.comodidades : [],
+            lat: p.lat ?? null,
+            lng: p.lng ?? null,
+            estado: p.estado || 'disponible',
+            pill: pillEstado(p.estado),
+            isFeatured: p.isFeatured === true,
+            destacadoDias: p.destacadoDias ?? null,
+            destacadoDiasRestantes: p.destacadoDiasRestantes ?? null,
+            publicadoEn: fecha(p.publicadoEn),
+            creado: mostrarCreado(p),
+            estadoCambiadoAdmin: p.estadoCambiadoAdmin === true,
+            totalFotos: fotos.length + imagenes.length,
+            // data: URL (base64) o https. El front decide como pintar cada una.
+            // Tope de 8: cada foto pesa ~100KB en base64 y un announcing con 20
+            // son 2MB en una sola respuesta. `totalFotos` avisa si se truncó.
+            fotos: [...fotos, ...imagenes].slice(0, 8),
+            propietario,
+        },
+    };
 }
 
 async function getReportes(url) {
