@@ -22,6 +22,7 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.SetOptions
 import java.net.HttpURLConnection
 import java.util.HashMap
@@ -46,6 +47,9 @@ class PerfilPropietarioActivity : AppCompatActivity() {
 
     private val cargadorImagenes = Executors.newSingleThreadExecutor()
     private val handlerUi = Handler(Looper.getMainLooper())
+
+    private var escuchaReviews: ListenerRegistration? = null
+    private var escuchaInmuebles: ListenerRegistration? = null
 
     private val coloresAvatar = intArrayOf(
         R.color.avatar_1, R.color.avatar_2, R.color.avatar_3, R.color.avatar_4, R.color.avatar_5
@@ -245,7 +249,10 @@ class PerfilPropietarioActivity : AppCompatActivity() {
     // ---- Reseñas ---------------------------------------------------------
 
     private fun escucharReviews() {
-        db.collection("usuarios").document(uid).collection("reviews")
+        // Se guarda la suscripcion para soltarla en onDestroy: sin remove() este
+        // listener (y el de inmuebles) seguian vivos con la pantalla cerrada.
+        escuchaReviews?.remove()
+        escuchaReviews = db.collection("usuarios").document(uid).collection("reviews")
             .orderBy("createdAt", com.google.firebase.firestore.Query.Direction.DESCENDING)
             .addSnapshotListener { snap, _ ->
                 if (snap == null) return@addSnapshotListener
@@ -443,7 +450,8 @@ class PerfilPropietarioActivity : AppCompatActivity() {
     private fun escucharInmuebles() {
         if (uid.isBlank()) return
         val miUid = auth.currentUser?.uid
-        db.collection("propiedades")
+        escuchaInmuebles?.remove()
+        escuchaInmuebles = db.collection("propiedades")
             .whereEqualTo("idPropietario", uid)
             .addSnapshotListener { snap, error ->
                 if (error != null) {
@@ -461,6 +469,14 @@ class PerfilPropietarioActivity : AppCompatActivity() {
                 binding.tvPerfilInmueblesVacio.visibility = View.GONE
                 docs.forEach { p -> binding.llPerfilInmuebles.addView(construirInmueble(p, miUid)) }
             }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        escuchaReviews?.remove()
+        escuchaReviews = null
+        escuchaInmuebles?.remove()
+        escuchaInmuebles = null
     }
 
     private fun construirInmueble(p: Propiedad, miUid: String?): View {

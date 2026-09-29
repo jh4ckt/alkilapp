@@ -5,7 +5,7 @@
 import { initTheme, toggleTheme, showToast, toastSuccess, toastError, debounce } from './utils/helpers.js';
 import { api } from './services/api.js';
 
-// Módulos de páginas (Carga perezosa / Lazy loaded)
+// Mï¿½dulos de pï¿½ginas (Carga perezosa / Lazy loaded)
 const pageModules = {
   dashboard: () => import('./components/Dashboard.js?v=27'),
   verificaciones: () => import('./components/Verificaciones.js?v=27'),
@@ -20,10 +20,10 @@ const PAGE_TITLES = {
   dashboard: 'Dashboard',
   verificaciones: 'Verificaciones de Identidad',
   publicaciones: 'Publicaciones y Propiedades',
-  reportes: 'Denuncias y Moderación',
+  reportes: 'Denuncias y Moderaciï¿½n',
   soporte: 'Soporte e Incidentes',
-  usuarios: 'Gestión de Usuarios',
-  stats: 'Estadísticas y Analíticas',
+  usuarios: 'Gestiï¿½n de Usuarios',
+  stats: 'Estadï¿½sticas y Analï¿½ticas',
 };
 
 class AdminApp {
@@ -51,19 +51,19 @@ class AdminApp {
     // Alternar Tema (Oscuro / Claro)
     document.getElementById('themeToggle')?.addEventListener('click', () => toggleTheme());
 
-    // Control del Menú Lateral (Mobile)
+    // Control del Menï¿½ Lateral (Mobile)
     document.getElementById('menuToggle')?.addEventListener('click', () => this.toggleSidebar());
     document.getElementById('sidebarOverlay')?.addEventListener('click', () => this.closeSidebar());
 
-    // Enlaces de Navegación
+    // Enlaces de Navegaciï¿½n
     document.querySelectorAll('.nav-item').forEach(link => {
       link.addEventListener('click', e => this.handleNav(e));
     });
 
-    // Cerrar Sesión
+    // Cerrar Sesiï¿½n
     document.getElementById('logoutBtn')?.addEventListener('click', () => this.logout());
 
-    // Búsqueda Global (Teclado + Input)
+    // Bï¿½squeda Global (Teclado + Input)
     const searchInput = document.getElementById('globalSearch');
     if (searchInput) {
       searchInput.addEventListener('input', debounce(e => {
@@ -81,7 +81,7 @@ class AdminApp {
       });
     }
 
-    // Manejar botones Atrás / Adelante del navegador
+    // Manejar botones Atrï¿½s / Adelante del navegador
     window.addEventListener('popstate', () => this.loadPage(this.getCurrentPage()));
   }
 
@@ -121,7 +121,7 @@ class AdminApp {
     if (this.isLoading) return;
     this.isLoading = true;
 
-    // Actualizar estado activo en menú de navegación
+    // Actualizar estado activo en menï¿½ de navegaciï¿½n
     document.querySelectorAll('.nav-item').forEach(l => {
       l.classList.toggle('active', l.dataset.page === page);
     });
@@ -136,15 +136,15 @@ class AdminApp {
         this.pageInstance = null;
       }
 
-      // Cargar módulo dinámicamente
+      // Cargar mï¿½dulo dinï¿½micamente
       const loader = pageModules[page];
-      if (!loader) throw new Error(`Página no encontrada: "${page}"`);
+      if (!loader) throw new Error(`Pï¿½gina no encontrada: "${page}"`);
 
       if (container) {
         container.innerHTML = `
           <div class="loading-state" style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 80px 20px; color: var(--text-muted, #64748b);">
             <div class="spinner" style="width: 36px; height: 36px; border: 3px solid rgba(0,0,0,0.1); border-top-color: var(--primary-color, #3b82f6); border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 1rem;"></div>
-            <p style="font-size: 0.875rem; font-weight: 500; margin: 0;">Cargando módulo...</p>
+            <p style="font-size: 0.875rem; font-weight: 500; margin: 0;">Cargando mï¿½dulo...</p>
           </div>
         `;
       }
@@ -152,21 +152,21 @@ class AdminApp {
       const module = await loader();
       const PageClass = module.default;
 
-      // Instanciar y renderizar el componente enviándole la instancia de API
+      // Instanciar y renderizar el componente enviï¿½ndole la instancia de API
       this.pageInstance = new PageClass(api);
       
       if (container) {
         await this.pageInstance.render(container);
       }
 
-      // Actualizar título del documento
+      // Actualizar tï¿½tulo del documento
       document.title = `AlkilApp Admin - ${PAGE_TITLES[page] || page}`;
 
       // Actualizar badges en sidebar
       await this.updateBadges();
 
     } catch (err) {
-      console.error('Error al cargar la página:', err);
+      console.error('Error al cargar la pï¿½gina:', err);
       if (container) {
         container.innerHTML = `
           <div class="empty-state" style="text-align: center; padding: 60px 20px; background: var(--card-bg, #fff); border-radius: 12px; border: 1px solid var(--border-color, #e2e8f0); margin: 20px 0;">
@@ -229,7 +229,7 @@ class AdminApp {
     try {
       await api.post('/logout').catch(() => fetch('/logout', { method: 'POST', credentials: 'include' }));
     } catch (e) {
-      console.warn('Error en cierre de sesión:', e);
+      console.warn('Error en cierre de sesiï¿½n:', e);
     } finally {
       window.location.href = '/login';
     }
@@ -247,7 +247,7 @@ class AdminApp {
   }
 }
 
-// Estilo de animación inyectado dinámicamente para el spinner
+// Estilo de animaciï¿½n inyectado dinï¿½micamente para el spinner
 const style = document.createElement('style');
 style.textContent = `
   @keyframes spin {
@@ -257,14 +257,29 @@ style.textContent = `
 `;
 document.head.appendChild(style);
 
-// Inicializar la aplicación cuando el DOM esté listo
+// Fallback de imagenes rotas. Antes cada <img> llevaba un onerror inline, que la
+// CSP del servidor (script-src 'self', sin 'unsafe-inline') bloquea. Este listener
+// delegado cubre TODAS las imagenes, incluidas las que se pintan despues, y en
+// modo captura para no tener que re-asignar onerror.
+document.addEventListener('error', (e) => {
+  const el = e.target;
+  if (!el || el.tagName !== 'IMG') return;
+  const fallback = el.getAttribute('data-fallback');
+  if (!fallback) return;
+  // Quitar el atributo evita el bucle si el fallback tampoco carga.
+  el.removeAttribute('data-fallback');
+  if (el.src.endsWith(fallback)) return;
+  el.src = fallback;
+}, true);
+
+// Inicializar la aplicaciÃ³n cuando el DOM estï¿½ listo
 document.addEventListener('DOMContentLoaded', async () => {
   const app = new AdminApp();
-  window.adminApp = app; // Exposición global para depuración y eventos de actualización
+  window.adminApp = app; // Exposiciï¿½n global para depuraciï¿½n y eventos de actualizaciï¿½n
   await app.init();
 });
 
 // Manejo global de promesas no capturadas
 window.addEventListener('unhandledrejection', e => {
-  console.error('Excepción no controlada:', e.reason);
+  console.error('Excepciï¿½n no controlada:', e.reason);
 });

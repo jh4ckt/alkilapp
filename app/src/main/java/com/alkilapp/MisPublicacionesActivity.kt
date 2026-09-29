@@ -17,6 +17,7 @@ import com.alkilapp.databinding.ActivityMisPublicacionesBinding
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FieldValue
+import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.SetOptions
 import java.util.HashMap
 
@@ -27,6 +28,7 @@ class MisPublicacionesActivity : AppCompatActivity() {
     private val auth = FirebaseAuth.getInstance()
     private val db by lazy { FirebaseFirestore.getInstance("alkilappdb") }
     private val billingManager by lazy { com.alkilapp.billing.BillingManager(this) }
+    private var escuchaInmuebles: ListenerRegistration? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -56,7 +58,10 @@ class MisPublicacionesActivity : AppCompatActivity() {
             binding.tvMisPubVacio.text = getString(R.string.mis_pub_error, "UID vacío")
             return
         }
-        db.collection("propiedades")
+        // Se guarda la suscripcion para poder soltarla en onDestroy: sin remove()
+        // el listener de "mis publicaciones" sobrevivia a la pantalla.
+        escuchaInmuebles?.remove()
+        escuchaInmuebles = db.collection("propiedades")
             .whereEqualTo("idPropietario", uid)
             .addSnapshotListener { snap, error ->
                 binding.tvMisPubCargando.visibility = View.GONE
@@ -82,6 +87,12 @@ class MisPublicacionesActivity : AppCompatActivity() {
                 binding.tvMisPubVacio.visibility = View.GONE
                 docs.forEach { p -> binding.llMisPublicaciones.addView(construirInmueble(p)) }
             }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        escuchaInmuebles?.remove()
+        escuchaInmuebles = null
     }
 
     private fun construirInmueble(p: Propiedad): View {
@@ -208,10 +219,16 @@ class MisPublicacionesActivity : AppCompatActivity() {
             putExtra(PropiedadDetalleActivity.EXTRA_ID_PROPIETARIO, p.idPropietario)
             putExtra(PropiedadDetalleActivity.EXTRA_AMBIENTES, p.ambientes)
             putExtra(PropiedadDetalleActivity.EXTRA_SUPERFICIE, p.superficieM2)
-            putExtra(PropiedadDetalleActivity.EXTRA_COMODIDADES, p.comodidades.toTypedArray())
+            putStringArrayListExtra(
+                PropiedadDetalleActivity.EXTRA_COMODIDADES,
+                ArrayList(p.comodidades)
+            )
             // NO pasar fotos base64 por el intent: supera el límite de Binder
             // (TransactionTooLargeException). El detalle las carga por ID desde Firestore.
-            putExtra(PropiedadDetalleActivity.EXTRA_FOTOS_URL, p.photosUrl.toTypedArray())
+            putStringArrayListExtra(
+                PropiedadDetalleActivity.EXTRA_FOTOS_URL,
+                ArrayList(p.photosUrl)
+            )
             putExtra(PropiedadDetalleActivity.EXTRA_FEATURED, p.esDestacado)
             putExtra(PropiedadDetalleActivity.EXTRA_ESTADO, p.estado)
         }.also { startActivity(it) }

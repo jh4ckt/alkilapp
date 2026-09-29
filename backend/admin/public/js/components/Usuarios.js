@@ -272,7 +272,9 @@ export default class Usuarios {
       const userId = this.getUserId(u);
       const estado = u.estado || 'activo';
       const pillClass = ESTADO_PILLS[estado] || 'grey';
-      const estadoLabel = ESTADO_LABELS[estado] || estado;
+      // El fallback "| estado" podiaInjectar HTML si el valor no estaba en el
+      // diccionario: se escapa siempre.
+      const estadoLabel = this.escape(ESTADO_LABELS[estado] || estado);
       const avatarUrl = u.fotoPerfil || '/assets/avatar-placeholder.svg';
       const esVerificado = Boolean(u.verificado);
 
@@ -281,7 +283,7 @@ export default class Usuarios {
           <!-- Usuario -->
           <td style="padding: 0.75rem 1rem;">
             <div style="display: flex; align-items: center; gap: 0.75rem;">
-              <img src="${avatarUrl}" alt="Avatar" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover; background: #e2e8f0;" onerror="this.src='/assets/avatar-placeholder.svg'">
+              <img src="${this.escape(avatarUrl)}" data-fallback="/assets/avatar-placeholder.svg" alt="Avatar" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover; background: #e2e8f0;">
               <div>
                 <strong style="display: block; font-size: 0.875rem; color: var(--text-color, #0f172a);">${this.escape(u.nombre || 'Sin nombre')}</strong>
                 <small style="color: var(--text-muted, #64748b); font-size: 0.75rem;">ID: ${userId}</small>
@@ -448,7 +450,7 @@ export default class Usuarios {
     const html = `
       <div style="display: grid; gap: 16px;">
         <div style="display: flex; align-items: center; gap: 16px;">
-          <img src="${u.fotoPerfil || '/assets/avatar-placeholder.svg'}" style="width: 60px; height: 60px; border-radius: 50%; object-fit: cover;" onerror="this.src='/assets/avatar-placeholder.svg'">
+            <img src="${this.escape(u.fotoPerfil || '/assets/avatar-placeholder.svg')}" data-fallback="/assets/avatar-placeholder.svg" style="width: 60px; height: 60px; border-radius: 50%; object-fit: cover;">
           <div>
             <h3 style="margin: 0; font-size: 1.125rem; font-weight: 700; color: var(--text-color, #0f172a);">${this.escape(u.nombre)}</h3>
             <p style="margin: 0; color: var(--text-muted, #64748b); font-size: 0.875rem;">${this.escape(u.email)}</p>

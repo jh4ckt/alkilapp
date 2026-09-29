@@ -309,19 +309,40 @@ export default class Publicaciones {
       // `destacado` dejaba la estrella siempre vacia y el toggle nunca acertaba.
       const esDestacado = pub.isFeatured === true || Boolean(pub.destacado);
 
+      // XSS: titulo, ciudad, distrito, nombre, telefono, tipo y destacadoInfo los
+      // escribe CUALQUIER usuario de la app. Este componente era el UNICO que no
+      // pasaba todo por this.escape (Usuarios/Soporte/Reportes/Verificaciones si lo
+      // hacen), asi que un titulo como `"><img src=x onerror=...>` se ejecutaba con
+      // la sesion del admin. Se escapan tambien los atributos (title/src/data-*).
+      const e = (v) => this.escape(v == null ? '' : v);
+      const escTitulo = e(pub.titulo || 'Sin título');
+      const escCiudad = e(pub.ciudad || 'Sin ciudad');
+      const escDistrito = e(pub.distrito);
+      const escDuenio = e(propietarioNombre);
+      const escTelefono = e(propietarioTel);
+      const escPortada = e(imagenUrl);
+      const escOperacion = e(pub.operacion || 'alquiler');
+      const escTipo = e(pub.tipo || 'departamento');
+      const escEstado = e(estado);
+      const escDestacadoTipo = e(pub.destacadoInfo?.tipo);
+      const escFecha = e(formatDate ? formatDate(pub.creado || pub.createdAt) : (pub.creado || pub.createdAt || '-'));
+      // El id lo usa el servidor como clave de Firestore: solo se admiten letras,
+      // digitos y los separadores de ruta, para que no pueda romper el atributo.
+      const escId = String(pubId).replace(/[^A-Za-z0-9_.:-]/g, '');
+
       return `
-        <tr style="border-bottom: 1px solid var(--border-color, #f1f5f9); vertical-align: middle; transition: background-color 0.15s ease;" onmouseover="this.style.backgroundColor='var(--hover-bg, #f8fafc)'" onmouseout="this.style.backgroundColor='transparent'">
+        <tr class="table-row-hover" style="border-bottom: 1px solid var(--border-color, #f1f5f9); vertical-align: middle;">
           
           <!-- Inmueble (Imagen Preview + Título + Ubicación) -->
           <td style="padding: 0.875rem 1rem;">
             <div style="display: flex; align-items: center; gap: 0.875rem;">
-              <img src="${imagenUrl}" alt="Portada" style="width: 48px; height: 48px; border-radius: 8px; object-fit: cover; background: #e2e8f0; border: 1px solid #e2e8f0; flex-shrink: 0;" onerror="this.src='/assets/placeholder-house.svg'">
+              <img src="${escPortada}" data-fallback="/assets/placeholder-house.svg" alt="Portada" style="width: 48px; height: 48px; border-radius: 8px; object-fit: cover; background: #e2e8f0; border: 1px solid #e2e8f0; flex-shrink: 0;">
               <div style="min-width: 0;">
-                <strong style="display: block; font-size: 0.875rem; font-weight: 600; color: var(--text-color, #0f172a); text-overflow: ellipsis; overflow: hidden; white-space: nowrap; max-width: 220px;" title="${pub.titulo || 'Sin título'}">
-                  ${pub.titulo || 'Sin título'}
+                <strong style="display: block; font-size: 0.875rem; font-weight: 600; color: var(--text-color, #0f172a); text-overflow: ellipsis; overflow: hidden; white-space: nowrap; max-width: 220px;" title="${escTitulo}">
+                  ${escTitulo}
                 </strong>
                 <small style="color: var(--text-muted, #64748b); font-size: 0.775rem; display: block; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">
-                  ${pub.ciudad || 'Sin ciudad'} ${pub.distrito ? '• ' + pub.distrito : ''}
+                  ${escCiudad} ${escDistrito ? '📍 ' + escDistrito : ''}
                 </small>
               </div>
             </div>
@@ -330,21 +351,21 @@ export default class Publicaciones {
           <!-- Propietario -->
           <td style="padding: 0.875rem 1rem;">
             <div>
-              <strong style="display: block; font-size: 0.85rem; font-weight: 500; color: var(--text-color, #1e293b);">${propietarioNombre}</strong>
+              <strong style="display: block; font-size: 0.85rem; font-weight: 500; color: var(--text-color, #1e293b);">${escDuenio}</strong>
               ${propietarioTel ? `<small style="color: var(--text-muted, #64748b); font-size: 0.75rem; display: flex; align-items: center; gap: 4px; margin-top: 2px;">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px;"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg> ${propietarioTel}
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px;"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg> ${escTelefono}
               </small>` : ''}
             </div>
           </td>
 
           <!-- Operación -->
           <td style="padding: 0.875rem 1rem; font-size: 0.85rem; color: var(--text-color, #1e293b); font-weight: 500; text-transform: capitalize; white-space: nowrap;">
-            ${pub.operacion || 'alquiler'}
+            ${escOperacion}
           </td>
 
           <!-- Tipo Inmueble -->
           <td style="padding: 0.875rem 1rem; font-size: 0.85rem; color: var(--text-color, #1e293b); font-weight: 500; text-transform: capitalize;">
-            ${pub.tipo || 'departamento'}
+            ${escTipo}
           </td>
 
           <!-- Precio -->
@@ -356,7 +377,7 @@ export default class Publicaciones {
           <td style="padding: 0.875rem 1rem;">
             <span class="badge badge-${this.getBadgeClass(estado)}" style="padding: 0.25rem 0.625rem; border-radius: 9999px; font-weight: 600; font-size: 0.7rem; letter-spacing: 0.025em; display: inline-flex; align-items: center; gap: 0.375rem; ${this.getBadgeStyle(estado)}">
               <span style="width: 6px; height: 6px; border-radius: 50%; background-color: currentColor;"></span>
-              ${estado.toUpperCase()}
+              ${escEstado.toUpperCase()}
             </span>
           </td>
 
@@ -364,7 +385,7 @@ export default class Publicaciones {
           <td style="padding: 0.875rem 1rem; white-space: nowrap;">
             ${pub.destacadoInfo && pub.destacadoInfo.tipo 
               ? `<span style="background: #fef3c7; color: #b45309; border: 1px solid #fde68a; padding: 0.25rem 0.5rem; border-radius: 0.375rem; font-weight: 600; font-size: 0.725rem; display: inline-flex; align-items: center; gap: 0.25rem;">
-                  <svg viewBox="0 0 24 24" fill="currentColor" style="width:12px;height:12px;"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg> ${pub.destacadoInfo.tipo}
+                  <svg viewBox="0 0 24 24" fill="currentColor" style="width:12px;height:12px;"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg> ${escDestacadoTipo}
                 </span>`
               : (esDestacado 
                 ? `<span style="background: #fef3c7; color: #b45309; border: 1px solid #fde68a; padding: 0.25rem 0.5rem; border-radius: 0.375rem; font-weight: 600; font-size: 0.725rem; display: inline-flex; align-items: center; gap: 0.25rem;">
@@ -376,7 +397,7 @@ export default class Publicaciones {
 
           <!-- Fecha -->
           <td style="padding: 0.875rem 1rem; font-size: 0.8rem; color: var(--text-muted, #64748b); white-space: nowrap;">
-            ${formatDate ? formatDate(pub.creado || pub.createdAt) : (pub.creado || pub.createdAt || '-')}
+            ${escFecha}
           </td>
 
           <!-- Acciones -->
@@ -384,21 +405,21 @@ export default class Publicaciones {
             <div style="display: flex; align-items: center; justify-content: center; gap: 0.25rem; flex-wrap: nowrap;">
 
               ${estado === 'under_review' ? `
-                <button class="btn btn-sm btn-success aprobar-btn" data-id="${pubId}" style="padding: 0.25rem 0.5rem; font-size: 0.725rem; border-radius: 0.375rem;" title="Aprobar y publicar esta publicación">
+                <button class="btn btn-sm btn-success aprobar-btn" data-id="${escId}" style="padding: 0.25rem 0.5rem; font-size: 0.725rem; border-radius: 0.375rem;" title="Aprobar y publicar esta publicación">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:12px;height:12px;"><polyline points="20 6 9 17 4 12"/></svg>
                   Aprobar
                 </button>` : ''}
 
-              <select class="form-select form-select-sm estado-select" data-id="${pubId}" data-original="${estado}" style="width: auto; min-width: 120px; padding: 0.25rem 0.4rem; font-size: 0.75rem; border-radius: 0.375rem; border: 1px solid var(--border-color, #cbd5e1); background-color: var(--card-bg, #fff);">
+              <select class="form-select form-select-sm estado-select" data-id="${escId}" data-original="${escEstado}" style="width: auto; min-width: 120px; padding: 0.25rem 0.4rem; font-size: 0.75rem; border-radius: 0.375rem; border: 1px solid var(--border-color, #cbd5e1); background-color: var(--card-bg, #fff);">
                 ${ESTADOS.map(e => `<option value="${e.valor}" ${estado === e.valor ? 'selected' : ''}>${e.etiqueta}</option>`).join('')}
-                ${!ESTADOS.some(e => e.valor === estado) ? `<option value="${estado}" selected>${estado} (actual)</option>` : ''}
+                ${!ESTADOS.some(e => e.valor === estado) ? `<option value="${escEstado}" selected>${escEstado} (actual)</option>` : ''}
               </select>
 
-              <button class="btn btn-sm btn-secondary save-status-btn" data-id="${pubId}" style="opacity: 0.5; cursor: not-allowed; padding: 0.25rem 0.5rem; font-size: 0.725rem; border-radius: 0.375rem; font-weight: 500;" title="Guardar cambios" disabled>
+              <button class="btn btn-sm btn-secondary save-status-btn" data-id="${escId}" style="opacity: 0.5; cursor: not-allowed; padding: 0.25rem 0.5rem; font-size: 0.725rem; border-radius: 0.375rem; font-weight: 500;" title="Guardar cambios" disabled>
                 Guardar
               </button>
 
-              <button class="btn btn-sm btn-secondary toggle-destacado-btn" data-id="${pubId}" data-destacado="${esDestacado}" style="padding: 0.25rem 0.4rem; border-radius: 0.375rem; font-size: 0.75rem; display: inline-flex; align-items: center; justify-content: center; color: ${esDestacado ? '#d97706' : 'var(--text-muted, #64748b)'}; border: 1px solid var(--border-color, #cbd5e1);" title="${esDestacado ? 'Quitar destacado' : 'Marcar como destacado'}">
+              <button class="btn btn-sm btn-secondary toggle-destacado-btn" data-id="${escId}" data-destacado="${esDestacado}" style="padding: 0.25rem 0.4rem; border-radius: 0.375rem; font-size: 0.75rem; display: inline-flex; align-items: center; justify-content: center; color: ${esDestacado ? '#d97706' : 'var(--text-muted, #64748b)'}; border: 1px solid var(--border-color, #cbd5e1);" title="${esDestacado ? 'Quitar destacado' : 'Marcar como destacado'}">
                 <svg viewBox="0 0 24 24" fill="${esDestacado ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" style="width: 13px; height: 13px;">
                   <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
                 </svg>

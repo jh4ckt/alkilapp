@@ -214,7 +214,7 @@ export default class Soporte {
       const mensaje = t.mensaje || '';
 
       return `
-        <tr data-id="${id}" style="border-bottom: 1px solid var(--border-color, #f1f5f9); vertical-align: middle; transition: background-color 0.15s ease;" onmouseover="this.style.backgroundColor='var(--hover-bg, #f8fafc)'" onmouseout="this.style.backgroundColor='transparent'">
+        <tr data-id="${id}" class="table-row-hover" style="border-bottom: 1px solid var(--border-color, #f1f5f9); vertical-align: middle;">
 
           <!-- Asunto y Mensaje -->
           <td style="padding: 0.875rem 1rem;">

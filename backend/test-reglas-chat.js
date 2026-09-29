@@ -137,7 +137,7 @@ async function fase1_propuestas() {
     await check('texto sin tipo (mensajes antiguos)', 'ALLOW', () => nuevoMsg(OWNER, { senderId: OWNER, text: 'mensaje viejo' }));
     await check('autor spoofeado (senderId de otro)', 'DENY', () => nuevoMsg(OWNER, { senderId: RENTER, text: 'hola', tipo: 'texto' }));
     await check('tipo inventado', 'DENY', () => nuevoMsg(OWNER, { senderId: OWNER, text: 'x', tipo: 'hack' }));
-    await check('mensaje de sistema', 'ALLOW', () => nuevoMsg(OWNER, { senderId: OWNER, text: 'aviso', tipo: 'sistema' }));
+    await check('aviso de sistema sin motivo en un chat abierto', 'DENY', () => nuevoMsg(OWNER, { senderId: OWNER, text: 'aviso falso de la plataforma', tipo: 'sistema' }));
     await check('un tercero no escribe en el chat', 'DENY', () => nuevoMsg(AJENO, { senderId: AJENO, text: 'hola', tipo: 'texto' }));
     await check('un tercero no responde la propuesta', 'DENY', () => updMsg(AJENO, 'p1', { propuestaEstado: 'aceptada' }));
 }
@@ -282,9 +282,97 @@ async function fase8_soft_delete() {
     await check('un tercero tampoco borra mensajes', 'DENY', () => deleteDoc(doc(dbDe(AJENO), ...MSGS.split('/'), 'm1')));
 }
 
+/* ------------------- fase 9: blindaje del chat (acuerdo / listingId / sistema) */
+async function fase9_chats_blindaje() {
+    console.log('\n9) Blindaje del chat: acuerdo y listingId inmutables, aviso de sistema justificado');
+    await testEnv.clearFirestore();
+    await sembrar(async db => {
+        await setDoc(doc(db, 'chats', CHAT), chatBase());
+        await setDoc(doc(db, 'propiedades', LISTING), propBase());
+        await setDoc(doc(db, 'propiedades', 'otra-propiedad'), propBase({ idPropietario: AJENO }));
+    });
+
+    // Lo que exploitaba un arrendatario para despublicar el inmueble de otro.
+    await check('NO se puede forjar un acuerdo aceptado', 'DENY', () => updChat(RENTER, { acuerdo: { estado: 'aceptada', propuestaId: 'p1' } }));
+    await check('NO se puede re-apuntar el chat a otra publicacion', 'DENY', () => updChat(RENTER, { listingId: 'otra-propiedad' }));
+    await check('el dueno tampoco puede forjarlo', 'DENY', () => updChat(OWNER, { acuerdo: { estado: 'aceptada' } }));
+    await check('los campos normales del chat siguen entrando', 'ALLOW', () => updChat(OWNER, { lastMessage: 'hola', lastMessageAt: serverTimestamp() }));
+
+    // Aviso de sistema: solo con un estado que lo justifique.
+    await check('aviso de sistema con el chat abierto', 'DENY', () => nuevoMsg(OWNER, { senderId: OWNER, text: 'aviso suelto', tipo: 'sistema' }));
+    await check('se cierra el chat', 'ALLOW', () => updChat(OWNER, { estado: 'cerrado' }));
+    await check('aviso de sistema tras cerrar el chat', 'ALLOW', () => nuevoMsg(OWNER, { senderId: OWNER, text: 'El chat ha sido cerrado', tipo: 'sistema' }));
+    await check('pero nada mas en un chat cerrado', 'DENY', () => nuevoMsg(OWNER, { senderId: OWNER, text: 'hola', tipo: 'texto' }));
+
+    // Visita aceptada: el aviso llega justo despues de guardar chat.cita.
+    await testEnv.clearFirestore();
+    await sembrar(async db => {
+        await setDoc(doc(db, 'chats', CHAT), chatBase());
+        await setDoc(doc(db, 'propiedades', LISTING), propBase());
+    });
+    await check('dueno acepta la visita', 'ALLOW', () => updChat(OWNER, { cita: { estado: 'aceptada', fecha: '15/09/2026', hora: '10:30' } }));
+    await check('aviso de sistema con la visita aceptada', 'ALLOW', () => nuevoMsg(OWNER, { senderId: OWNER, text: 'La visita ha sido confirmada', tipo: 'sistema' }));
+
+    // Visita rechazada: el aviso llega tras guardar chat.citaPendiente.
+    await testEnv.clearFirestore();
+    await sembrar(async db => {
+        await setDoc(doc(db, 'chats', CHAT), chatBase());
+        await setDoc(doc(db, 'propiedades', LISTING), propBase());
+    });
+    await check('dueno rechaza la visita', 'ALLOW', () => updChat(OWNER, { citaPendiente: { estado: 'rechazada' } }));
+    await check('aviso de sistema con la visita rechazada', 'ALLOW', () => nuevoMsg(OWNER, { senderId: OWNER, text: 'La visita ha sido rechazada', tipo: 'sistema' }));
+}
+
+/* -------------------- fase 10: blindaje del perfil (usuarios) */
+async function fase10_usuarios_blindaje() {
+    console.log('\n10) Blindaje del perfil: nada de auto-verificarse ni des-suspenderse');
+    await testEnv.clearFirestore();
+    await sembrar(async db => {
+        await setDoc(doc(db, 'chats', CHAT), chatBase());
+        await setDoc(doc(db, 'usuarios', RENTER), {
+            nombre: 'Interesado', email: 'renter@test.local', uidAuth: RENTER,
+            activo: true, telefono: '999888777', tipoUsuario: 'dueno',
+            estado: 'suspendido', trustLevel: 'nuevo', verificationBadge: false,
+        });
+    });
+
+    const updPerfil = (uid, data) => setDoc(doc(dbDe(uid), 'usuarios', RENTER), data, { merge: true });
+
+    // Lo que el admin controla y el cliente NO.
+    await check('NO se puede poner trustLevel verificado', 'DENY', () => updPerfil(RENTER, { trustLevel: 'verified' }));
+    await check('NO se puede poner el escudo de verificado', 'DENY', () => updPerfil(RENTER, { verificationBadge: true }));
+    await check('NO se puede des-suspender a si mismo', 'DENY', () => updPerfil(RENTER, { estado: 'activo' }));
+    await check('NO se puede forjar identityVerified', 'DENY', () => updPerfil(RENTER, { verification: { status: 'aprobado', identityVerified: true, documentoPendiente: false } }));
+    await check('NO se puede auto-aprobar la verificacion', 'DENY', () => updPerfil(RENTER, { verification: { status: 'aprobado', documentoPendiente: false } }));
+    await check('NO se puede tocar el perfil de otro', 'DENY', () => setDoc(doc(dbDe(AJENO), 'usuarios', RENTER), { nombre: 'hackeado' }, { merge: true }));
+
+    // Los flujos reales de la app siguen funcionando.
+    await check('guardar perfil (celular, tipo, zona, foto)', 'ALLOW', () => updPerfil(RENTER, {
+        telefono: '999111222', tipoUsuario: 'arrendatario',
+        zonaDepartamento: 'Lima', zonaCiudad: 'Miraflores', fotoBase64: 'AAAA',
+    }));
+    await check('enviar verificacion (pendiente)', 'ALLOW', () => updPerfil(RENTER, {
+        verification: { status: 'pendiente', documentoPendiente: true, tipoDocumento: 'DNI', numeroDocumento: '12345678', enviadoEn: serverTimestamp() },
+    }));
+    await check('el registro crea el perfil propio', 'ALLOW', () => setDoc(doc(dbDe(AJENO), 'usuarios', AJENO), {
+        nombre: 'Nuevo', email: 'ajeno@test.local', uidAuth: AJENO, activo: true,
+        telefono: '900000000', tipoUsuario: 'dueno', fechaRegistro: serverTimestamp(),
+    }));
+    await check('el registro NO puede crear el perfil de otro', 'DENY', () => setDoc(doc(dbDe(RENTER), 'usuarios', AJENO), { nombre: 'x' }));
+    await check('el registro NO puede nacerse verificado', 'DENY', () => setDoc(doc(dbDe(RENTER), 'usuarios', 'nuevo-2'), {
+        nombre: 'Falso', email: 'falso@test.local', trustLevel: 'verified', verificationBadge: true,
+    }));
+
+    // Reputacion: solo cuenta si hay resena de verdad.
+    await check('inflarse el rating sin resena', 'DENY', () => updPerfil(RENTER, { rating: 5, totalRatings: 9999 }));
+    await sembrar(async db => {
+        await setDoc(doc(db, 'usuarios', RENTER, 'reviews', AJENO), { authorId: AJENO, rating: 5, createdAt: serverTimestamp() });
+    });
+    await check('promediar con una resena real', 'ALLOW', () => updPerfil(AJENO, { rating: 5, totalRatings: 1 }));
+}
+
 /* ------------------------------------------------------------------- runner */
-(async () => {
-    if (!process.env.FIRESTORE_EMULATOR_HOST) {
+(async () => {    if (!process.env.FIRESTORE_EMULATOR_HOST) {
         console.error('Falta FIRESTORE_EMULATOR_HOST. Usa:  npm run reglas:test');
         process.exit(2);
     }
@@ -305,6 +393,8 @@ async function fase8_soft_delete() {
         await fase6_denuncias();
         await fase7_citas();
         await fase8_soft_delete();
+        await fase9_chats_blindaje();
+        await fase10_usuarios_blindaje();
     } finally {
         await testEnv.cleanup();
     }

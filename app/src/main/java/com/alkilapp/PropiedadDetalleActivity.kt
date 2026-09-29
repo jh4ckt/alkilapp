@@ -215,155 +215,44 @@ class PropiedadDetalleActivity : AppCompatActivity() {
             // Setear datos como si vinieran del intent
             listingTitle = p.titulo
             idPropietario = p.idPropietario
-            val estado = p.estadoNormalizado
-            val moneda = p.moneda
-            val op = p.operacion
 
             fotos = p.fotos
             fotosUrl = p.photosUrl ?: emptyList()
-            val isFeatured = p.esDestacado
 
-            // Simular extras del intent
-            val intentMock = Intent().apply {
-                putExtra(EXTRA_TITULO, p.titulo)
-                putExtra(EXTRA_DESCRIPCION, p.descripcion)
-                putExtra(EXTRA_TIPO, p.tipo)
-                putExtra(EXTRA_OPERACION, p.operacion)
-                putExtra(EXTRA_PRECIO, p.precio)
-                putExtra(EXTRA_MONEDA, p.moneda)
-                putExtra(EXTRA_DIRECCION, p.direccion)
-                putExtra(EXTRA_BARRIO, p.barrio)
-                putExtra(EXTRA_CIUDAD, p.ciudad)
-                putExtra(EXTRA_LAT, p.lat)
-                putExtra(EXTRA_LNG, p.lng)
-                putExtra(EXTRA_ID_PROPIETARIO, p.idPropietario)
-                putExtra(EXTRA_AMBIENTES, p.ambientes)
-                putExtra(EXTRA_SUPERFICIE, p.superficieM2)
-                putExtra(EXTRA_COMODIDADES, p.comodidades.toTypedArray())
-                putExtra(EXTRA_FEATURED, p.esDestacado)
-                putExtra(EXTRA_ESTADO, p.estado)
-            }
-            // Cargar fotos
+            // Deep link: se inyectan los datos en el intent REAL de la Activity y se
+            // delega en el MISMO binder que usa el listado. Antes se armaba un
+            // `intentMock` que se descartaba y luego se llamaba a un binder paralelo
+            // que leia `intent`: por eso el deep link abria con precio 0 y sin
+            // descripcion/comodidades/mapa.
+            intent.putExtra(EXTRA_TITULO, p.titulo)
+            intent.putExtra(EXTRA_DESCRIPCION, p.descripcion)
+            intent.putExtra(EXTRA_TIPO, p.tipo)
+            intent.putExtra(EXTRA_OPERACION, p.operacion)
+            intent.putExtra(EXTRA_PRECIO, p.precio)
+            intent.putExtra(EXTRA_MONEDA, p.moneda)
+            intent.putExtra(EXTRA_DIRECCION, p.direccion)
+            intent.putExtra(EXTRA_BARRIO, p.barrio)
+            intent.putExtra(EXTRA_CIUDAD, p.ciudad)
+            intent.putExtra(EXTRA_LAT, p.lat)
+            intent.putExtra(EXTRA_LNG, p.lng)
+            intent.putExtra(EXTRA_ID_PROPIETARIO, p.idPropietario)
+            intent.putExtra(EXTRA_AMBIENTES, p.ambientes)
+            intent.putExtra(EXTRA_SUPERFICIE, p.superficieM2)
+            // getStringArrayListExtra (el binder) NO lee un String[]: por eso las
+            // comodidades nunca aparecian al abrir un anuncio.
+            intent.putStringArrayListExtra(EXTRA_COMODIDADES, ArrayList(p.comodidades))
+            intent.putExtra(EXTRA_FEATURED, p.esDestacado)
+            intent.putExtra(EXTRA_ESTADO, p.estado)
             fotos = p.fotos
             fotosUrl = p.photosUrl ?: emptyList()
-            // Continuar con setup UI
-            setupUIConDatos(estado, moneda, op, isFeatured)
+            // Unico punto de entrada para pintar la UI.
+            cargarDatosDesdeIntent()
             }
             .addOnFailureListener { e ->
                 Log.e("AlkilApp", "Error cargando propiedad $propId: ${e.message}")
                 Toast.makeText(this, "Error cargando la publicación", Toast.LENGTH_LONG).show()
                 finish()
             }
-    }
-
-    private fun setupUIConDatos(estado: String, moneda: String, op: String, isFeatured: Boolean) {
-        binding.btnDetalleBack.setOnClickListener { finish() }
-        binding.btnDetalleCompartir.setOnClickListener { compartirPublicacion() }
-
-        // Información principal
-        binding.tvDetTitulo.text = listingTitle
-        binding.tvDetDireccion.text = direccionCompleta()
-        binding.tvDetPrecio.text = formatearPrecio(
-            intent.getDoubleExtra(EXTRA_PRECIO, 0.0),
-            moneda,
-            op
-        )
-        // Etiqueta de operación (Venta/Alquiler)
-        binding.tvDetOperacion.text = when (op) {
-            "venta" -> getString(R.string.detalle_operacion_venta)
-            "alquiler" -> getString(R.string.detalle_operacion_alquiler)
-            else -> getString(R.string.detalle_operacion_desconocida)
-        }
-        binding.tvDetOperacion.visibility = View.VISIBLE
-
-        val vistasPill = listOf(binding.tvDetallePill, binding.tvDetDestacado)
-        vistasPill.forEach { it.visibility = if (isFeatured) View.VISIBLE else View.GONE }
-
-        // Chips de info: ambientes / superficie
-        val ambientes = intent.getIntExtra(EXTRA_AMBIENTES, 0)
-        val superficie = intent.getDoubleExtra(EXTRA_SUPERFICIE, 0.0)
-        binding.tvDetAmbientes.visibility =
-            if (ambientes > 0) View.VISIBLE else View.GONE
-        if (ambientes > 0) binding.tvDetAmbientes.text = getString(R.string.detalle_amb, ambientes)
-        binding.tvDetSuperficie.visibility =
-            if (superficie > 0) View.VISIBLE else View.GONE
-        if (superficie > 0) {
-            binding.tvDetSuperficie.text =
-                getString(R.string.detalle_superficie, superficie.toInt().toString())
-        }
-
-        val comodidades = intent.getStringArrayListExtra(EXTRA_COMODIDADES) ?: emptyList()
-        binding.tvDetComodidades.visibility =
-            if (comodidades.isNotEmpty()) View.VISIBLE else View.GONE
-        if (comodidades.isNotEmpty()) {
-            binding.tvDetComodidades.text = getString(
-                R.string.detalle_comodidades,
-                comodidades.joinToString(" · ")
-            )
-        }
-
-        val descripcion = intent.getStringExtra(EXTRA_DESCRIPCION).orEmpty()
-        binding.tvDetDescripcion.visibility =
-            if (descripcion.isNotBlank()) View.VISIBLE else View.GONE
-        binding.tvDetDescripcion.text = descripcion
-
-        // Galería (las fotos base64 ya no viajan por el intent: superaban el
-        // límite de Binder y causaban TransactionTooLargeException. Se cargan por ID.)
-        if (fotos.isEmpty() && fotosUrl.isEmpty() && propId.isNotBlank()) {
-            cargarFotosDesdeFirestore()
-        } else {
-            armarGaleria()
-        }
-        binding.ivPreview.setOnClickListener { abrirZoomFoto(indiceActual) }
-
-        // Ubicación en el mapa
-        binding.btnVerMapa.setOnClickListener { abrirUbicacionMapa() }
-        binding.btnVerMapa.visibility =
-            if (intent.getDoubleExtra(EXTRA_LAT, 0.0) == 0.0 &&
-                intent.getDoubleExtra(EXTRA_LNG, 0.0) == 0.0
-            ) View.GONE else View.VISIBLE
-
-        // Chat con el propietario
-        binding.btnChatPropietario.setOnClickListener { abrirChatPropietario() }
-        val miUid = auth.currentUser?.uid
-        val esMio = idPropietario.isNotBlank() && miUid == idPropietario
-        if (esMio) {
-            binding.btnChatPropietario.visibility = View.GONE
-        }
-
-        // Denunciar el anuncio
-        binding.btnDenunciar.setOnClickListener { abrirDenuncia() }
-        if (esMio) {
-            binding.btnDenunciar.visibility = View.GONE
-        }
-
-        // Publicación finalizada: banner de aviso y sin botón de chat
-        if (estado == "finalizado") {
-            binding.tvDetFinalizado.visibility = View.VISIBLE
-            binding.btnChatPropietario.visibility = View.GONE
-        }
-
-        // Publicación en revisión (por admin): banner de aviso, no se puede reactivar desde la app
-        if (estado == "under_review") {
-            binding.tvDetRevision.visibility = View.VISIBLE
-        }
-
-        // Publicación pausada (por usuario): se muestra como disponible para el dueño pero sin chat
-        if (estado == "pausada") {
-            binding.tvDetPausada.visibility = View.VISIBLE
-            binding.btnChatPropietario.visibility = View.GONE
-        }
-
-        // Finalizar la publicación (solo el dueño y mientras esté disponible o pausada)
-        binding.btnFinalizarPub.visibility =
-            if (esMio && (estado == "disponible" || estado == "pausada")) View.VISIBLE else View.GONE
-        binding.btnFinalizarPub.setOnClickListener { confirmarFinalizar() }
-
-        // Tarjeta del propietario → perfil completo
-        binding.cardPropietario.setOnClickListener {
-            abrirPerfilPropietario()
-        }
-        cargarPropietario()
     }
 
     private fun direccionCompleta(): String {

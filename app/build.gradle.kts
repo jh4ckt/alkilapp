@@ -31,16 +31,37 @@ android {
 
     signingConfigs {
         create("release") {
-            storeFile = file("../alkilapp-release.keystore")
-            storePassword = System.getenv("KEYSTORE_PASSWORD") ?: ""
-            keyAlias = System.getenv("KEY_ALIAS") ?: ""
-            keyPassword = System.getenv("KEY_PASSWORD") ?: ""
+            // Las credenciales vienen de keystore.properties (archivo local, esta en
+            // .gitignore) y NO de variables de entorno: antes solo se leian las env
+            // vars, asi que un build limpio fallaba con "Failed to read key from
+            // store" y no habia forma de saber que faltaba. Las env vars siguen
+            // teniendo prioridad para poder firmar en CI.
+            val signingProps = Properties().apply {
+                val f = rootProject.file("keystore.properties")
+                if (f.exists()) f.inputStream().use { load(it) }
+            }
+            fun prop(varName: String, envName: String): String =
+                System.getenv(envName)?.takeIf { it.isNotBlank() }
+                    ?: signingProps.getProperty(varName)?.takeIf { it.isNotBlank() }
+                    ?: ""
+
+            storeFile = file(prop("storeFile", "KEYSTORE_FILE").ifBlank { "../alkilapp-release.keystore" })
+            storePassword = prop("storePassword", "KEYSTORE_PASSWORD")
+            keyAlias = prop("keyAlias", "KEY_ALIAS")
+            keyPassword = prop("keyPassword", "KEY_PASSWORD")
         }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = true
+            // shrinkResources queda APAGADO a proposito: reduce el APK pero rompe en
+            // runtime cualquier recurso que se resuelva por nombre en tiempo de
+            // ejecucion (notificaciones, getIdentifier, layouts dinamicos). No se puede
+            // validar en un dispositivo real todavia porque la release firmada no instala
+            // sobre la app actual (firmas distintas), asi que activarlo a ciegas
+            // arriesgaria un crash en produccion. Encenderlo junto con una prueba en
+            // dispositivo.
             isShrinkResources = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             signingConfig = signingConfigs.getByName("release")

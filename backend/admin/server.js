@@ -33,7 +33,17 @@ const SA = process.env.GOOGLE_APPLICATION_CREDENTIALS ||
     path.join(__dirname, '..', 'credentials', 'alkilapp-seed-sa.json');
 const PASSWORD = (process.env.ADMIN_PASSWORD || '').trim();
 const USER = (process.env.ADMIN_USER || '').trim();
-const SECRET = process.env.ADMIN_SECRET || 'alkilapp-admin-dev';
+// Firmar sesiones de admin. SIN valor por defecto: un secreto conocido (por
+// ejemplo "alkilapp-admin-dev" en un repo publico) deja que cualquiera falsifique
+// la cookie alkil_admin y entre al panel con TODOS los permisos. Si falta, el
+// proceso arranca pero el login queda imposible.
+const SECRET = (process.env.ADMIN_SECRET || '').trim();
+// El cron se autoriza con un secreto DISTINTO al de las sesiones: asi el token
+// del cron no sirve como cookie de panel, ni al reves.
+const CRON_SECRET = (process.env.CRON_SECRET || '').trim();
+// Origen(es) autorizado(s) a llamar a /api/* desde el navegador. Vacio = ninguno
+// (el panel es same-origin, asi que es lo correcto en produccion).
+const ALLOWED_ORIGIN = (process.env.ALLOWED_ORIGIN || '').trim();
 const PORT = Number(process.env.PORT || 8080);
 
 const opcionesDb = { projectId: PROJECT, databaseId: DATABASE };
@@ -89,6 +99,56 @@ function pillEstado(estado) {
 const firmar = (t) => crypto.createHmac('sha256', SECRET).update(t).digest('hex');
 const SESION_TTL = 24 * 60 * 60 * 1000;
 
+/** Comparacion en tiempo constante: evita filtrar el secreto byte a byte. */
+function igualSeguro(a, b) {
+    const ba = Buffer.from(String(a == null ? '' : a));
+    const bb = Buffer.from(String(b == null ? '' : b));
+    if (ba.length !== bb.length) return false;
+    return crypto.timingSafeEqual(ba, bb);
+}
+
+/**
+ * Cabeceras de endurecimiento. Sin CSP la web del panel es susceptible a XSS
+ * inyectado en el DOM (por eso Publicaciones.js escapa todo), y el frame-ancestors
+ * evita que alguien meta el panel en un iframe clickjacking.
+ */
+function cabecerasSeguridad(res) {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('Referrer-Pollow', 'no-referrer');
+    res.setHeader('Content-Security-Policy',
+        "default-src 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; "
+        + "script-src 'self'; connect-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'self'");
+}
+
+/**
+ * Limitador de intentos de login por IP: frena el fuerza bruta de la contraseña
+ * del panel. En memoria (se reinicia al reiniciar la instancia, suficiente para
+ * frenar ataques automatizados, no para un atacante persistente).
+ */
+const INTENTOS = new Map();
+const MAX_INTENTOS = 8;
+const VENTANA_INTENTOS = 10 * 60 * 1000;
+function ipDe(req) {
+    return (req.headers['x-forwarded-for'] || '').split(',')[0].trim()
+        || req.socket?.remoteAddress || 'desconocida';
+}
+function bloqueado(ip) {
+    const reg = INTENTOS.get(ip);
+    if (!reg) return false;
+    if (Date.now() - reg.desde > VENTANA_INTENTOS) { INTENTOS.delete(ip); return false; }
+    return reg.n >= MAX_INTENTOS;
+}
+function anotarFallo(ip) {
+    const reg = INTENTOS.get(ip);
+    if (!reg || Date.now() - reg.desde > VENTANA_INTENTOS) {
+        INTENTOS.set(ip, { n: 1, desde: Date.now() });
+    } else {
+        reg.n++;
+    }
+}
+function limpiarIntentos(ip) { INTENTOS.delete(ip); }
+
 function cookies(req) {
     const out = {};
     (req.headers.cookie || '').split(';').forEach((p) => {
@@ -99,11 +159,15 @@ function cookies(req) {
 }
 
 function autenticado(req) {
+    // Fail-closed: sin ADMIN_SECRET no hay ninguna cookie valida. Sin esta guarda,
+    // firmar() usaria una clave VACIA y cualquiera podria fabricar un token
+    // (payload|ts + HMAC de "") y entrar al panel.
+    if (!SECRET) return false;
     const token = cookies(req).alkil_admin;
     if (!token) return false;
     const [payload, firma] = token.split('.');
     if (!payload || !firma) return false;
-    if (firma !== firmar(payload)) return false;
+    if (!igualSeguro(firma, firmar(payload))) return false;
     const [id, ts] = payload.split('|');
     if (!id || !ts) return false;
     const ahora = Date.now();
@@ -160,19 +224,27 @@ async function serveStatic(req, res, filePath) {
 async function handleAPI(req, res, url) {
     const ruta = url.pathname;
 
-    // CORS headers
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    // CORS: el panel se sirve desde el MISMO origen, asi que no necesita CORS.
+    // Con "Access-Control-Allow-Origin: *" cualquier pagina podia leer las
+    // respuestas de /api/* con la cookie del admin. Ahora solo se permite un
+    // origen explicito (ALLOWED_ORIGIN) y por defecto ninguno.
+    const origenPermitido = ALLOWED_ORIGIN;
+    const origen = req.headers.origin;
+    if (origenPermitido && origen === origenPermitido) {
+        res.setHeader('Access-Control-Allow-Origin', origenPermitido);
+        res.setHeader('Vary', 'Origin');
+        res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    }
 
     if (req.method === 'OPTIONS') {
         res.writeHead(204); return res.end();
     }
 
     try {
-        // Cron (no auth)
+        // Cron (no auth): se autoriza con CRON_SECRET, no con el secreto de sesión.
         if (ruta === '/api/cron/expirar') {
-            if (!SECRET || url.searchParams.get('clave') !== SECRET) {
+            if (!CRON_SECRET || !igualSeguro(url.searchParams.get('clave'), CRON_SECRET)) {
                 return json(res, 403, { error: 'clave invalida' });
             }
             const r = await expirarDestacados(db);
@@ -181,7 +253,7 @@ async function handleAPI(req, res, url) {
 
         // Cierre automatico de los chats con acuerdo cerrado (48h).
         if (ruta === '/api/cron/cerrar-chats') {
-            if (!SECRET || url.searchParams.get('clave') !== SECRET) {
+            if (!CRON_SECRET || !igualSeguro(url.searchParams.get('clave'), CRON_SECRET)) {
                 return json(res, 403, { error: 'clave invalida' });
             }
             const r = await cerrarChatsAcordados(db);
@@ -591,25 +663,36 @@ const servidor = http.createServer(async (req, res) => {
     const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
     const ruta = url.pathname;
 
+    // Cabeceras de seguridad en TODAS las respuestas (estaticas, panel y API).
+    cabecerasSeguridad(res);
+
     try {
         // Auth endpoints (form-based for backward compat)
         if (ruta === '/login' && req.method === 'GET') {
             return serveStatic(req, res, path.join(PUBLIC_DIR, 'login.html'));
         }
         if (ruta === '/login' && req.method === 'POST') {
+            const ip = ipDe(req);
+            if (bloqueado(ip)) {
+                console.log(`[LOGIN] Bloqueado por exceso de intentos: ${ip}`);
+                return html(res, 429, 'Demasiados intentos fallidos. Espera 10 minutos.');
+            }
             const body = await leerCuerpo(req);
             const inputUser = (typeof body.get === 'function' ? body.get('user') : body.user)?.trim() || '';
             const inputPassword = (typeof body.get === 'function' ? body.get('password') : body.password)?.trim() || '';
             console.log('[LOGIN] Attempt:', {
-                hasUser: !!USER, hasPassword: !!PASSWORD,
+                hasUser: !!USER, hasPassword: !!PASSWORD, hasSecret: !!SECRET,
                 inputUserLen: inputUser.length, expectedUserLen: USER.length,
                 inputPassLen: inputPassword.length, expectedPassLen: PASSWORD.length
             });
             if (!PASSWORD) return html(res, 500, 'ADMIN_USER/ADMIN_PASSWORD no configurados en variables de entorno');
-            if (inputUser !== USER || inputPassword !== PASSWORD) {
+            if (!SECRET) return html(res, 500, 'ADMIN_SECRET no configurado: no se pueden firmar sesiones');
+            if (!igualSeguro(inputUser, USER) || !igualSeguro(inputPassword, PASSWORD)) {
+                anotarFallo(ip);
                 console.log('[LOGIN] Failed: user or password mismatch');
                 return html(res, 401, 'Usuario o contraseña incorrectos');
             }
+            limpiarIntentos(ip);
             const id = crypto.randomBytes(16).toString('hex');
             const ts = Date.now().toString();
             const payload = `${id}|${ts}`;
@@ -672,7 +755,9 @@ function html(res, status, msg) {
 
 servidor.listen(PORT, '0.0.0.0', () => {
     console.log(`AlkilApp Admin API + UI en http://localhost:${PORT}`);
-    if (!PASSWORD) console.warn('AVISO: define ADMIN_PASSWORD');
+    if (!PASSWORD) console.warn('AVISO: define ADMIN_PASSWORD (el login no funcionara)');
+    if (!SECRET) console.warn('AVISO: define ADMIN_SECRET (las sesiones no se podran firmar)');
+    if (!CRON_SECRET) console.warn('AVISO: define CRON_SECRET (los crones responderan 403)');
 });
 
 process.on('unhandledRejection', (reason) => {

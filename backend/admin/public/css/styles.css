@@ -423,3 +423,8 @@ html[data-theme="dark"] .icon-btn .icon-moon { display: block; }
 
 /* Print */
 @media print { .sidebar, .topbar, .btn, .pagination, .modal-overlay, .toast-container { display: none !important; } .main { grid-column: 1; } #app { grid-template-columns: 1fr; } }
+
+/* Fila de tabla con resaltado al pasar el mouse. Antes se hacia con
+   onmouseover/onmouseout inline, que la CSP (`script-src 'self'`) bloquea. */
+.table-row-hover { transition: background-color 0.15s ease; }
+.table-row-hover:hover { background-color: var(--bg-secondary); }

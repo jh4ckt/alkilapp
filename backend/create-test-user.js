@@ -19,9 +19,20 @@ initializeApp({
 const auth = getAuth();
 
 async function createTestUser() {
-  const email = 'test.reviewer@alkilapp.com';
-  const password = 'TestPass123!';
-  const displayName = 'Play Console Reviewer';
+  // Credenciales por variable de entorno: no dejar la contraseña del usuario de
+  // pruebas escrita en el repo. Uso:
+  //   TEST_USER_EMAIL=... TEST_USER_PASSWORD=... node create-test-user.js
+  const email = process.env.TEST_USER_EMAIL || 'test.reviewer@alkilapp.com';
+  const password = process.env.TEST_USER_PASSWORD;
+  const displayName = process.env.TEST_USER_NAME || 'Play Console Reviewer';
+
+  if (!password) {
+    console.error(
+      'Falta TEST_USER_PASSWORD. No se usa una contraseña por defecto:\n' +
+      '  $env:TEST_USER_PASSWORD="..." ; node create-test-user.js'
+    );
+    process.exit(1);
+  }
 
   try {
     // Check if user already exists

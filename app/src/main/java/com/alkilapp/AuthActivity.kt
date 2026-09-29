@@ -51,9 +51,9 @@ class AuthActivity : AppCompatActivity() {
             auth.signInWithCredential(GoogleAuthProvider.getCredential(idToken, null))
                 .addOnCompleteListener { task ->
                     if (task.isSuccessful) {
-                        guardarUsuarioEnBase()
+                        // finish() espera a que el perfil quede guardado.
+                        guardarUsuarioEnBase { finish() }
                         Toast.makeText(this, R.string.auth_ok_google, Toast.LENGTH_SHORT).show()
-                        finish()
                     } else {
                         mostrarError(getString(R.string.auth_error, task.exception?.localizedMessage ?: "?"))
                     }
@@ -67,6 +67,11 @@ class AuthActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityAuthBinding.inflate(layoutInflater)
         setContentView(binding.root)
+
+        // Al rotar, el ToggleGroup vuelve al primer tab y el formulario de registro
+        // (nombre/telefono/departamento) se perdia a medias. Se restaura el modo.
+        modoRegistro = savedInstanceState?.getBoolean(ESTADO_MODO_REGISTRO) ?: false
+        binding.tgAuthModo.check(if (modoRegistro) R.id.btnTabCrear else R.id.btnTabIngresar)
 
         binding.tgAuthModo.addOnButtonCheckedListener { _, checkedId, isChecked ->
             if (!isChecked) return@addOnButtonCheckedListener
@@ -91,6 +96,11 @@ class AuthActivity : AppCompatActivity() {
     }
 
     /** Alterna el formulario entre modo "Ingresar" y "Crear cuenta". */
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putBoolean(ESTADO_MODO_REGISTRO, modoRegistro)
+    }
+
     private fun aplicarModo(registro: Boolean) {
         modoRegistro = registro
         binding.tilAuthNombre.visibility = if (registro) View.VISIBLE else View.GONE
@@ -146,9 +156,9 @@ class AuthActivity : AppCompatActivity() {
             .addOnCompleteListener { task ->
                 bloquear(false)
                 if (task.isSuccessful) {
-                    guardarUsuarioEnBase()
+                    // finish() espera a que el perfil quede guardado.
+                    guardarUsuarioEnBase { finish() }
                     Toast.makeText(this, R.string.auth_ok_login, Toast.LENGTH_SHORT).show()
-                    finish()
                 } else {
                     mostrarError(getString(R.string.auth_error, task.exception?.localizedMessage ?: "?"))
                 }
@@ -175,10 +185,13 @@ class AuthActivity : AppCompatActivity() {
                     .setDisplayName(nombre)
                     .build()
                 task.result?.user?.updateProfile(perfil)
-                guardarUsuarioEnBase(nombre, telefono, departamento)
+                // El registro recien creado SIEMPRE es un doc nuevo: se espera a que
+                // exista antes de cerrar (si no, se perdia el perfil al rotar o salir).
+                guardarUsuarioEnBase(nombre, telefono, departamento) {
+                    Toast.makeText(this, R.string.auth_ok_registro, Toast.LENGTH_SHORT).show()
+                    finish()
+                }
                 bloquear(false)
-                Toast.makeText(this, R.string.auth_ok_registro, Toast.LENGTH_SHORT).show()
-                finish()
             }
     }
 
@@ -206,8 +219,18 @@ class AuthActivity : AppCompatActivity() {
         googleLauncher.launch(googleSignInClient.signInIntent)
     }
 
-    /** Crea/actualiza el documento del usuario sin pisar datos ya existentes. */
-    private fun guardarUsuarioEnBase(nombreNuevo: String? = null, telefonoNuevo: String? = null, departamentoNuevo: String? = null) {
+    /** Crea/actualiza el documento del usuario sin pisar datos ya existentes.
+     *
+     * `alTerminar` se invoca SIEMPRE (exito o fallo) porque antes esta escritura
+     * era "fire and forget" y se llamaba finish() de inmediato: si el proceso
+     * moria o la Activity se destruia, el doc `usuarios/{uid}` se perdia y el
+     * usuario quedaba con cuenta pero sin perfil. */
+    private fun guardarUsuarioEnBase(
+        nombreNuevo: String? = null,
+        telefonoNuevo: String? = null,
+        departamentoNuevo: String? = null,
+        alTerminar: (() -> Unit)? = null
+    ) {
         val u = auth.currentUser ?: return
         val ref = db.collection("usuarios").document(u.uid)
         val base = hashMapOf(
@@ -237,6 +260,7 @@ class AuthActivity : AppCompatActivity() {
                     datos["fechaRegistro"] = FieldValue.serverTimestamp()
                 }
                 ref.set(datos, SetOptions.merge())
+                    .addOnCompleteListener { alTerminar?.invoke() }
             }
             .addOnFailureListener { e ->
                 Toast.makeText(
@@ -244,6 +268,7 @@ class AuthActivity : AppCompatActivity() {
                     getString(R.string.auth_usuario_guardado_error, e.localizedMessage ?: "?"),
                     Toast.LENGTH_LONG
                 ).show()
+                alTerminar?.invoke()
             }
     }
 
@@ -268,5 +293,9 @@ class AuthActivity : AppCompatActivity() {
             (getSystemService(INPUT_METHOD_SERVICE) as? InputMethodManager)
                 ?.hideSoftInputFromWindow(binding.root.windowToken, 0)
         }
+    }
+
+    private companion object {
+        const val ESTADO_MODO_REGISTRO = "estado_modo_registro"
     }
 }

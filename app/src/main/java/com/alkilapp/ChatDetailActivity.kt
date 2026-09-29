@@ -33,6 +33,7 @@ class ChatDetailActivity : AppCompatActivity() {
     private val db by lazy { FirebaseFirestore.getInstance("alkilappdb") }
     private var escuchaMensajes: ListenerRegistration? = null
     private var escuchaChat: ListenerRegistration? = null
+    private var escuchaInmueble: ListenerRegistration? = null
 
     private val coloresAvatar = intArrayOf(
         R.color.avatar_1, R.color.avatar_2, R.color.avatar_3, R.color.avatar_4, R.color.avatar_5
@@ -107,7 +108,10 @@ private var chatId: String = ""
      * deshabilita la barra de escritura para no permitir mas comunicacion.
      */
     private fun vigilarEstadoInmueble() {
-        db.collection("propiedades").document(listingId)
+        // Se guarda la suscripcion: sin remove() en onStop el listener seguia
+        // vivo con la pantalla fuera y el usuario dentro del chat.
+        escuchaInmueble?.remove()
+        escuchaInmueble = db.collection("propiedades").document(listingId)
             .addSnapshotListener { snap, _ ->
                 if (snap?.exists() == true) {
                     val estado = (snap.data?.get("estado") as? String)?.trim()?.lowercase().orEmpty()
@@ -157,6 +161,8 @@ private var chatId: String = ""
         ChatVista.actual = ""
         escuchaMensajes?.remove()
         escuchaChat?.remove()
+        escuchaInmueble?.remove()
+        escuchaInmueble = null
     }
 
     /** Carga el avatar/nombre/verificado/rating del interlocutor. */

@@ -3,3 +3,10 @@ credentials
 .git
 *.log
 e2e-test
+# La clave JSON de la service account NUNCA debe entrar en la imagen: en la nube
+# el panel usa las credenciales del runtime service account (ADC). Mantener el
+# archivo local solo para las pruebas locales.
+alkilapp-seed-sa.json
+*.pem
+*.p12
+*.env

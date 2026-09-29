@@ -38,15 +38,56 @@ service cloud.firestore {
         && request.auth.uid == resource.data.idPropietario;
     }
 
-    // USUARIOS: perfil publico para lectura; cada usuario escribe SIEMPRE su mismo doc (doc id = uid).
-    // EXCEPCION (resenas): cualquier autenticado puede actualizar SOLO los agregados de
-    // calificacion ("rating"/"totalRatings"), para que una resena nueva se refleje en el puntaje.
+    // USUARIOS: perfil publico para lectura; cada usuario escribe SIEMPRE su mismo
+    // doc (doc id = uid).
+    //
+    // BLINDAJE (v14): el cliente solo puede escribir los campos de perfil que la app
+    // escribe de verdad. Con "hasOnly" queda prohibido de raiz todo lo que escribe el
+    // ADMIN con la service account: "estado" (activo/suspendido/desactivado),
+    // "trustLevel", "verificationBadge" y "verification.identityVerified" (el escudo
+    // de "verificado" que se lee en el perfil del propietario). Antes de este
+    // cambio el usuario podia auto-asignarse el escudo verificado y hasta
+    // des-suspenderse a si mismo escribiendo estado="activo".
+    //
+    // EXCEPCION (resenas): un autenticado actualiza SOLO los agregados de
+    // calificacion ("rating"/"totalRatings") y solo si tiene una resena real escrita
+    // (asi nadie se infla la reputacion sin reseñar).
     match /usuarios/{usuario} {
+      // Campos que el cliente legitimamente escribe (ver AuthActivity.guardarUsuarioEnBase,
+      // MainActivity.guardarUsuarioEnBase, MiPerfilActivity.guardarPerfil y
+      // VerificacionActivity). Todo lo demas es del backend.
+      function camposPerfil() {
+        return ['nombre', 'email', 'uidAuth', 'activo', 'telefono', 'tipoUsuario',
+                'fechaRegistro', 'zonaDepartamento', 'zonaCiudad', 'fotoBase64',
+                'verification'];
+      }
+      // "verification" escrito por el cliente es solo un ENVIO: estado "pendiente" y
+      // sin "identityVerified"/"motivo" (los pone el admin al aprobar o rechazar).
+      function verificationPermitida() {
+        return !('verification' in request.resource.data)
+          || (request.resource.data.verification is map
+            && !('identityVerified' in request.resource.data.verification)
+            && !('motivo' in request.resource.data.verification)
+            && request.resource.data.verification.get('status', '') == 'pendiente'
+            && request.resource.data.verification.get('documentoPendiente', false) == true
+            && request.resource.data.verification
+                 .diff(resource.data.get('verification', {}))
+                 .affectedKeys()
+                 .hasOnly(['status', 'documentoPendiente', 'tipoDocumento',
+                           'numeroDocumento', 'enviadoEn']));
+      }
       allow read: if true;
-      allow create: if request.auth != null && request.auth.uid == usuario;
+      allow create: if request.auth != null
+        && request.auth.uid == usuario
+        // En create no hay "resource", asi que se listan las claves directas.
+        && request.resource.data.keys().hasOnly(camposPerfil())
+        && verificationPermitida();
       allow update: if request.auth != null && (
-        request.auth.uid == usuario
-        || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['rating', 'totalRatings'])
+        (request.auth.uid == usuario
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(camposPerfil())
+          && verificationPermitida())
+        || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['rating', 'totalRatings'])
+            && exists(/databases/$(database)/documents/usuarios/$(usuario)/reviews/$(request.auth.uid)))
       );
       allow delete: if request.auth != null && request.auth.uid == usuario;
     }
@@ -84,6 +125,20 @@ service cloud.firestore {
         && request.auth.uid in resource.data.participants
         // La lista de participantes es inmutable: nadie se cuela ni expulsa a otro.
         && request.resource.data.participants == resource.data.participants
+        // BLINDAJE (v14): el inmueble asociado tampoco se puede re-apuntar. Sin esto
+        // un participante podria poner "listingId" de una publicacion suya y pasar
+        // por dueno dentro de este chat.
+        && (!('listingId' in request.resource.data)
+            || ('listingId' in resource.data
+                && request.resource.data.listingId == resource.data.listingId))
+        // "acuerdo" es el espejo del cierre de una propuesta y SOLO lo escribe la
+        // service account (backend). Antes era escribible por cualquier
+        // participante, y como "propiedades" permite pausarse cuando el chat consta
+        // con acuerdo aceptado, un arrendatario podia despublicar el inmueble de otro
+        // escribiendo acuerdo={estado:"aceptada"}. La verdad es el mensaje de tipo
+        // "propuesta" y su "propuestaEstado" (ya protegido mas abajo).
+        && (!('acuerdo' in request.resource.data)
+            || request.resource.data.acuerdo == resource.data.get('acuerdo', {}))
         && (!('estado' in request.resource.data)
             || request.resource.data.estado in ['abierto', 'cerrado', 'acuerdo_cerrado'])
         // "deletedForUsers" (ocultar chat, NO borrar) solo puede CRECER con el propio
@@ -170,6 +225,20 @@ service cloud.firestore {
       function puedeResponderCita(uid) {
         return chatListingId(chat).size() == 0 || esPropietario(chat, uid);
       }
+      // BLINDAJE (v14): un aviso "sistema" solo es legitimo si el chat esta de
+      // verdad en un estado que lo justifica: cerrado (a mano o automaticamente a
+      // las 48h) o con la visita ya resuelta. Antes cualquier mensaje de tipo
+      // "sistema" entraba en cualquier chat, con lo que un atacante podía colar
+      // avisos falsos de la plataforma ("verificacion pendiente", "no pagues
+      // todavia") para pescar el celular de la victima. Estos son los tres unicos
+      // avisos que la app escribe, y en los tres casos el estado del chat YA se
+      // habia guardado antes de enviar el mensaje.
+      function puedeAvisoSistema() {
+        let c = get(/databases/$(database)/documents/chats/$(chat)).data;
+        return c.get('estado', 'abierto') == 'cerrado'
+          || c.get('cita', {}).get('estado', '') in ['aceptada', 'rechazada']
+          || c.get('citaPendiente', {}).get('estado', '') == 'rechazada';
+      }
       allow read: if request.auth != null && chatParticipa(chat, request.auth.uid);
       allow create: if request.auth != null
         && chatParticipa(chat, request.auth.uid)
@@ -183,6 +252,8 @@ service cloud.firestore {
         // el aviso de cierre SI puede añadirse: por eso los mensajes de sistema se
         // permiten siempre y el resto no.
         && (!chatCerrado(chat) || tipoMensaje() == 'sistema')
+        // ...y un "sistema" solo entra con un estado que lo justifique (v14).
+        && (tipoMensaje() != 'sistema' || puedeAvisoSistema())
         // Solo el dueño del inmueble puede proponer un acuerdo de alquiler.
         && (tipoMensaje() != 'propuesta' || esPropietario(chat, request.auth.uid))
         // Las citas las agenda el interesado, nunca el dueño del inmueble.
