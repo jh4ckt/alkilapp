@@ -460,6 +460,7 @@ class PerfilPropietarioActivity : AppCompatActivity() {
                 }
                 if (snap == null) return@addSnapshotListener
                 val docs = snap.documents.mapNotNull { Propiedad.desde(it) }
+                    .filter { it.estado != "under_review" && it.estado != "finalizado" && it.estado != "pausada" }
                     .sortedBy { it.precio }
                 binding.llPerfilInmuebles.removeAllViews()
                 if (docs.isEmpty()) {
