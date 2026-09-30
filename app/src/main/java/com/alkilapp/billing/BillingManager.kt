@@ -59,8 +59,16 @@ class BillingManager(private val activity: Activity) {
 
     /** Product IDs en Play Console (ajustar a los reales). */
     companion object {
-        const val SKU_DESTACAR_7D = "destacar_7d"
-        const val SKU_DESTACAR_15D = "destacar_15d"
-        const val SKU_DESTACAR_30D = "destacar_30d"
+        const val SKU_DESTACAR_7D = "destacado_7d"
+        const val SKU_DESTACAR_15D = "destacado_15d"
+        const val SKU_DESTACAR_30D = "destacado_30d"
+
+        /** Días que otorga cada SKU. */
+        fun diasPorSku(sku: String): Int = when (sku) {
+            SKU_DESTACAR_7D -> 7
+            SKU_DESTACAR_15D -> 15
+            SKU_DESTACAR_30D -> 30
+            else -> 0
+        }
     }
 }
