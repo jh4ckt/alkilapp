@@ -864,6 +864,13 @@ class RegistrarPropiedadActivity : AppCompatActivity() {
             finish()
             return
         }
+        // Verificar límite de publicaciones antes de continuar (solo para nuevas)
+        if (!editMode) {
+            verificarLimitePublicaciones(u.uid) { puede ->
+                if (puede) runOnUiThread { continuarGuardado(u, propiedadId) }
+            }
+            return
+        }
         val tipos = resources.getStringArray(R.array.tipos_inmueble)
         val operaciones = resources.getStringArray(R.array.operaciones)
         val monedas = resources.getStringArray(R.array.monedas)
@@ -987,11 +994,194 @@ class RegistrarPropiedadActivity : AppCompatActivity() {
 
     }
 
+    /** Continuación del guardado tras verificar límite de publicaciones. */
+    private fun continuarGuardado(u: com.google.firebase.auth.FirebaseUser, propiedadId: String = "") {
+        val titulo = binding.etPropTitulo.text.toString().trim()
+        val descripcion = binding.etPropDescripcion.text.toString().trim()
+        val precioStr = binding.etPropPrecio.text.toString().trim()
+        val precio = precioStr.toDoubleOrNull() ?: 0.0
+        val tipos = resources.getStringArray(R.array.tipos_inmueble)
+        val operaciones = resources.getStringArray(R.array.operaciones)
+        val monedas = resources.getStringArray(R.array.monedas)
+        val codigoMoneda =
+            if (monedas[binding.spPropMoneda.selectedItemPosition].contains("USD")) "USD" else "PEN"
+        val departamento = binding.spPropDepartamento.selectedItem as String
+        val distrito = binding.spPropDistrito.selectedItem as String
+        val barrio = if (distrito == getString(R.string.prop_distrito_sin) || distrito == "Otro") "" else distrito
+
+        // Validaciones obligatorias
+        val tipoIdx = binding.spPropTipo.selectedItemPosition
+        if (tipoIdx < 0 || tipoIdx >= tipos.size) {
+            mostrarError(R.string.prop_tipo_requerido)
+            return
+        }
+        val operIdx = binding.spPropOperacion.selectedItemPosition
+        if (operIdx < 0 || operIdx >= resources.getStringArray(R.array.operaciones).size) {
+            mostrarError(R.string.prop_operacion_requerido)
+            return
+        }
+        val monedaIdx = binding.spPropMoneda.selectedItemPosition
+        if (monedaIdx < 0 || monedaIdx >= monedas.size) {
+            mostrarError(R.string.prop_moneda_requerido)
+            return
+        }
+        if (departamento.isEmpty() || departamento == getString(R.string.prop_departamento_sin)) {
+            mostrarError(R.string.prop_departamento_requerido)
+            return
+        }
+        if (distrito.isEmpty() || distrito == getString(R.string.prop_distrito_sin) || distrito == "Otro") {
+            mostrarError(R.string.prop_distrito_requerido)
+            return
+        }
+        val ambientesStr = binding.etPropAmbientes.text.toString().trim()
+        if (ambientesStr.isEmpty()) {
+            mostrarError(R.string.prop_ambientes_requerido)
+            return
+        }
+        val ambientes = ambientesStr.toIntOrNull() ?: 0
+        if (ambientes <= 0) {
+            mostrarError(R.string.prop_ambientes_requerido)
+            return
+        }
+        val superficieStr = binding.etPropSuperficie.text.toString().trim()
+        if (superficieStr.isEmpty()) {
+            mostrarError(R.string.prop_superficie_requerido)
+            return
+        }
+        val superficie = superficieStr.toDoubleOrNull() ?: 0.0
+        if (superficie <= 0) {
+            mostrarError(R.string.prop_superficie_requerido)
+            return
+        }
+        val direccion = binding.etPropDireccion.text.toString().trim()
+        if (direccion.isEmpty()) {
+            mostrarError(R.string.prop_direccion_requerida)
+            return
+        }
+        if (fotosFormulario.isEmpty()) {
+            mostrarError(R.string.prop_fotos_requeridas)
+            return
+        }
+
+        val comodidades = binding.cgPropComodidades.checkedChipIds.mapNotNull { id ->
+            (binding.cgPropComodidades.findViewById<com.google.android.material.chip.Chip>(id))
+                ?.text?.toString()
+        }
+
+        val datos = hashMapOf<String, Any>(
+            "titulo" to titulo,
+            "descripcion" to descripcion,
+            "tipo" to tipos[binding.spPropTipo.selectedItemPosition],
+            "operacion" to operaciones[binding.spPropOperacion.selectedItemPosition],
+            "precio" to precio,
+            "moneda" to codigoMoneda,
+            "direccion" to direccion,
+            "barrio" to barrio,
+            "ciudad" to departamento,
+            "lat" to latAgregar,
+            "lng" to lngAgregar,
+            "imagenUrl" to emptyList<String>(),
+            "fotos" to fotosFormulario.toList(),
+            "idPropietario" to u.uid,
+            "ambientes" to ambientes,
+            "superficieM2" to superficie,
+            "comodidades" to comodidades,
+            "publicadoEn" to FieldValue.serverTimestamp()
+        )
+
+        if (propiedadId.isNotBlank()) {
+            // Modo edición, actualizar documento existente (mantener estado actual)
+            db.collection("propiedades").document(propiedadId).update(datos)
+                .addOnSuccessListener {
+                    Toast.makeText(this, "Cambios guardados", Toast.LENGTH_SHORT).show()
+                    finish()
+                }
+                .addOnFailureListener { e ->
+                    Toast.makeText(
+                        this,
+                        getString(R.string.prop_error_guardado, e.localizedMessage ?: "?"),
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+        } else {
+            // Nueva publicación
+            val datosNueva = datos.toMutableMap()
+            datosNueva["estado"] = "under_review"
+            db.collection("propiedades").add(datosNueva)
+                .addOnSuccessListener {
+                    Toast.makeText(this, R.string.prop_ok_guardado, Toast.LENGTH_SHORT).show()
+                    finish()
+                }
+                .addOnFailureListener { e ->
+                    Toast.makeText(
+                        this,
+                        getString(R.string.prop_error_guardado, e.localizedMessage ?: "?"),
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+        }
+    }
+
+    /**
+     * Verifica si el usuario puede crear una nueva publicación.
+     * Usuarios no verificados: máximo 1 publicación activa.
+     * Usuarios verificados: máximo 5 publicaciones activas simultáneas.
+     * Llama al callback con true si puede publicar, false si alcanzó el límite (muestra toast).
+     */
+    private fun verificarLimitePublicaciones(uid: String, callback: (Boolean) -> Unit) {
+        val MAX_NO_VERIFICADO = 1
+        val MAX_VERIFICADO = 5
+
+        db.collection("usuarios").document(uid).get()
+            .addOnSuccessListener { userDoc ->
+                val verificado = userDoc.get("verification.identityVerified") == true
+                val maxPermitido = if (verificado) MAX_VERIFICADO else MAX_NO_VERIFICADO
+
+                db.collection("propiedades")
+                    .whereEqualTo("idPropietario", uid)
+                    .whereEqualTo("estado", "disponible")
+                    .get()
+                    .addOnSuccessListener { snap ->
+                        val activas = snap.size()
+                        if (activas >= maxPermitido) {
+                            val msg = if (verificado) {
+                                getString(R.string.prop_limite_verificado, maxPermitido)
+                            } else {
+                                getString(R.string.prop_limite_no_verificado)
+                            }
+                            runOnUiThread { mostrarError(msg) }
+                            callback(false)
+                        } else {
+                            callback(true)
+                        }
+                    }
+                    .addOnFailureListener { e ->
+                        runOnUiThread {
+                            mostrarError(getString(R.string.prop_error_limite, e.localizedMessage ?: "?"))
+                            callback(false)
+                        }
+                    }
+            }
+            .addOnFailureListener { e ->
+                runOnUiThread {
+                    mostrarError(getString(R.string.prop_error_limite, e.localizedMessage ?: "?"))
+                    callback(false)
+                }
+            }
+    }
+
     @SuppressLint("ShowToast")
     private fun mostrarError(@StringRes resId: Int, finishActivity: Boolean = false) {
         val toast = Toast.makeText(this, resId, Toast.LENGTH_LONG)
         toast.setGravity(Gravity.CENTER, 0, (-80 * resources.displayMetrics.density).toInt())
         toast.show()
         if (finishActivity) finish()
+    }
+
+    /** Sobrecarga para mostrar un mensaje de error arbitrario (no recurso). */
+    private fun mostrarError(mensaje: String) {
+        val toast = Toast.makeText(this, mensaje, Toast.LENGTH_LONG)
+        toast.setGravity(Gravity.CENTER, 0, (-80 * resources.displayMetrics.density).toInt())
+        toast.show()
     }
 }

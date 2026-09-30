@@ -91,6 +91,31 @@ class VerificacionActivity : AppCompatActivity() {
         cargarEstado()
     }
 
+    /** Bloquea/desbloquea los campos del formulario según estado de verificación. */
+    private fun actualizarCamposSegunVerificacion(verificado: Boolean) {
+        if (verificado) {
+            binding.etVerifNumero.isEnabled = false
+            binding.etVerifNumero.alpha = 0.5f
+            binding.spVerifTipo.isEnabled = false
+            binding.spVerifTipo.alpha = 0.5f
+            binding.btnVerifFoto.isEnabled = false
+            binding.btnVerifFoto.alpha = 0.5f
+            binding.btnVerifFotoReverso.isEnabled = false
+            binding.btnVerifFotoReverso.alpha = 0.5f
+            binding.btnVerifEnviar.isEnabled = false
+            binding.btnVerifEnviar.text = getString(R.string.verif_ya_verificado)
+        } else {
+            binding.etVerifNumero.isEnabled = true
+            binding.etVerifNumero.alpha = 1f
+            binding.spVerifTipo.isEnabled = true
+            binding.spVerifTipo.alpha = 1f
+            binding.btnVerifFoto.isEnabled = true
+            binding.btnVerifFoto.alpha = 1f
+            binding.btnVerifFotoReverso.isEnabled = true
+            binding.btnVerifFotoReverso.alpha = 1f
+        }
+    }
+
     private fun elegirFoto() {
         fotoLauncher.launch(
             PickVisualMediaRequest.Builder()
@@ -126,6 +151,7 @@ class VerificacionActivity : AppCompatActivity() {
                         binding.tvVerifEstado.setText(R.string.verif_estado_verificado)
                         binding.tvVerifEstado.visibility = View.VISIBLE
                         bloquearEnvio(true)
+                        actualizarCamposSegunVerificacion(true)
                     }
                     estado == "pendiente" -> {
                         binding.tvVerifEstado.setText(R.string.verif_estado_pendiente)
