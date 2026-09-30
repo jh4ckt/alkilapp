@@ -3,6 +3,7 @@ package com.alkilapp.ui
 import android.content.res.ColorStateList
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.PorterDuff
 import android.util.Base64
 import android.util.Log
 import android.util.LruCache
@@ -116,12 +117,10 @@ class PropiedadAdapter(
         binding.tvEstadoBadge.visibility = if (textoEstado.isNotEmpty()) View.VISIBLE else View.GONE
         if (textoEstado.isNotEmpty()) {
             binding.tvEstadoBadge.text = textoEstado
-            binding.tvEstadoBadge.backgroundTintList = ColorStateList.valueOf(
-                ctx.getColor(
-                    if (estado == "disponible") R.color.status_success_dark
-                    else R.color.text_muted
-                )
-            )
+            val colorRes = if (estado == "disponible") R.color.status_success_dark else R.color.text_muted
+            binding.tvEstadoBadge.backgroundTintList = ColorStateList.valueOf(ctx.getColor(colorRes))
+            // Forzar el color de fondo mutando el drawable (bg_pill_estado tiene color hardcodeado)
+            binding.tvEstadoBadge.background?.mutate()?.setColorFilter(ctx.getColor(colorRes), PorterDuff.Mode.SRC_ATOP)
         }
 
         // Destacado: borde acento + etiqueta flotante.
