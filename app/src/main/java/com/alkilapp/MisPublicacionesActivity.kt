@@ -305,29 +305,45 @@ class MisPublicacionesActivity : AppCompatActivity() {
     }
 
     private fun mostrarDialogoDestacar(p: Propiedad) {
-        val opciones = arrayOf(
-            "7 días - S/ 6.90",
-            "15 días - S/ 12.90",
-            "30 días - S/ 24.90"
+        val opciones = listOf(
+            Pair(7, 6.90),
+            Pair(15, 12.90),
+            Pair(30, 24.90)
         )
-        androidx.appcompat.app.AlertDialog.Builder(this)
-            .setTitle("Destacar publicación")
-            .setMessage("Elige la duración del destacado:")
-            .setItems(opciones) { _, which ->
-                val dias = when (which) {
-                    0 -> 7
-                    1 -> 15
-                    else -> 30
-                }
-                val precio = when (which) {
-                    0 -> 6.90
-                    1 -> 12.90
-                    else -> 24.90
-                }
-                iniciarPagoDestacado(p, dias, precio)
-            }
-            .setNegativeButton("Cancelar", null)
-            .show()
+        val dialog = com.google.android.material.bottomsheet.BottomSheetDialog(this)
+        val view = layoutInflater.inflate(R.layout.dialog_destacar_opciones, null)
+        dialog.setContentView(view)
+        val recycler = view.findViewById<androidx.recyclerview.widget.RecyclerView>(R.id.rvOpcionesDestacar)
+        recycler.layoutManager = androidx.recyclerview.widget.LinearLayoutManager(this)
+        recycler.adapter = OpcionesDestacarAdapter(opciones) { dias, precio ->
+            dialog.dismiss()
+            iniciarPagoDestacado(p, dias, precio)
+        }
+        dialog.show()
+    }
+
+    /** Adapter para las opciones de destacado en BottomSheet. */
+    private inner class OpcionesDestacarAdapter(
+        private val items: List<Pair<Int, Double>>,
+        private val onClick: (Int, Double) -> Unit
+    ) : androidx.recyclerview.widget.RecyclerView.Adapter<OpcionesDestacarAdapter.ViewHolder>() {
+
+        inner class ViewHolder(view: android.view.View) : androidx.recyclerview.widget.RecyclerView.ViewHolder(view) {
+            val tvTexto: android.widget.TextView = view.findViewById(R.id.tvOpcionDestacar)
+        }
+
+        override fun onCreateViewHolder(parent: android.view.ViewGroup, viewType: Int): ViewHolder {
+            val view = layoutInflater.inflate(R.layout.item_opcion_destacar, parent, false)
+            return ViewHolder(view)
+        }
+
+        override fun onBindViewHolder(holder: ViewHolder, position: Int) {
+            val (dias, precio) = items[position]
+            holder.tvTexto.text = "$dias días - S/ $precio"
+            holder.itemView.setOnClickListener { onClick(dias, precio) }
+        }
+
+        override fun getItemCount() = items.size
     }
 
     private fun iniciarPagoDestacado(p: Propiedad, dias: Int, precio: Double) {

@@ -146,6 +146,9 @@ class PerfilPropietarioActivity : AppCompatActivity() {
                         binding.tvPerfilVerificado.text =
                             "${etiquetaTrust(trust)} · ${getString(R.string.perfil_verificado_ok)}"
                     }
+                } else {
+                    binding.ivPerfilVerificado.visibility = View.GONE
+                    binding.tvPerfilVerificado.visibility = View.GONE
                 }
 
                 val rating = (d["rating"] as? Number)?.toDouble() ?: 0.0

@@ -1178,10 +1178,20 @@ class RegistrarPropiedadActivity : AppCompatActivity() {
         if (finishActivity) finish()
     }
 
-    /** Sobrecarga para mostrar un mensaje de error arbitrario (no recurso). */
+    /** Sobrecarga para mostrar un mensaje de error arbitrario (no recurso).
+     * Usa AlertDialog para textos largos (límite de publicaciones) para que se lean completos. */
     private fun mostrarError(mensaje: String) {
-        val toast = Toast.makeText(this, mensaje, Toast.LENGTH_LONG)
-        toast.setGravity(Gravity.CENTER, 0, (-80 * resources.displayMetrics.density).toInt())
-        toast.show()
+        // Si el mensaje es largo (> 100 chars), usar diálogo para que se lea completo
+        if (mensaje.length > 100) {
+            androidx.appcompat.app.AlertDialog.Builder(this)
+                .setMessage(mensaje)
+                .setPositiveButton(android.R.string.ok, null)
+                .setIcon(android.R.drawable.ic_dialog_alert)
+                .show()
+        } else {
+            val toast = Toast.makeText(this, mensaje, Toast.LENGTH_LONG)
+            toast.setGravity(Gravity.CENTER, 0, (-80 * resources.displayMetrics.density).toInt())
+            toast.show()
+        }
     }
 }
