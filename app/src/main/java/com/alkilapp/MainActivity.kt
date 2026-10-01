@@ -691,13 +691,6 @@ llenar(spinnerDis, listOf(todos))
             restaurandoFiltros = false
         }
 
-        val tipoActual = filtroTipo ?: todos
-        spinnerTipo.setSelection(
-            (todos + tipos).indexOfFirst { it.lowercase() == tipoActual.lowercase() }.coerceAtLeast(0)
-        )
-        val habPorMostrar = filtroHabitaciones?.let { if (it == 4) "4 o más" else it.toString() } ?: todos
-        spinnerHab.setSelection(opcionesHab.indexOfFirst { it == habPorMostrar }.coerceAtLeast(0))
-
         val aplicar = View.OnClickListener {
             val dep = spinnerDep.selectedItem as String
             val dis = spinnerDis.selectedItem as String

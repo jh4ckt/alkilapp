@@ -87,10 +87,21 @@ class ChatListAdapter(
 
     private val horaFormato = SimpleDateFormat("HH:mm", Locale.getDefault())
     private val diaFormato = SimpleDateFormat("dd MMM", Locale("es", "PE"))
+    private val diaNombreFormato = SimpleDateFormat("EEEE", Locale("es", "PE"))
 
     private fun formatearHora(millis: Long): String {
         val fecha = Date(millis)
-        return if (esHoy(millis)) horaFormato.format(fecha) else diaFormato.format(fecha)
+        val cal = Calendar.getInstance().apply { timeInMillis = millis }
+        val hoy = Calendar.getInstance()
+        val diffDias = hoy.get(Calendar.DAY_OF_YEAR) - cal.get(Calendar.DAY_OF_YEAR)
+        val diffAnios = hoy.get(Calendar.YEAR) - cal.get(Calendar.YEAR)
+
+        return when {
+            esHoy(millis) -> horaFormato.format(Date(millis))
+            diffAnios == 0 && diffDias == 1 -> "Ayer ${horaFormato.format(Date(millis))}"
+            diffAnios == 0 && diffDias <= 3 -> "${diaNombreFormato.format(Date(millis)).capitalize()} ${horaFormato.format(Date(millis))}"
+            else -> diaFormato.format(Date(millis))
+        }
     }
 
     private fun esHoy(millis: Long): Boolean {
