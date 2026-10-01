@@ -89,7 +89,7 @@ public class BillingManagerJava {
                 .setProductList(List.of(
                         QueryProductDetailsParams.Product.newBuilder()
                                 .setProductId(productId)
-                                .setProductType(BillingClient.ProductType.SUBS)
+                                .setProductType(BillingClient.ProductType.INAPP)
                                 .build()
                 ))
                 .build();
@@ -160,7 +160,7 @@ public class BillingManagerJava {
         }
     }
 
-    public static final String SKU_DESTACAR_7D = "destacar_7d";
-    public static final String SKU_DESTACAR_15D = "destacar_15d";
-    public static final String SKU_DESTACAR_30D = "destacar_30d";
+    public static final String SKU_DESTACAR_7D = "destacado_7d";
+    public static final String SKU_DESTACAR_15D = "destacado_15d";
+    public static final String SKU_DESTACAR_30D = "destacado_30d";
 }
