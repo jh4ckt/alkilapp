@@ -15,6 +15,7 @@ import com.alkilapp.R
 import com.alkilapp.data.Mensaje
 import com.alkilapp.data.TipoMensaje
 import java.text.SimpleDateFormat
+import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
@@ -33,6 +34,8 @@ class MensajeAdapter(
 
     private val mensajes = mutableListOf<Mensaje>()
     private val horaFormato = SimpleDateFormat("HH:mm", Locale.getDefault())
+    private val diaFormato = SimpleDateFormat("dd MMM", Locale("es", "PE"))
+    private val diaNombreFormato = SimpleDateFormat("EEEE", Locale("es", "PE"))
     private val coloresAvatar = intArrayOf(
         R.color.avatar_1, R.color.avatar_2, R.color.avatar_3, R.color.avatar_4, R.color.avatar_5
     )
@@ -106,7 +109,7 @@ class MensajeAdapter(
         }
 
         if (m.sentAt > 0) {
-            tvTiempo.text = horaFormato.format(Date(m.sentAt))
+            tvTiempo.text = formatearHora(m.sentAt)
             tvTiempo.visibility = View.VISIBLE
         } else {
             tvTiempo.visibility = View.GONE
@@ -167,7 +170,7 @@ class MensajeAdapter(
         grupo.gravity = marginal
 
         if (m.sentAt > 0) {
-            tvTiempo.text = horaFormato.format(Date(m.sentAt))
+            tvTiempo.text = formatearHora(m.sentAt)
             tvTiempo.visibility = View.VISIBLE
             tvTiempo.layoutParams = (tvTiempo.layoutParams as LinearLayout.LayoutParams).apply { gravity = marginal }
         } else {
@@ -192,7 +195,7 @@ class MensajeAdapter(
         tvSistema.gravity = Gravity.CENTER_HORIZONTAL
 
         tvTiempo.visibility = if (m.sentAt > 0) View.VISIBLE else View.GONE
-        if (m.sentAt > 0) tvTiempo.text = horaFormato.format(Date(m.sentAt))
+        if (m.sentAt > 0) tvTiempo.text = formatearHora(m.sentAt)
 
         llFila.gravity = Gravity.CENTER_HORIZONTAL
         itemView.setTag(m)
@@ -248,7 +251,7 @@ class MensajeAdapter(
 
         if (m.sentAt > 0) {
             val tvTiempo = itemView.findViewById<TextView>(R.id.tvTiempo)
-            tvTiempo.text = horaFormato.format(Date(m.sentAt))
+            tvTiempo.text = formatearHora(m.sentAt)
             tvTiempo.visibility = View.VISIBLE
             tvTiempo.layoutParams = (tvTiempo.layoutParams as LinearLayout.LayoutParams).apply { gravity = marginal }
         } else {
@@ -260,4 +263,26 @@ class MensajeAdapter(
     }
 
     override fun getItemCount(): Int = mensajes.size
+
+    private fun formatearHora(millis: Long): String {
+        val fecha = Date(millis)
+        val cal = Calendar.getInstance().apply { timeInMillis = millis }
+        val hoy = Calendar.getInstance()
+        val diffDias = hoy.get(Calendar.DAY_OF_YEAR) - cal.get(Calendar.DAY_OF_YEAR)
+        val diffAnios = hoy.get(Calendar.YEAR) - cal.get(Calendar.YEAR)
+
+        return when {
+            esHoy(millis) -> horaFormato.format(fecha)
+            diffAnios == 0 && diffDias == 1 -> "Ayer ${horaFormato.format(fecha)}"
+            diffAnios == 0 && diffDias <= 3 -> "${diaNombreFormato.format(fecha).capitalize()} ${horaFormato.format(fecha)}"
+            else -> diaFormato.format(fecha)
+        }
+    }
+
+    private fun esHoy(millis: Long): Boolean {
+        val c1 = Calendar.getInstance().apply { timeInMillis = millis }
+        val c2 = Calendar.getInstance()
+        return c1.get(Calendar.YEAR) == c2.get(Calendar.YEAR) &&
+                c1.get(Calendar.DAY_OF_YEAR) == c2.get(Calendar.DAY_OF_YEAR)
+    }
 }

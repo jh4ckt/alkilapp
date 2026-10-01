@@ -627,7 +627,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             ).apply { setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
         }
 llenar(spinnerDep, listOf(todos) + departamentos)
-llenar(spinnerDis, listOf(todos))
+        llenar(spinnerDis, listOf(todos))
         llenar(spinnerTipo, listOf(todos) + tipos)
         llenar(spinnerHab, opcionesHab)
 
@@ -651,17 +651,17 @@ llenar(spinnerDis, listOf(todos))
             override fun onNothingSelected(parent: android.widget.AdapterView<*>?) {}
         }
 
-        // 2. Restaurar valores guardados (con flag para no disparar el listener)
+        // 2. Restaurar valores guardados (usando post para asegurar que los adapters están listos)
         val depActual = filtroDepartamento ?: todos
         val disActual = filtroDistrito ?: todos
         restaurandoFiltros = true
-        
-        spinnerDep.doOnPreDraw {
+
+        spinnerDep.post {
             // Restaurar departamento
             spinnerDep.setSelection(
                 (todos + departamentos).indexOfFirst { it.lowercase() == depActual.lowercase() }.coerceAtLeast(0)
             )
-            
+
             // Reconstruir distritos para el departamento actual
             val ciudadesDepActual = obtenerCiudades(depActual)
             val distritosParaDepActual = when {
@@ -674,12 +674,12 @@ llenar(spinnerDis, listOf(todos))
                 android.R.layout.simple_spinner_item,
                 distritosParaDepActual
             ).apply { setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
-            
+
             // Restaurar distrito
             spinnerDis.setSelection(
                 distritosParaDepActual.indexOfFirst { it.lowercase() == disActual.lowercase() }.coerceAtLeast(0)
             )
-            
+
             // Restaurar tipo y habitaciones
             val tipoActual = filtroTipo ?: todos
             spinnerTipo.setSelection(
@@ -687,7 +687,11 @@ llenar(spinnerDis, listOf(todos))
             )
             val habPorMostrar = filtroHabitaciones?.let { if (it == 4) "4 o más" else it.toString() } ?: todos
             spinnerHab.setSelection(opcionesHab.indexOfFirst { it == habPorMostrar }.coerceAtLeast(0))
-            
+
+            // Restaurar checkbox favoritos
+            val cbFavoritos = vista.findViewById<android.widget.CheckBox>(R.id.cbSoloFavoritos)
+            cbFavoritos.isChecked = soloFavoritos
+
             restaurandoFiltros = false
         }
 
