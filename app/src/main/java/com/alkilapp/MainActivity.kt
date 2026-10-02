@@ -100,7 +100,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     private var favoritosSet: Set<String> = emptySet()
     private var zonaConfigurada = false
     private var ultimaUbicacion: LatLng? = null
-    private var restaurandoFiltros = false
 
     private val googleSignInClient by lazy {
         val builder = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
@@ -569,6 +568,10 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     // Filtros por departamento / distrito (Perú - Lima por ahora)
     // ======================================================================
 
+    /** Indice del valor en la lista de un spinner (ignora mayusculas/acentos ya normalizados); 0 si no existe. */
+    private fun indiceDe(opciones: List<String>, valor: String): Int =
+        opciones.indexOfFirst { it.equals(valor, ignoreCase = true) }.coerceAtLeast(0)
+
     private fun abrirDialogoFiltros() {
         val sheet = BottomSheetDialog(this)
         val vista = layoutInflater.inflate(R.layout.bottom_sheet_filtros, null)
@@ -583,10 +586,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
 
         val todos = getString(R.string.filtros_todos)
         val departamentos = resources.getStringArray(R.array.departamentos_peru).toList()
-        val distritosLima = resources.getStringArray(R.array.distritos_lima).toList()
-        val distritosGenerico = listOf(todos, "Otro")
-        val distritosConTodos = listOf(todos) + distritosLima
-        val tipos = resources.getStringArray(R.array.tipos_inmueble)
+        val tipos = resources.getStringArray(R.array.tipos_inmueble).toList()
         val opcionesHab = listOf(todos) + resources.getStringArray(R.array.opciones_habitaciones).toList()
 
         // Función para obtener ciudades por departamento (mismo mapa que RegistrarPropiedadActivity)
@@ -621,79 +621,63 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             }
         }
 
-        fun llenar(sp: Spinner, opciones: List<String>) {
+fun llenar(sp: Spinner, opciones: List<String>) {
             sp.adapter = ArrayAdapter(
                 this, android.R.layout.simple_spinner_item, opciones
             ).apply { setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
         }
-llenar(spinnerDep, listOf(todos) + departamentos)
-        llenar(spinnerDis, listOf(todos))
-        llenar(spinnerTipo, listOf(todos) + tipos)
+
+        /** Ciudades/distritos que corresponden al departamento elegido. */
+        fun distritosPara(departamento: String): List<String> = when {
+            departamento == todos -> listOf(todos)
+            departamento == "Lima" -> listOf(todos) + obtenerCiudades(departamento)
+            else -> listOf(todos, "Otro") + obtenerCiudades(departamento)
+        }
+
+        val opcionesDep = listOf(todos) + departamentos
+        val opcionesTipo = listOf(todos) + tipos
+
+        // ---------------------------------------------------------------
+        // 1. Restaurar la seleccion guardada de forma determinista:
+        //    se llenan los adapters y se selecciona por indice ANTES de
+        //    registrar los listeners, sin depender del ciclo de layout ni
+        //    de View.post (antes el spinner de Tipo/volvia a "Todos").
+        // ---------------------------------------------------------------
+        val depActual = filtroDepartamento ?: todos
+        val disActual = filtroDistrito ?: todos
+        val tipoActual = filtroTipo ?: todos
+        val habActual = filtroHabitaciones?.let { if (it == 4) "4 o más" else it.toString() } ?: todos
+        val opcionesDis = distritosPara(depActual)
+
+        llenar(spinnerDep, opcionesDep)
+        llenar(spinnerDis, opcionesDis)
+        llenar(spinnerTipo, opcionesTipo)
         llenar(spinnerHab, opcionesHab)
 
-        // 1. Listener SIEMPRE activo (reacciona a cambios del usuario)
+        spinnerDep.setSelection(indiceDe(opcionesDep, depActual))
+        spinnerDis.setSelection(indiceDe(opcionesDis, disActual))
+        spinnerTipo.setSelection(indiceDe(opcionesTipo, tipoActual))
+        spinnerHab.setSelection(opcionesHab.indexOfFirst { it == habActual }.coerceAtLeast(0))
+        cbFavoritos.isChecked = soloFavoritos
+
+        // ---------------------------------------------------------------
+        // 2. Listener del departamento (registrado al final): al cambiar de
+        //    departamento recarga los distritos conservando el previo si sigue
+        //    existiendo en la nueva lista.
+        // ---------------------------------------------------------------
         spinnerDep.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: android.widget.AdapterView<*>?, view: View?, position: Int, id: Long) {
-                if (restaurandoFiltros) return
-                val dep = (listOf(todos) + departamentos)[position]
-                val ciudades = obtenerCiudades(dep)
-                val nuevosDistritos = when {
-                    dep == todos -> listOf(todos)
-                    dep == "Lima" -> listOf(todos) + ciudades
-                    else -> listOf(todos, "Otro") + ciudades
+                val dep = opcionesDep.getOrNull(position) ?: return
+                val nuevosDistritos = distritosPara(dep)
+                val disPrevio = spinnerDis.selectedItem as? String
+                llenar(spinnerDis, nuevosDistritos)
+                if (disPrevio != null && nuevosDistritos.any { it.equals(disPrevio, ignoreCase = true) }) {
+                    spinnerDis.setSelection(indiceDe(nuevosDistritos, disPrevio))
                 }
-                spinnerDis.adapter = ArrayAdapter(
-                    this@MainActivity,
-                    android.R.layout.simple_spinner_item,
-                    nuevosDistritos
-                ).apply { setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
             }
             override fun onNothingSelected(parent: android.widget.AdapterView<*>?) {}
         }
 
-        // 2. Restaurar valores guardados (usando post para asegurar que los adapters están listos)
-        val depActual = filtroDepartamento ?: todos
-        val disActual = filtroDistrito ?: todos
-        restaurandoFiltros = true
-
-        spinnerDep.post {
-            // Restaurar departamento
-            spinnerDep.setSelection(
-                (todos + departamentos).indexOfFirst { it.lowercase() == depActual.lowercase() }.coerceAtLeast(0)
-            )
-
-            // Reconstruir distritos para el departamento actual
-            val ciudadesDepActual = obtenerCiudades(depActual)
-            val distritosParaDepActual = when {
-                depActual == todos -> listOf(todos)
-                depActual == "Lima" -> listOf(todos) + obtenerCiudades(depActual)
-                else -> listOf(todos, "Otro") + obtenerCiudades(depActual)
-            }
-            spinnerDis.adapter = ArrayAdapter(
-                this@MainActivity,
-                android.R.layout.simple_spinner_item,
-                distritosParaDepActual
-            ).apply { setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
-
-            // Restaurar distrito
-            spinnerDis.setSelection(
-                distritosParaDepActual.indexOfFirst { it.lowercase() == disActual.lowercase() }.coerceAtLeast(0)
-            )
-
-            // Restaurar tipo y habitaciones
-            val tipoActual = filtroTipo ?: todos
-            spinnerTipo.setSelection(
-                (todos + tipos).indexOfFirst { it.lowercase() == (filtroTipo ?: todos).lowercase() }.coerceAtLeast(0)
-            )
-            val habPorMostrar = filtroHabitaciones?.let { if (it == 4) "4 o más" else it.toString() } ?: todos
-            spinnerHab.setSelection(opcionesHab.indexOfFirst { it == habPorMostrar }.coerceAtLeast(0))
-
-            // Restaurar checkbox favoritos
-            val cbFavoritos = vista.findViewById<android.widget.CheckBox>(R.id.cbSoloFavoritos)
-            cbFavoritos.isChecked = soloFavoritos
-
-            restaurandoFiltros = false
-        }
 
         val aplicar = View.OnClickListener {
             val dep = spinnerDep.selectedItem as String
