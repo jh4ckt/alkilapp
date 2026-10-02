@@ -19,6 +19,11 @@ import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
+sealed class ChatItem {
+    data class Dia(val millis: Long) : ChatItem()
+    data class Msg(val mensaje: Mensaje) : ChatItem()
+}
+
 class MensajeAdapter(
     private val miUid: String,
     private val onAceptar: ((Mensaje) -> Unit)? = null,
@@ -30,9 +35,11 @@ class MensajeAdapter(
         const val TYPE_PROPUESTA = 1
         const val TYPE_SISTEMA = 2
         const val TYPE_CITA = 3
+        const val TYPE_DIA_HEADER = 4
     }
 
     private val mensajes = mutableListOf<Mensaje>()
+    private val items = mutableListOf<ChatItem>()
     private val horaFormato = SimpleDateFormat("HH:mm", Locale.getDefault())
     private val diaFormato = SimpleDateFormat("dd MMM", Locale("es", "PE"))
     private val diaNombreFormato = SimpleDateFormat("EEEE", Locale("es", "PE"))
@@ -44,25 +51,51 @@ class MensajeAdapter(
     class PropuestaHolder(val binding: View) : RecyclerView.ViewHolder(binding)
     class SistemaHolder(val binding: View) : RecyclerView.ViewHolder(binding)
     class CitaHolder(val binding: View) : RecyclerView.ViewHolder(binding)
+    class DiaHeaderHolder(val binding: View) : RecyclerView.ViewHolder(binding)
 
     fun submitList(nueva: List<Mensaje>) {
         mensajes.clear()
-        mensajes.addAll(nueva)
+        mensajes.addAll(nueva.sortedBy { it.sentAt })
+        reconstruirItems()
         notifyDataSetChanged()
     }
 
+    private fun reconstruirItems() {
+        items.clear()
+        var ultimoDiaClave: Long? = null
+        for (m in mensajes) {
+            if (m.sentAt > 0) {
+                val clave = diaClave(m.sentAt)
+                if (clave != ultimoDiaClave) {
+                    ultimoDiaClave = clave
+                    items.add(ChatItem.Dia(m.sentAt))
+                }
+            }
+            items.add(ChatItem.Msg(m))
+        }
+    }
+
+    private fun diaClave(millis: Long): Long {
+        val c = Calendar.getInstance().apply { timeInMillis = millis }
+        return c.get(Calendar.YEAR) * 1000L + c.get(Calendar.DAY_OF_YEAR)
+    }
+
     override fun getItemViewType(position: Int): Int {
-        return when (mensajes[position].tipo) {
-            TipoMensaje.PROPUESTA -> TYPE_PROPUESTA
-            TipoMensaje.SISTEMA -> TYPE_SISTEMA
-            TipoMensaje.CITA -> TYPE_CITA
-            else -> TYPE_TEXTO
+        return when (val item = items[position]) {
+            is ChatItem.Dia -> TYPE_DIA_HEADER
+            is ChatItem.Msg -> when (item.mensaje.tipo) {
+                TipoMensaje.PROPUESTA -> TYPE_PROPUESTA
+                TipoMensaje.SISTEMA -> TYPE_SISTEMA
+                TipoMensaje.CITA -> TYPE_CITA
+                else -> TYPE_TEXTO
+            }
         }
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
         val inflater = LayoutInflater.from(parent.context)
         return when (viewType) {
+            TYPE_DIA_HEADER -> DiaHeaderHolder(inflater.inflate(R.layout.item_dia_header, parent, false))
             TYPE_PROPUESTA -> PropuestaHolder(inflater.inflate(R.layout.item_mensaje, parent, false))
             TYPE_SISTEMA -> SistemaHolder(inflater.inflate(R.layout.item_mensaje, parent, false))
             TYPE_CITA -> CitaHolder(inflater.inflate(R.layout.item_mensaje, parent, false))
@@ -71,12 +104,37 @@ class MensajeAdapter(
     }
 
     override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
-        val m = mensajes[position]
+        val item = items[position]
+        if (item is ChatItem.Dia) {
+            bindDiaHeader(holder.itemView, item.millis)
+            return
+        }
+        val m = (item as ChatItem.Msg).mensaje
         when (holder) {
             is TextoHolder -> bindTexto(holder.itemView, m)
             is PropuestaHolder -> bindPropuesta(holder.itemView, m)
             is SistemaHolder -> bindSistema(holder.itemView, m)
             is CitaHolder -> bindCita(holder.itemView, m)
+        }
+    }
+
+    private fun bindDiaHeader(itemView: View, millis: Long) {
+        val tv = itemView.findViewById<TextView>(R.id.tvDiaHeader)
+        tv.text = formatearDia(millis).uppercase(Locale("es", "PE"))
+    }
+
+    private fun formatearDia(millis: Long): String {
+        val fecha = Date(millis)
+        val cal = Calendar.getInstance().apply { timeInMillis = millis }
+        val hoy = Calendar.getInstance()
+        val diffDias = hoy.get(Calendar.DAY_OF_YEAR) - cal.get(Calendar.DAY_OF_YEAR)
+        val diffAnios = hoy.get(Calendar.YEAR) - cal.get(Calendar.YEAR)
+
+        return when {
+            esHoy(millis) -> "Hoy"
+            diffAnios == 0 && diffDias == 1 -> "Ayer"
+            diffAnios == 0 && diffDias <= 3 -> diaNombreFormato.format(fecha).replaceFirstChar { it.uppercase(Locale("es", "PE")) }
+            else -> diaFormato.format(fecha)
         }
     }
 
@@ -262,21 +320,10 @@ class MensajeAdapter(
         itemView.setTag(m)
     }
 
-    override fun getItemCount(): Int = mensajes.size
+    override fun getItemCount(): Int = items.size
 
     private fun formatearHora(millis: Long): String {
-        val fecha = Date(millis)
-        val cal = Calendar.getInstance().apply { timeInMillis = millis }
-        val hoy = Calendar.getInstance()
-        val diffDias = hoy.get(Calendar.DAY_OF_YEAR) - cal.get(Calendar.DAY_OF_YEAR)
-        val diffAnios = hoy.get(Calendar.YEAR) - cal.get(Calendar.YEAR)
-
-        return when {
-            esHoy(millis) -> horaFormato.format(fecha)
-            diffAnios == 0 && diffDias == 1 -> "Ayer ${horaFormato.format(fecha)}"
-            diffAnios == 0 && diffDias <= 3 -> "${diaNombreFormato.format(fecha).capitalize()} ${horaFormato.format(fecha)}"
-            else -> diaFormato.format(fecha)
-        }
+        return horaFormato.format(Date(millis))
     }
 
     private fun esHoy(millis: Long): Boolean {

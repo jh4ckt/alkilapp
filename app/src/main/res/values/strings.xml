@@ -595,6 +595,9 @@
     <string name="prop_estado_finalizado">Finalizado</string>
     <string name="prop_estado_revision">En revisión</string>
     <string name="prop_finalizar_btn">Ya lo alquilé</string>
+    <string name="prop_finalizar_btn_venta">Ya lo vendí</string>
+    <string name="prop_marcar_alquilado">Marcar como alquilado</string>
+    <string name="prop_marcar_vendido">Marcar como vendido</string>
     <string name="perfil_destacar_publicacion">Destacar publicación</string>
     <string name="perfil_destacar_solicitud_enviada">Solicitud enviada al administrador para %1$d días</string>
     <string name="perfil_destacar_error">No se pudo enviar la solicitud: %1$s</string>

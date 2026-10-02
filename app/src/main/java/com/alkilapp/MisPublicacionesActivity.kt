@@ -252,8 +252,10 @@ class MisPublicacionesActivity : AppCompatActivity() {
         menu.findItem(R.id.menu_pausar).isVisible = estadoNorm == "disponible"
         // Reactivar: solo si pausada por usuario (estado "pausada")
         menu.findItem(R.id.menu_reactivar).isVisible = estadoNorm == "pausada"
-        // Marcar como alquilado: solo si disponible o pausada
+        // Marcar como alquilado/vendido: solo si disponible o pausada
         menu.findItem(R.id.menu_marcar_alquilado).isVisible = estadoNorm == "disponible" || estadoNorm == "pausada"
+        menu.findItem(R.id.menu_marcar_alquilado).title =
+            getString(if (p.operacion == "venta") R.string.prop_marcar_vendido else R.string.prop_marcar_alquilado)
         // Destacar: solo si la publicación no está finalizada; cambia título según estado
         menu.findItem(R.id.menu_destacar).isVisible = estadoNorm != "finalizado"
         menu.findItem(R.id.menu_destacar).title = if (p.esDestacado) "Quitar destacado" else "Destacar publicacion"
@@ -454,20 +456,28 @@ class MisPublicacionesActivity : AppCompatActivity() {
     }
 
     private fun marcarComoAlquilado(p: Propiedad) {
+        val esVenta = p.operacion == "venta"
         androidx.appcompat.app.AlertDialog.Builder(this)
-            .setTitle("Marcar como alquilado")
-            .setMessage("La publicacion pasara a estado 'Finalizado' y no se mostrara en el listado. ¿Confirmar?")
-            .setPositiveButton("Si, alquilado") { _, _ ->
+            .setTitle(
+                if (esVenta) R.string.detalle_finalizar_confirm_titulo_venta
+                else R.string.detalle_finalizar_confirm_titulo
+            )
+            .setMessage(R.string.detalle_finalizar_confirm_msg)
+            .setPositiveButton(R.string.detalle_finalizar_si) { _, _ ->
                 db.collection("propiedades").document(p.id)
                     .set(mapOf("estado" to "finalizado"), SetOptions.merge())
                     .addOnSuccessListener {
-                        Toast.makeText(this, "Publicacion finalizada", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(this, R.string.detalle_finalizar_ok, Toast.LENGTH_SHORT).show()
                     }
                     .addOnFailureListener { e ->
-                        Toast.makeText(this, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(
+                            this,
+                            getString(R.string.detalle_finalizar_error, e.localizedMessage ?: "?"),
+                            Toast.LENGTH_SHORT
+                        ).show()
                     }
             }
-            .setNegativeButton("Cancelar", null)
+            .setNegativeButton(R.string.detalle_finalizar_no, null)
             .show()
     }
 

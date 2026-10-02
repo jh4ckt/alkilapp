@@ -530,9 +530,12 @@ class PerfilPropietarioActivity : AppCompatActivity() {
         val esDisponible = estadoNorm == "disponible"
         val esPausada = estadoNorm == "pausada"
         if (miUid == uid && (esDisponible || esPausada) && p.id.isNotBlank()) {
-            // Botón "Marcar como alquilado" (disponible y pausada)
+            // Botón "Marcar como alquilado/vendido" (disponible y pausada)
             val btnFinalizar = com.google.android.material.button.MaterialButton(this).apply {
-                text = getString(R.string.prop_finalizar_btn)
+                text = getString(
+                    if (p.operacion == "venta") R.string.prop_finalizar_btn_venta
+                    else R.string.prop_finalizar_btn
+                )
                 textSize = 13f
                 isAllCaps = false
                 insetTop = 0
