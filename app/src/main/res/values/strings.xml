@@ -713,6 +713,10 @@
     <string name="soporte_mensaje_largo">El mensaje no puede superar 4000 caracteres</string>
     <string name="favoritos_requiere_sesion">Inicia sesión para guardar favoritos</string>
     <string name="filtros_solo_favoritos">Solo favoritos</string>
+    <string name="nav_favoritos">Favoritos</string>
+    <string name="favoritos_titulo">Favoritos</string>
+    <string name="favoritos_cargando">Cargando tus favoritos…</string>
+    <string name="favoritos_vacio">Todavía no guardaste ningún inmueble. Toca el corazón en una tarjeta del listado para guardarlo aquí.</string>
     <string name="filtros_tipo">Tipo de inmueble</string>
     <string name="filtros_habitaciones">Cantidad de habitaciones</string>
     <string name="detalle_compartir">Compartir publicación</string>

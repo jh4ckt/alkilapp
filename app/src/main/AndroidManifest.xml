@@ -77,6 +77,10 @@
             android:exported="false" />
 
         <activity
+            android:name=".FavoritosActivity"
+            android:exported="false" />
+
+        <activity
             android:name=".AuthActivity"
             android:exported="false"
             android:windowSoftInputMode="adjustResize" />

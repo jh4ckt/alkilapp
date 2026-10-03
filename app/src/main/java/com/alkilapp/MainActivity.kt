@@ -358,6 +358,15 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             binding.drawerLayout.closeDrawers()
             abrirChat()
         }
+        panel.btnNavFavoritos.setOnClickListener {
+            binding.drawerLayout.closeDrawers()
+            if (auth.currentUser == null) {
+                Toast.makeText(this, R.string.favoritos_requiere_sesion, Toast.LENGTH_LONG).show()
+                abrirDialogoAutenticar()
+                return@setOnClickListener
+            }
+            startActivity(Intent(this, FavoritosActivity::class.java))
+        }
         panel.btnNavFiltros.setOnClickListener {
             binding.drawerLayout.closeDrawers()
             abrirDialogoFiltros()
@@ -416,11 +425,21 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             Favoritos.sincronizar(this, uid) { ids ->
                 favoritosSet = ids
                 if (::adapter.isInitialized) adapter.setFavoritos(ids)
+                actualizarBadgeFavoritos()
             }
         } else {
             favoritosSet = Favoritos.locales(this)
             if (::adapter.isInitialized) adapter.setFavoritos(favoritosSet)
+            actualizarBadgeFavoritos()
         }
+    }
+
+    /** Muestra cuantos favoritos tiene el usuario en la fila del menu. */
+    private fun actualizarBadgeFavoritos() {
+        val panel = binding.panelMenu
+        val n = favoritosSet.size
+        panel.tvNavFavoritosBadge.visibility = if (n > 0) View.VISIBLE else View.GONE
+        panel.tvNavFavoritosBadge.text = n.toString()
     }
 
     /** Corazon de la tarjeta: requiere sesion, persiste local + Firestore. */
@@ -434,6 +453,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         val nuevo = Favoritos.alternar(this, uid, p.id)
         favoritosSet = if (nuevo) favoritosSet + p.id else favoritosSet - p.id
         adapter.setFavoritos(favoritosSet)
+        actualizarBadgeFavoritos()
     }
 
     override fun onStart() {
