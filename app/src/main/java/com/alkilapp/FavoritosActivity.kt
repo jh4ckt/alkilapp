@@ -134,9 +134,30 @@ class FavoritosActivity : AppCompatActivity() {
     }
 
     private fun abrirDetalle(p: Propiedad) {
-        // El listado por id ya se cargo en la ficha, asi que basta con el id.
         startActivity(Intent(this, PropiedadDetalleActivity::class.java).apply {
             putExtra(PropiedadDetalleActivity.EXTRA_ID, p.id)
+            putExtra(PropiedadDetalleActivity.EXTRA_TITULO, p.titulo)
+            putExtra(PropiedadDetalleActivity.EXTRA_DESCRIPCION, p.descripcion)
+            putExtra(PropiedadDetalleActivity.EXTRA_TIPO, p.tipo)
+            putExtra(PropiedadDetalleActivity.EXTRA_OPERACION, p.operacion)
+            putExtra(PropiedadDetalleActivity.EXTRA_PRECIO, p.precio)
+            putExtra(PropiedadDetalleActivity.EXTRA_MONEDA, p.moneda)
+            putExtra(PropiedadDetalleActivity.EXTRA_DIRECCION, p.direccion)
+            putExtra(PropiedadDetalleActivity.EXTRA_BARRIO, p.barrio)
+            putExtra(PropiedadDetalleActivity.EXTRA_CIUDAD, p.ciudad)
+            putExtra(PropiedadDetalleActivity.EXTRA_LAT, p.lat)
+            putExtra(PropiedadDetalleActivity.EXTRA_LNG, p.lng)
+            putExtra(PropiedadDetalleActivity.EXTRA_ID_PROPIETARIO, p.idPropietario)
+            putExtra(PropiedadDetalleActivity.EXTRA_AMBIENTES, p.ambientes)
+            putExtra(PropiedadDetalleActivity.EXTRA_SUPERFICIE, p.superficieM2)
+            putStringArrayListExtra(
+                PropiedadDetalleActivity.EXTRA_COMODIDADES,
+                ArrayList(p.comodidades)
+            )
+            putExtra(PropiedadDetalleActivity.EXTRA_FEATURED, p.esDestacado)
+            putExtra(PropiedadDetalleActivity.EXTRA_ESTADO, p.estado)
+            // NO pasar fotos base64 por el intent: supera el límite de Binder
+            // (TransactionTooLargeException). El detalle las carga por ID desde Firestore.
         })
     }
 
