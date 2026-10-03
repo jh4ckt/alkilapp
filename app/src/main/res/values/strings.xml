@@ -55,7 +55,14 @@
 
     <!-- Alta de inmuebles -->
     <string name="prop_agregar_titulo">Publicar inmueble</string>
-    <string name="prop_guardar">Guardar</string>
+    <string name="prop_guardar">Enviar publicación</string>
+    <string name="prop_form_intro">Completa los datos para que las personas encuentren tu inmueble.</string>
+    <string name="prop_seccion_fotos">Fotos del inmueble</string>
+    <string name="prop_seccion_fotos_ayuda">Agrega fotos claras. La primera será la portada del anuncio.</string>
+    <string name="prop_seccion_datos">Datos del anuncio</string>
+    <string name="prop_seccion_ubicacion">Ubicación</string>
+    <string name="prop_seccion_caracteristicas">Características</string>
+    <string name="prop_seccion_descripcion">Descripción</string>
     <string name="prop_hint_titulo">Título (ej: Depto. 2 dorm. céntrico)</string>
     <string name="prop_hint_precio">Precio</string>
     <string name="prop_hint_direccion">Dirección de la calle</string>
@@ -470,6 +477,17 @@
     <string name="auth_google_no_config">El acceso con Google aún no está configurado</string>
     <string name="auth_google_error">Error iniciando sesión con Google (%1$s)</string>
     <string name="auth_ok_google">¡Sesión iniciada con Google!</string>
+<string name="auth_verificacion_enviada">Te enviamos un correo para verificar tu cuenta. Revisa tu bandeja de entrada (y spam).</string>
+<string name="auth_verificacion_error">No se pudo enviar la verificación. Intenta de nuevo.</string>
+<string name="auth_email_no_verificado">Verifica tu correo para continuar. Te reenviamos el enlace.</string>
+<string name="auth_reenviar_verificacion">Reenviar verificación</string>
+<string name="auth_verificacion_reenviada">Verificación reenviada. Revisa tu correo.</string>
+<string name="auth_verificacion_pendiente">Tu cuenta necesita verificación. Haz clic en el enlace que te enviamos por correo.</string>
+<string name="auth_verificacion_ok">¡Correo verificado! Ya puedes usar todas las funciones.</string>
+<string name="auth_verificacion_explicacion">Te enviamos un enlace a tu correo. Haz clic en él para activar tu cuenta. Si no lo ves, revisa la carpeta de spam.</string>
+<string name="auth_abrir_correo">Abrir mi correo</string>
+<string name="auth_verificar_luego">Verificar más tarde</string>
+<string name="auth_enviando">Enviando...</string>
 
     <!-- Client ID web de OAuth (auto-creado al habilitar Google sign-in en la consola) -->
     <string name="default_web_client_id" translatable="false">288429280561-0f7jlpoc8h91m7naj0gsstavj8co4t38.apps.googleusercontent.com</string>

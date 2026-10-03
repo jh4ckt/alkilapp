@@ -81,6 +81,10 @@
             android:exported="false" />
 
         <activity
+            android:name=".VerificacionEmailActivity"
+            android:exported="false" />
+
+        <activity
             android:name=".AuthActivity"
             android:exported="false"
             android:windowSoftInputMode="adjustResize" />

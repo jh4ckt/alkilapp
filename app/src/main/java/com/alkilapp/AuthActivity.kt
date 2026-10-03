@@ -216,10 +216,19 @@ private fun crearCuenta(
                     mostrarErrorFirebase(task.exception)
                     return@addOnCompleteListener
                 }
+                val user = task.result?.user
                 val perfil = com.google.firebase.auth.UserProfileChangeRequest.Builder()
                     .setDisplayName(nombre)
                     .build()
-                task.result?.user?.updateProfile(perfil)
+                user?.updateProfile(perfil)
+                // Enviar verificación de email
+                user?.sendEmailVerification()
+                    ?.addOnSuccessListener {
+                        Toast.makeText(this, R.string.auth_verificacion_enviada, Toast.LENGTH_LONG).show()
+                    }
+                    ?.addOnFailureListener {
+                        Toast.makeText(this, R.string.auth_verificacion_error, Toast.LENGTH_LONG).show()
+                    }
                 guardarUsuarioEnBase(nombre, telefono, departamento) {
                     Toast.makeText(this, R.string.auth_ok_registro, Toast.LENGTH_SHORT).show()
                     finish()

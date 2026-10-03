@@ -462,6 +462,18 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         cargarFavoritos()
         cargarZonaUsuario()
         escucharPropiedades()
+        verificarEmailSiNecesario()
+    }
+
+    /** Si hay usuario logueado pero email no verificado, abre pantalla de verificación. */
+    private fun verificarEmailSiNecesario() {
+        val user = auth.currentUser
+        if (user != null && !user.isEmailVerified) {
+            // Evitar bucle si ya está en la actividad de verificación
+            if (this !is VerificacionEmailActivity) {
+                startActivity(Intent(this, VerificacionEmailActivity::class.java))
+            }
+        }
     }
 
 /** Carga la zona por defecto del usuario (departamento + ciudad) desde Firestore
