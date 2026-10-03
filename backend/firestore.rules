@@ -264,7 +264,8 @@ service cloud.firestore {
       allow update: if request.auth != null
         && chatParticipa(chat, request.auth.uid)
         && request.resource.data.diff(resource.data).affectedKeys()
-             .hasOnly(['propuestaEstado', 'citaEstado', 'respondidoPor', 'respondidoAt'])
+             .hasOnly(['propuestaEstado', 'citaEstado', 'respondidoPor', 'respondidoAt',
+                       'deliveredAt', 'readAt'])
         && (
           (resource.data.get('tipo', 'texto') == 'propuesta'
             && request.resource.data.diff(resource.data).affectedKeys()
@@ -279,6 +280,26 @@ service cloud.firestore {
             && resource.data.get('citaEstado', '') == 'pendiente'
             && resource.data.solicitadoPor != request.auth.uid
             && puedeResponderCita(request.auth.uid))
+          // RECIBOS (v15): el RECEPTOR (nunca el autor) puede poner los campos
+          // "deliveredAt" y "readAt", y SOLO si no estaban puestos: asi salen los
+          // checks de entregado/leido sin que nadie pueda fabricarse los suyos
+          // ni borrar o pisar los del otro.
+          // OJO: se valida cada campo SOLO si aparece en el diff, porque un
+          // update de solo "readAt" (cuando "deliveredAt" ya estaba) es legitimo
+          // y antes se rechazaba al exigir siempre deliveredAt.
+          // OJO 2: NO se puede comprobar "request.resource.data.X is timestamp".
+          // El cliente escribe FieldValue.serverTimestamp() y las reglas ven ese
+          // valor como centinela, NO como timestamp, asi que esa comprobacion
+          // daba false y rechazaba TODOS los recibos (PERMISSION_DENIED). La
+          // proteccion real la da que cada campo solo se pueda anadir una vez.
+          || (chatParticipa(chat, request.auth.uid)
+            && resource.data.senderId != request.auth.uid
+            && request.resource.data.diff(resource.data).affectedKeys()
+                 .hasOnly(['deliveredAt', 'readAt'])
+            && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['deliveredAt'])
+                || !('deliveredAt' in resource.data))
+            && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['readAt'])
+                || !('readAt' in resource.data)))
         );
       // Los mensajes NO se borran desde el cliente (historial para auditoria).
       allow delete: if false;
@@ -312,16 +333,41 @@ service cloud.firestore {
     // Se exigen las 2 fotos: "imagen" (frente) e "imagenReverso" (adverso).
     match /verificaciones/{uid} {
       allow read: if request.auth != null && request.auth.uid == uid;
+      // El numero de documento se valida AQUI y no solo en la app: un DNI
+      // peruano son exactamente 8 digitos. Sin esta regla, un cliente
+      // modificado (o el propio script de alguien) podria mandar letras o 40
+      // digitos al panel de admin.
+      function documentoValido() {
+        let n = request.resource.data.get('numeroDocumento', '');
+        // (en reglas no hay "return" temprano: se encadena con &&, que es
+        // cortocircuito, asi que n.size() solo se evalua si n es string).
+        return n is string
+          && n.size() > 0
+          && n.size() <= 30
+          && (request.resource.data.get('tipoDocumento', '') != 'DNI'
+              || n.matches('^[0-9]{8}$'));
+      }
       allow create: if request.auth != null
         && request.auth.uid == uid
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.imagen is string
         && request.resource.data.imagen.size() <= 900000
         && request.resource.data.imagenReverso is string
-        && request.resource.data.imagenReverso.size() <= 900000;
+        && request.resource.data.imagenReverso.size() <= 900000
+        && request.resource.data.get('estado', '') == 'pendiente'
+        && documentoValido();
+      // NO se reenvia en caliente: solo se puede reintentar si el admin RECHAZO
+      // el expediente antes (mientras esta "pendiente" no hay segundo envio).
       allow update: if request.auth != null
         && request.auth.uid == uid
-        && request.resource.data.uid == request.auth.uid;
+        && resource.data.uid == request.auth.uid
+        && resource.data.get('estado', '') == 'rechazado'
+        && request.resource.data.get('estado', '') == 'pendiente'
+        && request.resource.data.imagen is string
+        && request.resource.data.imagen.size() <= 900000
+        && request.resource.data.imagenReverso is string
+        && request.resource.data.imagenReverso.size() <= 900000
+        && documentoValido();
       allow delete: if request.auth != null && request.auth.uid == uid;
     }
 

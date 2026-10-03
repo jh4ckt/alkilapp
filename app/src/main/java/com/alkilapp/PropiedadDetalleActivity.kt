@@ -273,7 +273,7 @@ class PropiedadDetalleActivity : AppCompatActivity() {
             precio.toString()
         }
         val simbolo = if (moneda == "PEN") "S/ " else "$ "
-        return if (op == "venta") "$simbolo$monto" else "$simbolo$monto / mes"
+        return if (Propiedad.normalizarOperacion(op) == "venta") "$simbolo$monto" else "$simbolo$monto / mes"
     }
 
     // ======================================================================
@@ -501,8 +501,9 @@ class PropiedadDetalleActivity : AppCompatActivity() {
     private fun confirmarFinalizar() {
         if (propId.isBlank()) return
         val op = intent.getStringExtra(EXTRA_OPERACION) ?: "alquiler"
-        val tituloConfirm = if (op == "venta") R.string.detalle_finalizar_confirm_titulo_venta else R.string.detalle_finalizar_confirm_titulo
-        val bannerFinalizado = if (op == "venta") R.string.detalle_finalizado_banner_venta else R.string.detalle_finalizado_banner_alquiler
+        val esVenta = Propiedad.normalizarOperacion(op) == "venta"
+        val tituloConfirm = if (esVenta) R.string.detalle_finalizar_confirm_titulo_venta else R.string.detalle_finalizar_confirm_titulo
+        val bannerFinalizado = if (esVenta) R.string.detalle_finalizado_banner_venta else R.string.detalle_finalizado_banner_alquiler
         com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
             .setTitle(tituloConfirm)
             .setMessage(R.string.detalle_finalizar_confirm_msg)

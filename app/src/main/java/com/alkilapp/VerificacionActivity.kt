@@ -6,8 +6,10 @@ import android.graphics.ImageDecoder
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.text.InputFilter
 import android.util.Base64
 import android.view.View
+import android.widget.AdapterView
 import android.widget.ArrayAdapter
 import android.widget.Toast
 import androidx.activity.result.PickVisualMediaRequest
@@ -35,6 +37,8 @@ class VerificacionActivity : AppCompatActivity() {
     private var documentoBase64: String? = null
     private var documentoReversoBase64: String? = null
     private var yaVerificado = false
+    private var yaPendiente = false
+    private val DNI_RE = Regex("^[0-9]{8}$")
 
     private val fotoLauncher = registerForActivityResult(
         ActivityResultContracts.PickVisualMedia()
@@ -88,7 +92,34 @@ class VerificacionActivity : AppCompatActivity() {
             tipos
         ).apply { setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
 
+        // El formato del numero depende del tipo: el DNI peruano son 8 digitos y
+        // no admite letras, asi que el teclado y el filtro se ajustan al vuelo.
+        binding.spVerifTipo.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                aplicarFiltroDocumento()
+            }
+            override fun onNothingSelected(parent: AdapterView<*>?) = Unit
+        }
+
         cargarEstado()
+    }
+
+    /**
+     * Con el tipo "DNI" el campo solo deja pasar digitos y como maximo 8
+     * caracteres; con pasaporte o carnet de extranjeria queda libre (traen letras).
+     */
+    private fun aplicarFiltroDocumento() {
+        val esDni = tipos.getOrNull(binding.spVerifTipo.selectedItemPosition) == "DNI"
+        binding.etVerifNumero.filters = if (esDni) {
+            arrayOf(
+                InputFilter.LengthFilter(8),
+                InputFilter { source, start, end, _, _, _ ->
+                    source.subSequence(start, end).filter { it.isDigit() }.toString()
+                }
+            )
+        } else {
+            emptyArray()
+        }
     }
 
     /** Bloquea/desbloquea los campos del formulario según estado de verificación. */
@@ -154,8 +185,12 @@ class VerificacionActivity : AppCompatActivity() {
                         actualizarCamposSegunVerificacion(true)
                     }
                     estado == "pendiente" -> {
+                        // Ya esta en revision: se bloquea todo el formulario para
+                        // que no se puedan enviar solicitudes duplicadas.
+                        yaPendiente = true
                         binding.tvVerifEstado.setText(R.string.verif_estado_pendiente)
                         binding.tvVerifEstado.visibility = View.VISIBLE
+                        bloquearPorRevision()
                     }
                     estado == "rechazado" -> {
                         val motivo = (v["motivo"] as? String).orEmpty()
@@ -180,9 +215,19 @@ class VerificacionActivity : AppCompatActivity() {
             return
         }
         if (yaVerificado) return
+        if (yaPendiente) {
+            Toast.makeText(this, R.string.verif_estado_pendiente, Toast.LENGTH_LONG).show()
+            return
+        }
+        val tipo = tipos[binding.spVerifTipo.selectedItemPosition]
         val numero = binding.etVerifNumero.text.toString().trim()
         if (numero.isBlank()) {
             Toast.makeText(this, R.string.verif_numero_requerido, Toast.LENGTH_SHORT).show()
+            return
+        }
+        // El DNI peruano son 8 digitos exactos: ni letras ni uno mas.
+        if (tipo == "DNI" && !DNI_RE.matches(numero)) {
+            Toast.makeText(this, R.string.verif_numero_dni_invalido, Toast.LENGTH_LONG).show()
             return
         }
         val doc = documentoBase64
@@ -195,10 +240,8 @@ class VerificacionActivity : AppCompatActivity() {
             Toast.makeText(this, R.string.verif_foto_reverso_falta, Toast.LENGTH_SHORT).show()
             return
         }
-        val tipo = tipos[binding.spVerifTipo.selectedItemPosition]
 
         bloquearEnvio(true)
-
         val resumen = mapOf(
             "status" to "pendiente",
             "documentoPendiente" to true,
@@ -229,6 +272,20 @@ class VerificacionActivity : AppCompatActivity() {
                     .addOnFailureListener { e -> fallo(e.localizedMessage) }
             }
             .addOnFailureListener { e -> fallo(e.localizedMessage) }
+    }
+
+    /** Bloquea el formulario cuando el expediente ya esta en revision. */
+    private fun bloquearPorRevision() {
+        binding.etVerifNumero.isEnabled = false
+        binding.etVerifNumero.alpha = 0.5f
+        binding.spVerifTipo.isEnabled = false
+        binding.spVerifTipo.alpha = 0.5f
+        binding.btnVerifFoto.isEnabled = false
+        binding.btnVerifFoto.alpha = 0.5f
+        binding.btnVerifFotoReverso.isEnabled = false
+        binding.btnVerifFotoReverso.alpha = 0.5f
+        binding.btnVerifEnviar.isEnabled = false
+        binding.btnVerifEnviar.text = getString(R.string.verif_en_revision)
     }
 
     private fun fallo(mensaje: String?) {

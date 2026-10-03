@@ -61,6 +61,7 @@
     <color name="alkil_primary_light">#E2E8F0</color>
     <color name="alkil_primary_soft">#F1F5F9</color>
 
+    <color name="chat_tick_read">#38BDF8</color>
     <color name="alkil_coral">#FF6B5E</color>
     <color name="alkil_coral_dark">#E85548</color>
     <color name="alkil_coral_soft">#FFE4E1</color>

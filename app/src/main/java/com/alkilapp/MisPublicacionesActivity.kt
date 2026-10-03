@@ -255,7 +255,7 @@ class MisPublicacionesActivity : AppCompatActivity() {
         // Marcar como alquilado/vendido: solo si disponible o pausada
         menu.findItem(R.id.menu_marcar_alquilado).isVisible = estadoNorm == "disponible" || estadoNorm == "pausada"
         menu.findItem(R.id.menu_marcar_alquilado).title =
-            getString(if (p.operacion == "venta") R.string.prop_marcar_vendido else R.string.prop_marcar_alquilado)
+            getString(if (p.esVenta) R.string.prop_marcar_vendido else R.string.prop_marcar_alquilado)
         // Destacar: solo si la publicación no está finalizada; cambia título según estado
         menu.findItem(R.id.menu_destacar).isVisible = estadoNorm != "finalizado"
         menu.findItem(R.id.menu_destacar).title = if (p.esDestacado) "Quitar destacado" else "Destacar publicacion"
@@ -456,7 +456,7 @@ class MisPublicacionesActivity : AppCompatActivity() {
     }
 
     private fun marcarComoAlquilado(p: Propiedad) {
-        val esVenta = p.operacion == "venta"
+        val esVenta = p.esVenta
         androidx.appcompat.app.AlertDialog.Builder(this)
             .setTitle(
                 if (esVenta) R.string.detalle_finalizar_confirm_titulo_venta

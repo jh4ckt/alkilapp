@@ -533,7 +533,7 @@ class PerfilPropietarioActivity : AppCompatActivity() {
             // Botón "Marcar como alquilado/vendido" (disponible y pausada)
             val btnFinalizar = com.google.android.material.button.MaterialButton(this).apply {
                 text = getString(
-                    if (p.operacion == "venta") R.string.prop_finalizar_btn_venta
+                    if (p.esVenta) R.string.prop_finalizar_btn_venta
                     else R.string.prop_finalizar_btn
                 )
                 textSize = 13f
@@ -645,8 +645,8 @@ class PerfilPropietarioActivity : AppCompatActivity() {
 
     private fun confirmarFinalizar(p: Propiedad) {
         val op = p.operacion
-        val tituloConfirm = if (op == "venta") R.string.detalle_finalizar_confirm_titulo_venta else R.string.detalle_finalizar_confirm_titulo
-        val bannerFinalizado = if (op == "venta") R.string.detalle_finalizado_banner_venta else R.string.detalle_finalizado_banner_alquiler
+        val tituloConfirm = if (p.esVenta) R.string.detalle_finalizar_confirm_titulo_venta else R.string.detalle_finalizar_confirm_titulo
+        val bannerFinalizado = if (p.esVenta) R.string.detalle_finalizado_banner_venta else R.string.detalle_finalizado_banner_alquiler
         MaterialAlertDialogBuilder(this)
             .setTitle(tituloConfirm)
             .setMessage(R.string.detalle_finalizar_confirm_msg)

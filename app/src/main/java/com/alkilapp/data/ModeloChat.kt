@@ -67,7 +67,11 @@ data class Mensaje(
     val solicitadoPor: String? = null,
     val fecha: String? = null,
     val hora: String? = null,
-    val citaEstado: String? = null
+    val citaEstado: String? = null,
+    /** Lo pone el RECEPTOR: su app tenía el chat en pantalla (WhatsApp ✓✓). */
+    val deliveredAt: Long? = null,
+    /** Lo pone el RECEPTOR cuando está viendo el final de la conversación (WhatsApp ✓✓ azul). */
+    val readAt: Long? = null
 ) {
     companion object {
         fun desde(doc: DocumentSnapshot): Mensaje? {
@@ -93,7 +97,11 @@ data class Mensaje(
                 solicitadoPor = d["solicitadoPor"] as? String,
                 fecha = d["fecha"] as? String,
                 hora = d["hora"] as? String,
-                citaEstado = d["citaEstado"] as? String
+                citaEstado = d["citaEstado"] as? String,
+                deliveredAt = (d["deliveredAt"] as? Timestamp)?.toDate()?.time
+                    ?: (d["deliveredAt"] as? Date)?.time,
+                readAt = (d["readAt"] as? Timestamp)?.toDate()?.time
+                    ?: (d["readAt"] as? Date)?.time
             )
         }
     }

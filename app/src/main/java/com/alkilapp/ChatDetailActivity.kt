@@ -2,6 +2,8 @@ package com.alkilapp
 
 import android.content.res.ColorStateList
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.view.MenuItem
 import android.view.View
 import android.view.inputmethod.EditorInfo
@@ -23,6 +25,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
+import com.google.firebase.firestore.WriteBatch
 import java.util.Locale
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -44,10 +47,21 @@ private var chatId: String = ""
     private var listingId: String = ""
     private var idPropietarioDelInmueble: String = ""
 
-    // Debounce para evitar duplicados (5 segundos)
+    // --- Anti-spam -------------------------------------------------------
+    // 1) El MISMO texto no se puede reenviar dentro de 30 s (evita el doble tap).
+    // 2) Si una palabra se repite mas de MAX_REPETICIONES veces seguidas, el chat
+    //    queda bloqueado durante BLOQUEO_SPAM_MS (5 min) para cortar el spam.
     private var ultimoMensajeEnviado: String = ""
     private var ultimoMensajeTimestamp: Long = 0
-    private val DEBOUNCE_MS = 5000L // 5 segundos
+    private val DEBOUNCE_MS = 30_000L
+    private val BLOQUEO_SPAM_MS = 5 * 60 * 1000L
+    private val VENTANA_ANTISPAM = 12
+    private val MAX_REPETICIONES = 5
+    private val historialEnviado = ArrayList<Pair<Long, String>>()
+    private var bloqueoSpamHasta: Long = 0
+    private var chatCerradoPorInmueble: Boolean = false
+    private val handlerUI = Handler(Looper.getMainLooper())
+    private val MAX_RECEIPTOS = 400
 
     private val adapter by lazy { MensajeAdapter(
         miUid = auth.currentUser?.uid ?: "",
@@ -116,9 +130,9 @@ private var chatId: String = ""
                 if (snap?.exists() == true) {
                     val estado = (snap.data?.get("estado") as? String)?.trim()?.lowercase().orEmpty()
                     val cerrado = estado == "finalizado"
+                    chatCerradoPorInmueble = cerrado
                     binding.cardChatCerrado.visibility = if (cerrado) View.VISIBLE else View.GONE
-                    binding.etEntrada.isEnabled = !cerrado
-                    binding.btnEnviar.isEnabled = !cerrado
+                    actualizarEntrada()
                     actualizarBotonPropuesta()
                 }
             }
@@ -165,6 +179,11 @@ private var chatId: String = ""
         escuchaInmueble = null
     }
 
+    override fun onDestroy() {
+        super.onDestroy()
+        handlerUI.removeCallbacksAndMessages(null)
+    }
+
     /** Carga el avatar/nombre/verificado/rating del interlocutor. */
     private fun cargarPerfil(uid: String) {
         PerfilUsuario.buscar(db, uid) { perfil ->
@@ -194,15 +213,53 @@ private var chatId: String = ""
                 if (snap == null) return@addSnapshotListener
                 val lista = snap.documents.mapNotNull { Mensaje.desde(it) }
                 val lm = binding.rvMensajes.layoutManager as LinearLayoutManager
+                // OJO: findLastVisibleItemPosition (no "Completely"): la ultima
+                // burbuja casi siempre queda CLIPADA por la barra de escritura,
+                // asi que con findLastCompletelyVisibleItemPosition() el flag
+                // "leyendo" nunca era true y el readAt no se marcaba nunca.
                 val enElFondo = lm.itemCount == 0 ||
-                    lm.findLastCompletelyVisibleItemPosition() >= adapter.itemCount - 1
+                    lm.findLastVisibleItemPosition() >= adapter.itemCount - 1
                 adapter.submitList(lista)
                 if (enElFondo && adapter.itemCount > 0) {
                     binding.rvMensajes.post {
                         binding.rvMensajes.scrollToPosition(adapter.itemCount - 1)
                     }
                 }
+                marcarRecibos(lista, enElFondo)
             }
+    }
+
+    /**
+     * Checks estilo WhatsApp: el RECEPTOR marca "deliveredAt" en cuanto el
+     * mensaje entra con el chat en pantalla, y "readAt" cuando ademas esta
+     * viendo el final de la conversacion. Solo se escribe lo que falta, y las
+     * reglas de Firestore impiden que el autor se marque sus propios mensajes.
+     */
+    private fun marcarRecibos(lista: List<Mensaje>, leyendo: Boolean) {
+        val miUid = auth.currentUser?.uid ?: return
+        if (ChatVista.actual != chatId) return
+        val pendientes = lista.filter { it.senderId != miUid && it.sentAt > 0L }
+        if (pendientes.isEmpty()) return
+        val ultimaId = pendientes.last().messageId
+        val aMarcar = pendientes.filter { m ->
+            (m.deliveredAt == null) ||
+                (leyendo && m.readAt == null && m.messageId == ultimaId)
+        }.take(MAX_RECEIPTOS)
+        if (aMarcar.isEmpty()) return
+
+        val ref = db.collection("chats").document(chatId).collection("messages")
+        var batch: WriteBatch? = null
+        aMarcar.forEach { m ->
+            val campos = hashMapOf<String, Any>()
+            if (m.deliveredAt == null) campos["deliveredAt"] = FieldValue.serverTimestamp()
+            if (leyendo && m.readAt == null && m.messageId == ultimaId) {
+                campos["readAt"] = FieldValue.serverTimestamp()
+            }
+            if (campos.isEmpty()) return@forEach
+            if (batch == null) batch = db.batch()
+            batch?.update(ref.document(m.messageId), campos)
+        }
+        batch?.commit()
     }
 
     /** Mantiene el encabezado sincronizado con el título del inmueble y actualiza botón propuesta. */
@@ -224,11 +281,33 @@ private var chatId: String = ""
         val miUid = auth.currentUser?.uid ?: return
         if (texto.isEmpty() || chatId.isBlank()) return
 
-        // Debounce: evitar envío duplicado del mismo texto en ventana corta
         val ahora = System.currentTimeMillis()
-        if (texto == ultimoMensajeEnviado && (ahora - ultimoMensajeTimestamp) < DEBOUNCE_MS) {
+
+        // 1) Bloqueo por spam todavia vigente.
+        if (ahora < bloqueoSpamHasta) {
+            val mins = ((bloqueoSpamHasta - ahora + 59_999L) / 60_000L).toInt()
+            Toast.makeText(this, getString(R.string.chat_spam_bloqueo_activo, mins), Toast.LENGTH_LONG).show()
             return
         }
+
+        // 2) Reenvio del mismo texto dentro de la ventana de 30 s.
+        if (texto == ultimoMensajeEnviado && (ahora - ultimoMensajeTimestamp) < DEBOUNCE_MS) {
+            val seg = ((DEBOUNCE_MS - (ahora - ultimoMensajeTimestamp) + 999L) / 1000L).toInt()
+            Toast.makeText(this, getString(R.string.chat_msj_duplicado, seg), Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        // 3) Palabra repetida mas de 5 veces seguidas -> bloqueo de 5 min.
+        historialEnviado.add(ahora to texto)
+        while (historialEnviado.size > VENTANA_ANTISPAM) historialEnviado.removeAt(0)
+        val palabras = historialEnviado.flatMap { palabrasDe(it.second) }
+        val seRepite = palabras.groupingBy { it }.eachCount()
+            .any { it.value > MAX_REPETICIONES }
+        if (seRepite) {
+            activarBloqueoSpam()
+            return
+        }
+
         ultimoMensajeEnviado = texto
         ultimoMensajeTimestamp = ahora
 
@@ -255,6 +334,39 @@ private var chatId: String = ""
                 db.collection("chats").document(chatId).update(updates)
             }
         binding.etEntrada.text?.clear()
+    }
+
+    /** Palabras "significativas" de un mensaje (ignora relleno de 1-2 letras). */
+    private fun palabrasDe(texto: String): List<String> =
+        texto.lowercase(Locale("es", "PE"))
+            .split(Regex("[^a-z0-9\u00e1\u00e9\u00ed\u00f3\u00fa\u00f1\u00fc]+"))
+            .filter { it.length >= 3 }
+
+    /** Bloquea la escritura 5 minutos y avisa al usuario. */
+    private fun activarBloqueoSpam() {
+        bloqueoSpamHasta = System.currentTimeMillis() + BLOQUEO_SPAM_MS
+        historialEnviado.clear()
+        ultimoMensajeEnviado = ""
+        ultimoMensajeTimestamp = 0
+        actualizarEntrada()
+        Toast.makeText(this, R.string.chat_spam_bloqueado, Toast.LENGTH_LONG).show()
+        handlerUI.postDelayed({
+            if (System.currentTimeMillis() >= bloqueoSpamHasta) {
+                bloqueoSpamHasta = 0
+                actualizarEntrada()
+            }
+        }, BLOQUEO_SPAM_MS)
+    }
+
+    /**
+     * Unica fuente de verdad de la barra de escritura: se deshabilita si el
+     * inmueble esta alquilado/vendido, si el chat se cerro o si hay bloqueo
+     * anti-spam vigente.
+     */
+    private fun actualizarEntrada() {
+        val activa = !chatCerradoPorInmueble && System.currentTimeMillis() >= bloqueoSpamHasta
+        binding.etEntrada.isEnabled = activa
+        binding.btnEnviar.isEnabled = activa
     }
 
     /** Muestra diálogo para crear y enviar una cita de visita. */
@@ -508,8 +620,8 @@ private var chatId: String = ""
                 enviarMensajeSistema(getString(R.string.chat_cerrado_sistema))
                 // Actualizar UI
                 binding.cardChatCerrado.visibility = View.VISIBLE
-                binding.etEntrada.isEnabled = false
-                binding.btnEnviar.isEnabled = false
+                chatCerradoPorInmueble = true
+                actualizarEntrada()
                 binding.btnSolicitarCita.visibility = View.GONE
                 Toast.makeText(this, R.string.chat_cerrar_ok, Toast.LENGTH_SHORT).show()
             }
@@ -563,6 +675,6 @@ private var chatId: String = ""
             precio.toString()
         }
         val simbolo = if (moneda == "PEN") "S/ " else "$ "
-        return if (op == "venta") "$simbolo$monto" else "$simbolo$monto / mes"
+        return if (com.alkilapp.data.Propiedad.normalizarOperacion(op) == "venta") "$simbolo$monto" else "$simbolo$monto / mes"
     }
 }

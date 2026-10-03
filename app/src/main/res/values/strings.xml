@@ -1,6 +1,6 @@
 <resources>
     <string name="app_name">AlkilApp</string>
-    <string name="search_hint">Buscar inmueble, distrito, zona…</string>
+    <string name="search_hint">Filtra y busca tu inmueble</string>
     <string name="nearby_title">Inmuebles Cercanos</string>
     <string name="nearby_subtitle">Muestra los inmuebles cercanos a tu ubicación en un rango de 5 km</string>
     <string name="my_location_title">Tu Ubicación</string>
@@ -460,7 +460,7 @@
     <string name="chat_titulo_bandeja">Mensajes</string>
     <string name="chat_bandeja_vacia">Todavía no tienes conversaciones. Toca un inmueble y escribe al propietario.</string>
     <string name="chat_requiere_sesion">Iniciá sesión para ver tus mensajes</string>
-    <string name="chat_hint_escribir">Escribí un mensaje…</string>
+    <string name="chat_hint_escribir">Escribe un mensaje…</string>
     <string name="chat_enviar">Enviar mensaje</string>
     <string name="chat_atras">Volver</string>
     <string name="chat_identidad_verificada">Identidad verificada</string>
@@ -680,6 +680,12 @@
     <string name="verif_estado_pendiente">Tu verificación está en revisión.</string>
     <string name="verif_estado_verificado">Tu identidad ya está verificada.</string>
     <string name="verif_estado_rechazado">Tu verificación fue rechazada: %1$s</string>
+<!-- Anti-spam del chat (bloqueo por reenvío/spam de palabras repetidas). -->
+<string name="chat_msj_duplicado">Espera %1$d s antes de reenviar el mismo mensaje</string>
+<string name="chat_spam_bloqueado">Chat bloqueado 5 min por mensajes repetidos</string>
+<string name="chat_spam_bloqueo_activo">Chat bloqueado por spam. Espera %1$d min</string>
+<string name="verif_en_revision">En revisión</string>
+<string name="verif_numero_dni_invalido">El DNI debe tener 8 dígitos</string>
 
     <!-- Menu lateral -->
     <string name="nav_invitado">Sin sesión</string>

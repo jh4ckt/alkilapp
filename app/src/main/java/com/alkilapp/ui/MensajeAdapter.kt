@@ -2,6 +2,10 @@ package com.alkilapp.ui
 
 import android.content.Context
 import android.content.res.ColorStateList
+import android.graphics.Typeface
+import android.text.SpannableString
+import android.text.Spanned
+import android.text.style.ForegroundColorSpan
 import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
@@ -40,7 +44,7 @@ class MensajeAdapter(
 
     private val mensajes = mutableListOf<Mensaje>()
     private val items = mutableListOf<ChatItem>()
-    private val horaFormato = SimpleDateFormat("HH:mm", Locale.getDefault())
+    private val horaFormato = SimpleDateFormat("h:mm a", Locale.US)
     private val diaFormato = SimpleDateFormat("dd MMM", Locale("es", "PE"))
     private val diaNombreFormato = SimpleDateFormat("EEEE", Locale("es", "PE"))
     private val coloresAvatar = intArrayOf(
@@ -167,7 +171,7 @@ class MensajeAdapter(
         }
 
         if (m.sentAt > 0) {
-            tvTiempo.text = formatearHora(m.sentAt)
+            tvTiempo.text = textoTiempo(ctx, m, esMio)
             tvTiempo.visibility = View.VISIBLE
         } else {
             tvTiempo.visibility = View.GONE
@@ -228,7 +232,7 @@ class MensajeAdapter(
         grupo.gravity = marginal
 
         if (m.sentAt > 0) {
-            tvTiempo.text = formatearHora(m.sentAt)
+            tvTiempo.text = textoTiempo(ctx, m, esMio)
             tvTiempo.visibility = View.VISIBLE
             tvTiempo.layoutParams = (tvTiempo.layoutParams as LinearLayout.LayoutParams).apply { gravity = marginal }
         } else {
@@ -253,7 +257,7 @@ class MensajeAdapter(
         tvSistema.gravity = Gravity.CENTER_HORIZONTAL
 
         tvTiempo.visibility = if (m.sentAt > 0) View.VISIBLE else View.GONE
-        if (m.sentAt > 0) tvTiempo.text = formatearHora(m.sentAt)
+        if (m.sentAt > 0) tvTiempo.text = textoTiempo(itemView.context, m, false)
 
         llFila.gravity = Gravity.CENTER_HORIZONTAL
         itemView.setTag(m)
@@ -309,7 +313,7 @@ class MensajeAdapter(
 
         if (m.sentAt > 0) {
             val tvTiempo = itemView.findViewById<TextView>(R.id.tvTiempo)
-            tvTiempo.text = formatearHora(m.sentAt)
+            tvTiempo.text = textoTiempo(ctx, m, esMio)
             tvTiempo.visibility = View.VISIBLE
             tvTiempo.layoutParams = (tvTiempo.layoutParams as LinearLayout.LayoutParams).apply { gravity = marginal }
         } else {
@@ -324,6 +328,30 @@ class MensajeAdapter(
 
     private fun formatearHora(millis: Long): String {
         return horaFormato.format(Date(millis))
+    }
+
+    /**
+     * Hora local del dispositivo en 12 horas (ej. "12:56 PM") y, si el mensaje es
+     * mío, los checks estilo WhatsApp pegados a la hora:
+     *   ✓     enviado (el servidor ya puso sentAt)
+     *   ✓✓    entregado (el otro lo tiene en pantalla)
+     *   ✓✓    leído (lo está viendo de verdad)
+     */
+    private fun textoTiempo(ctx: Context, m: Mensaje, esMio: Boolean): CharSequence {
+        val base = formatearHora(m.sentAt)
+        if (!esMio || m.sentAt <= 0) return base
+        val leido = m.readAt != null
+        val entregado = m.deliveredAt != null
+        val ticks = if (entregado) "✓✓" else "✓"
+        val texto = SpannableString("$base  $ticks")
+        val color = ctx.getColor(if (leido) R.color.chat_tick_read else R.color.text_secondary)
+        texto.setSpan(
+            ForegroundColorSpan(color),
+            base.length + 2,
+            texto.length,
+            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+        )
+        return texto
     }
 
     private fun esHoy(millis: Long): Boolean {

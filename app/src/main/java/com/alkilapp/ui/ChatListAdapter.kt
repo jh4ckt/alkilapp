@@ -85,7 +85,7 @@ class ChatListAdapter(
         return coloresAvatar[Math.floorMod(clave.hashCode(), coloresAvatar.size)]
     }
 
-    private val horaFormato = SimpleDateFormat("HH:mm", Locale.getDefault())
+    private val horaFormato = SimpleDateFormat("h:mm a", Locale.US)
     private val diaFormato = SimpleDateFormat("dd MMM", Locale("es", "PE"))
     private val diaNombreFormato = SimpleDateFormat("EEEE", Locale("es", "PE"))
 

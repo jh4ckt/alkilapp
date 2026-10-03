@@ -46,6 +46,14 @@ data class Propiedad(
             else -> estado.trim().lowercase()
         }
 
+    /**
+     * "¿Es una publicación en venta?" Robusto a como venga el dato: el panel
+     * puede guardar "Venta", " VENTA " o dejarlo vacío (que es alquiler), y
+     * cualquier comparación cruda con "venta" fallaba en esos casos.
+     */
+    val esVenta: Boolean
+        get() = operacion.trim().lowercase() == "venta"
+
     val precioFormateado: String
         get() {
             if (precio <= 0) return ""
@@ -55,10 +63,14 @@ data class Propiedad(
                 precio.toString()
             }
             val simbolo = if (moneda == "PEN") "S/ " else "$ "
-            return if (operacion == "venta") "$simbolo$monto" else "$simbolo$monto / mes"
+            return if (esVenta) "$simbolo$monto" else "$simbolo$monto / mes"
         }
 
     companion object {
+        /** Normaliza el dato crudo de "operacion" ("Venta", " venta ", ""...) a "venta"/"alquiler". */
+        fun normalizarOperacion(valor: String?): String =
+            (valor ?: "").trim().lowercase().ifEmpty { "alquiler" }
+
         fun desde(doc: DocumentSnapshot): Propiedad? {
             val d = doc.data ?: return null
             fun s(k: String): String = (d[k] as? String) ?: ""
@@ -82,7 +94,7 @@ data class Propiedad(
                 titulo = s("titulo"),
                 descripcion = s("descripcion"),
                 tipo = s("tipo"),
-                operacion = s("operacion"),
+                operacion = normalizarOperacion(s("operacion")),
                 precio = n("precio"),
                 moneda = s("moneda"),
                 direccion = s("direccion"),
