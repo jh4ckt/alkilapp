@@ -9,11 +9,15 @@ import com.google.firebase.firestore.FirebaseFirestore
  * y respaldo durable en Firestore (coleccion "favoritos", doc "<uid>__<id>").
  * Sin sesion, el cache local sigue funcionando (favoritos de ese dispositivo);
  * al iniciar sesion, sincronizar() trae los de la nube.
+ *
+ * Para que los borrados locales no revivan al sincronizar, guardamos "tumbas"
+ * (deleted_<id>) en prefs. La sincronización filtra los IDs con tumba.
  */
 object Favoritos {
 
     private const val PREFS = "alkilapp_favoritos"
     private const val KEY = "ids"
+    private const val DELETED_PREFIX = "deleted_"
 
     fun db(): FirebaseFirestore = FirebaseFirestore.getInstance("alkilappdb")
 
@@ -28,6 +32,12 @@ object Favoritos {
     /** Lista local (sin esperar a la nube). */
     fun locales(ctx: Context): Set<String> =
         prefs(ctx).getStringSet(KEY, emptySet()) ?: emptySet()
+
+    /** IDs marcados como borrados localmente (tumbas). */
+    fun eliminados(ctx: Context): Set<String> =
+        prefs(ctx).all.keys.filter { it.startsWith(DELETED_PREFIX) }
+            .map { it.substring(DELETED_PREFIX.length) }
+            .toSet()
 
     /**
      * Alterna el favorito local y, si hay sesion, lo replica en Firestore
@@ -44,6 +54,13 @@ object Favoritos {
             true
         }
         p.edit().putStringSet(KEY, set).apply()
+        // Si se borra, guardamos tumba para que sincronizar no lo reviva.
+        if (!nuevo) {
+            p.edit().putBoolean(DELETED_PREFIX + id, true).apply()
+        } else {
+            // Si se añade, quitamos tumba si existía.
+            p.edit().remove(DELETED_PREFIX + id).apply()
+        }
         if (uid != null) {
             val ref = db().collection("favoritos").document(docId(uid, id))
             if (nuevo) {
@@ -66,11 +83,16 @@ object Favoritos {
         db().collection("favoritos").whereEqualTo("uid", uid)
             .get()
             .addOnSuccessListener { snap ->
-                val ids = snap.documents
+                val remotos = snap.documents
                     .mapNotNull { it.getString("propiedadId") }
                     .toSet()
-                prefs(ctx).edit().putStringSet(KEY, ids).apply()
-                alListo(ids)
+                val p = prefs(ctx)
+                val locales = p.getStringSet(KEY, emptySet()) ?: emptySet()
+                val tumbas = eliminados(ctx)
+                // Merge: locales ∪ (remotos - tumbas). Las tumbas evitan revivir borrados.
+                val fusion = locales.union(remotos.minus(tumbas))
+                p.edit().putStringSet(KEY, fusion).apply()
+                alListo(fusion)
             }
             .addOnFailureListener {
                 alListo(prefs(ctx).getStringSet(KEY, emptySet()) ?: emptySet())

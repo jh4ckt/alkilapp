@@ -717,6 +717,7 @@
     <string name="favoritos_titulo">Favoritos</string>
     <string name="favoritos_cargando">Cargando tus favoritos…</string>
     <string name="favoritos_vacio">Todavía no guardaste ningún inmueble. Toca el corazón en una tarjeta del listado para guardarlo aquí.</string>
+<string name="favoritos_actualizar">Actualizar favoritos</string>
     <string name="filtros_tipo">Tipo de inmueble</string>
     <string name="filtros_habitaciones">Cantidad de habitaciones</string>
     <string name="detalle_compartir">Compartir publicación</string>

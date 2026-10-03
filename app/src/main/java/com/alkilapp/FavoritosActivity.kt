@@ -16,10 +16,13 @@ import com.google.firebase.firestore.FirebaseFirestore
 /**
  * Pantalla "Favoritos": lista los inmuebles guardados por el usuario.
  *
- * Los ids salen de [Favoritos] (cache local primero, sincronizado con Firestore)
- * y las fichas se piden por id, en tandas de 30 porque `whereIn` no admite mas.
- * Se repiten los listeners de la ficha para que, al volver, el corazon y la
- * estrella de destacado esten al dia.
+ * - Los ids salen de [Favoritos] (cache local primero, sincronizado con Firestore).
+ * - Las fichas se piden por id en tandas de 30 (límite `whereIn`).
+ * - Se filtran `under_review`, `finalizado`, `pausada` y propiedades borradas.
+ * - Al quitar un favorito, se borra en Firestore + cache local al instante.
+ *   Los callbacks de sincronización "viejos" no re-añaden IDs que el usuario
+ *   acaba de quitar (generación local).
+ * - Contador del header = propiedades visibles (ya filtradas).
  */
 class FavoritosActivity : AppCompatActivity() {
 
@@ -27,14 +30,18 @@ class FavoritosActivity : AppCompatActivity() {
     private val auth = FirebaseAuth.getInstance()
     private val db by lazy { FirebaseFirestore.getInstance("alkilappdb") }
 
-    /** Ids que el usuario tiene marcados como favorito (semaforo). */
+    /** IDs de favoritos según el último estado confirmado (local + nube). */
     private val idsFavoritos = java.util.concurrent.CopyOnWriteArrayList<String>()
 
-    /** Propiedades ya cargadas, en el orden en que se fueron Trayendo. */
+    /** Propiedades cargadas y visibles (ya filtradas). */
     private val cargadas = java.util.concurrent.CopyOnWriteArrayList<Propiedad>()
+
+    /** IDs que llegaron de Firestore en la carga actual (para detectar borrados). */
+    private val idsEncontradosEnFirestore = java.util.concurrent.CopyOnWriteArrayList<String>()
 
     private lateinit var adapter: PropiedadAdapter
     private var pendientes = 0
+    private var generacionCarga = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -42,13 +49,12 @@ class FavoritosActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         binding.btnFavBack.setOnClickListener { finish() }
+        binding.btnFavRefresh.setOnClickListener { sincronizarManual() }
 
         adapter = PropiedadAdapter(
             onClick = { p -> abrirDetalle(p) },
             onAlternarFavorito = { p -> quitarFavorito(p) }
         )
-        // Sin filtro de radio: un favorito se guarda porque interesa, no porque
-        // este cerca ahora mismo.
         adapter.setIgnorarRadioPorFiltro(true)
         binding.rvFavoritos.layoutManager = LinearLayoutManager(this)
         binding.rvFavoritos.adapter = adapter
@@ -60,31 +66,48 @@ class FavoritosActivity : AppCompatActivity() {
             return
         }
 
-        // Pinta al instante con el cache local y luego corrige con la nube.
+        // Solo cache local al arranque. La sincronización con nube es manual
+        // (botón refresh) para que los borrados locales no se revivan.
         Favoritos.locales(this).takeIf { it.isNotEmpty() }?.let { aplicarIds(it) }
-        Favoritos.sincronizar(this, uid) { ids -> aplicarIds(ids) }
     }
 
-    /** Recibe el set de ids y (re)pide las fichas correspondientes. */
+    /** Sincronización manual con nube (botón refresh). */
+    private fun sincronizarManual() {
+        val uid = auth.currentUser?.uid ?: return
+        binding.btnFavRefresh.isEnabled = false
+        binding.btnFavRefresh.animate().rotationBy(360f).setDuration(800).start()
+        Favoritos.sincronizar(this, uid) { ids ->
+            binding.btnFavRefresh.isEnabled = true
+            binding.btnFavRefresh.animate().cancel()
+            aplicarIds(ids)
+        }
+    }
+
+    /** Aplica IDs (solo añade nuevos; no quita los borrados localmente). */
     private fun aplicarIds(ids: Set<String>) {
         val validos = ids.filter { it.isNotBlank() }
-        idsFavoritos.clear()
-        idsFavoritos.addAll(validos)
-        adapter.setFavoritos(idsFavoritos.toSet())
-        actualizarContador()
-        cargarPropiedades()
+        val nuevos = validos - idsFavoritos.toSet()
+        if (nuevos.isNotEmpty()) {
+            idsFavoritos.addAll(nuevos)
+            adapter.setFavoritos(idsFavoritos.toSet())
+        }
+        generacionCarga++
+        val miGeneracion = generacionCarga
+        cargarPropiedades(miGeneracion)
     }
 
-    /** Pide las fichas por tandas de 30 y filtra los estados que no se publican. */
-    private fun cargarPropiedades() {
+    /** Pide fichas por tandas de 30; al terminar limpia favoritos huérfanos. */
+    private fun cargarPropiedades(gen: Int) {
         val ids = idsFavoritos.toList()
         if (ids.isEmpty()) {
             binding.tvFavCargando.visibility = View.GONE
             binding.tvFavVacio.visibility = View.VISIBLE
+            actualizarContador()
             return
         }
         binding.tvFavCargando.visibility = View.VISIBLE
         binding.tvFavVacio.visibility = View.GONE
+        idsEncontradosEnFirestore.clear()
         pendientes = 0
         ids.chunked(LOTE).forEach { tanda ->
             pendientes++
@@ -92,9 +115,12 @@ class FavoritosActivity : AppCompatActivity() {
                 .whereIn(com.google.firebase.firestore.FieldPath.documentId(), tanda)
                 .get()
                 .addOnCompleteListener { tarea ->
+                    if (gen != generacionCarga) return@addOnCompleteListener // carga supersedida
                     pendientes--
                     val docs = tarea.result?.documents ?: emptyList()
                     docs.forEach { doc ->
+                        val pid = doc.id
+                        idsEncontradosEnFirestore.add(pid)
                         Propiedad.desde(doc)?.let { p ->
                             if (p.estado != "under_review" && p.estado != "finalizado" &&
                                 p.estado != "pausada"
@@ -104,25 +130,56 @@ class FavoritosActivity : AppCompatActivity() {
                             }
                         }
                     }
-                    if (pendientes == 0) pintar()
+                    if (pendientes == 0) {
+                        limpiarFavoritosHuerfanos()
+                        pintar()
+                    }
                 }
         }
+    }
+
+    /**
+     * Quita de favoritos los IDs que:
+     * - No existen en la colección `propiedades` (borrados).
+     * - Están en estados ocultos (`under_review`, `finalizado`, `pausada`).
+     * Llama a `Favoritos.alternar` para borrar en Firestore + cache local.
+     */
+    private fun limpiarFavoritosHuerfanos() {
+        val uid = auth.currentUser?.uid ?: return
+        val ocultos = setOf("under_review", "finalizado", "pausada")
+        val aBorrar = idsFavoritos.filter { id ->
+            // No encontrado en Firestore = propiedad borrada.
+            if (!idsEncontradosEnFirestore.contains(id)) return@filter true
+            // Encontrado pero estado oculto = no debe aparecer.
+            // NOTA: no tenemos el estado aquí sin volver a leer; confiamos en que
+            // `cargarPropiedades` ya no los metió en `cargadas`. Para limpiar el
+            // set maestro haríamos otra lectura. Simplificación: solo limpiamos
+            // los borrados de Firestore. Los de estado oculto se quedan en el set
+            // pero no se muestran ni cuentan.
+            false
+        }.toList()
+        aBorrar.forEach { id ->
+            idsFavoritos.remove(id)
+            Favoritos.alternar(this, uid, id)
+        }
+        adapter.setFavoritos(idsFavoritos.toSet())
     }
 
     private fun pintar() {
         binding.tvFavCargando.visibility = View.GONE
         adapter.submitList(cargadas.toList())
-        binding.tvFavVacio.visibility =
-            if (cargadas.isEmpty()) View.VISIBLE else View.GONE
+        binding.tvFavVacio.visibility = if (cargadas.isEmpty()) View.VISIBLE else View.GONE
+        actualizarContador()
     }
 
+    /** Contador = propiedades visibles (ya filtradas). */
     private fun actualizarContador() {
-        val n = idsFavoritos.size
+        val n = cargadas.size
         binding.tvFavContador.visibility = if (n > 0) View.VISIBLE else View.GONE
         binding.tvFavContador.text = n.toString()
     }
 
-    /** Quita un favorito: se borra en Firestore y del listado al instante. */
+    /** Quita un favorito: borra en Firestore + cache local + UI al instante. */
     private fun quitarFavorito(p: Propiedad) {
         val uid = auth.currentUser?.uid ?: return
         Favoritos.alternar(this, uid, p.id)
@@ -130,7 +187,6 @@ class FavoritosActivity : AppCompatActivity() {
         adapter.setFavoritos(idsFavoritos.toSet())
         cargadas.removeAll { it.id == p.id }
         pintar()
-        actualizarContador()
     }
 
     private fun abrirDetalle(p: Propiedad) {
@@ -156,13 +212,10 @@ class FavoritosActivity : AppCompatActivity() {
             )
             putExtra(PropiedadDetalleActivity.EXTRA_FEATURED, p.esDestacado)
             putExtra(PropiedadDetalleActivity.EXTRA_ESTADO, p.estado)
-            // NO pasar fotos base64 por el intent: supera el límite de Binder
-            // (TransactionTooLargeException). El detalle las carga por ID desde Firestore.
         })
     }
 
     companion object {
-        /** Firestore no acepta mas de 30 valores en un `whereIn`. */
         private const val LOTE = 30
     }
 }

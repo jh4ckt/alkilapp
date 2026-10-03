@@ -1,15 +1,18 @@
 package com.alkilapp.ui
 
 import android.content.res.ColorStateList
+import android.content.res.Resources
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.PorterDuff
+import android.graphics.drawable.Drawable
 import android.util.Base64
 import android.util.Log
 import android.util.LruCache
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.RecyclerView
 import com.alkilapp.R
 import com.alkilapp.data.Propiedad
@@ -138,9 +141,9 @@ class PropiedadAdapter(
         // Favorito (corazon). El listado no toca Firestore: pide alternar al
         // contexto (MainActivity) que persiste local + nube y refresca el set.
         val esFav = favoritos.contains(item.id)
-        binding.btnFavorito.setImageResource(
-            if (esFav) R.drawable.ic_corazon_lleno else R.drawable.ic_corazon
-        )
+        binding.btnFavorito.icon = if (esFav)
+            ContextCompat.getDrawable(ctx, R.drawable.ic_corazon_lleno) else
+            ContextCompat.getDrawable(ctx, R.drawable.ic_corazon)
         binding.btnFavorito.setOnClickListener {
             onAlternarFavorito(item)
         }
@@ -149,10 +152,8 @@ class PropiedadAdapter(
                 Log.d("AlkilApp", "btnVerDetalles click: ${item.titulo}")
                 onClick(item)
             }
-            binding.root.setOnClickListener {
-                Log.d("AlkilApp", "root click: ${item.titulo}")
-                onClick(item)
-            }
+            // NO root click listener: evita que el click en el corazón propague al detalle.
+            // El usuario usa el botón "Ver detalles" para abrir la ficha.
     }
 
     override fun getItemCount(): Int = items.size
