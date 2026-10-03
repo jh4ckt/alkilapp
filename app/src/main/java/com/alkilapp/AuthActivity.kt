@@ -18,12 +18,19 @@ import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import org.json.JSONObject
+import java.net.URL
+import java.util.concurrent.TimeUnit
 
 /**
- * Pantalla de autenticacion (Ingresar / Crear cuenta / Google).
- * Reemplaza el antiguo dialogo de auth de MainActivity.
+ * Pantalla de autenticación (Ingresar / Crear cuenta / Google).
+ * Reemplaza el antiguo diálogo de auth de MainActivity.
  */
-class AuthActivity : AppCompatActivity() {
+class AuthActivity : AppCompatActivity(), CoroutineScope {
 
     private lateinit var binding: ActivityAuthBinding
     private val auth by lazy { FirebaseAuth.getInstance() }
@@ -60,8 +67,31 @@ class AuthActivity : AppCompatActivity() {
                         mostrarErrorFirebase(task.exception)
                     }
                 }
-        } catch (e: ApiException) {
+} catch (e: ApiException) {
             mostrarError(getString(R.string.auth_google_error, "${e.statusCode}"))
+        }
+    }
+
+    override val coroutineContext = Dispatchers.Main
+
+    /** Verifica que el dominio del email tenga registros MX (puede recibir correo).
+     * Usa Google DNS-over-HTTPS (gratis, sin API key). */
+    private suspend fun verificarDominioMX(email: String): Boolean = withContext(Dispatchers.IO) {
+        val dominio = email.substringAfterLast("@")
+        try {
+            val url = URL("https://dns.google/resolve?name=$dominio&type=MX")
+            val connection = url.openConnection()
+            connection.connectTimeout = 5000
+            connection.readTimeout = 5000
+            val inputStream = connection.getInputStream()
+            val json = inputStream.bufferedReader().readText()
+            inputStream.close()
+            val obj = JSONObject(json)
+            val answer = obj.optJSONArray("Answer")
+            answer != null && answer.length() > 0
+        } catch (e: Exception) {
+            // Si falla la consulta DNS, permitimos continuar (no bloquear al usuario)
+            true
         }
     }
 
@@ -157,14 +187,25 @@ class AuthActivity : AppCompatActivity() {
                 mostrarError(getString(R.string.auth_pass_no_coincide))
                 return
             }
-            // Verificar email duplicado ANTES de crear (evita excepción fea)
-            verificarEmailDisponible(email) { disponible ->
-                if (disponible) {
-                    crearCuenta(email, pass, nombre, telefono, departamento)
-                } else {
-                    mostrarError(getString(R.string.auth_email_duplicado))
+            // Check de dominio MX (opcional, no bloqueante si falla)
+            launch {
+                val mxOk = verificarDominioMX(email)
+                if (!mxOk) {
+                    runOnUiThread { mostrarError(getString(R.string.auth_dominio_invalido)) }
+                    return@launch
+                }
+                // Verificar email duplicado ANTES de crear (evita excepción fea)
+                runOnUiThread {
+                    verificarEmailDisponible(email) { disponible ->
+                        if (disponible) {
+                            crearCuenta(email, pass, nombre, telefono, departamento)
+                        } else {
+                            mostrarError(getString(R.string.auth_email_duplicado))
+                        }
+                    }
                 }
             }
+            return
         } else {
             iniciarSesion(email, pass)
         }

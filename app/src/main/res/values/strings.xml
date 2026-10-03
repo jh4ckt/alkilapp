@@ -63,6 +63,15 @@
     <string name="prop_seccion_ubicacion">Ubicación</string>
     <string name="prop_seccion_caracteristicas">Características</string>
     <string name="prop_seccion_descripcion">Descripción</string>
+    <string name="prop_paso_inicial">Paso 1 de 5</string>
+    <string name="prop_paso_fotos">Fotos</string>
+    <string name="prop_paso_datos">Datos</string>
+    <string name="prop_paso_ubicacion">Ubicación</string>
+    <string name="prop_paso_caracteristicas">Características</string>
+    <string name="prop_paso_descripcion">Descripción</string>
+    <string name="prop_paso_contador">Paso %1$d de %2$d</string>
+    <string name="prop_paso_anterior">Anterior</string>
+    <string name="prop_paso_siguiente">Siguiente</string>
     <string name="prop_hint_titulo">Título (ej: Depto. 2 dorm. céntrico)</string>
     <string name="prop_hint_precio">Precio</string>
     <string name="prop_hint_direccion">Dirección de la calle</string>
@@ -488,6 +497,7 @@
 <string name="auth_abrir_correo">Abrir mi correo</string>
 <string name="auth_verificar_luego">Verificar más tarde</string>
 <string name="auth_enviando">Enviando...</string>
+<string name="auth_dominio_invalido">El dominio del correo no puede recibir emails. Usa otro correo.</string>
 
     <!-- Client ID web de OAuth (auto-creado al habilitar Google sign-in en la consola) -->
     <string name="default_web_client_id" translatable="false">288429280561-0f7jlpoc8h91m7naj0gsstavj8co4t38.apps.googleusercontent.com</string>
