@@ -1,4 +1,4 @@
-package com.alkilapp
+﻿package com.alkilapp
 
 import android.Manifest
 import android.content.Intent
@@ -187,7 +187,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         callbackChatNoLeidos = { total -> runOnUiThread { actualizarBadgeChats(total) } }
         ChatNoLeidos.suscribir(callbackChatNoLeidos!!)
 
-        // Verificar permiso de ubicación para usuarios nuevos
+        // Verificar permiso de ubicaciÃ³n para usuarios nuevos
         verificarPermisoUbicacion()
     }
 
@@ -227,9 +227,9 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     /**
      * Configura el Bottom Sheet colapsable/expandible SIN BottomSheetBehavior
      * (la biblioteca dejaba el sheet fuera de pantalla por offsets/saved-state
-     * que sobrevivían al install -r). Implementacion manual: el sheet tiene una
-     * altura fija = 60% de la pantalla y se minimiza desplazándolo hacia abajo
-     * con translationY (solo queda visible el peek de 100dp = handle + título).
+     * que sobrevivÃ­an al install -r). Implementacion manual: el sheet tiene una
+     * altura fija = 60% de la pantalla y se minimiza desplazÃ¡ndolo hacia abajo
+     * con translationY (solo queda visible el peek de 100dp = handle + tÃ­tulo).
      */
     private fun configurarBottomSheet() {
         val sheet = binding.bottomSheet
@@ -269,7 +269,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
                 .start()
         }
 
-        // Arrastre vertical desde la cabecera (handle + título).
+        // Arrastre vertical desde la cabecera (handle + tÃ­tulo).
         var inicioY = 0f
         var inicioTranslation = 0f
         var arrastrado = false
@@ -297,7 +297,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
                         // Tap en la cabecera: alternar expandido/minimizado
                         animarA(if (sheet.translationY > maxOffset * 0.4f) 0f else maxOffset)
                     } else {
-                        // Soltar: quedarse del lado más próximo
+                        // Soltar: quedarse del lado mÃ¡s prÃ³ximo
                         animarA(if (sheet.translationY > maxOffset * 0.4f) maxOffset else 0f)
                     }
                     true
@@ -315,9 +315,9 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     }
 
     /**
-     * Insets de las barras del sistema: la fila superior (menú + búsqueda + botón publicar)
+     * Insets de las barras del sistema: la fila superior (menÃº + bÃºsqueda + botÃ³n publicar)
      * queda por debajo de la barra de estado, y el bottomSheet reserva el espacio de la barra
-     * de navegación para que sus últimos controles se puedan presionar.
+     * de navegaciÃ³n para que sus Ãºltimos controles se puedan presionar.
      */
     private fun configurarInsetsSistema() {
         ViewCompat.setOnApplyWindowInsetsListener(binding.root) { _, insets ->
@@ -340,7 +340,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         ViewCompat.requestApplyInsets(binding.root)
     }
 
-    /** Botón de menú en la esquina superior: abre el panel lateral. */
+    /** BotÃ³n de menÃº en la esquina superior: abre el panel lateral. */
     private fun configurarMenu() {
         binding.btnMenu.setOnClickListener {
             binding.drawerLayout.openDrawer(GravityCompat.START)
@@ -405,7 +405,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     }
 
     private fun cerrarSesion() {
-        // Cerrar sesión en Firebase y Google para forzar selector de cuentas al reingresar
+        // Cerrar sesiÃ³n en Firebase y Google para forzar selector de cuentas al reingresar
         auth.signOut()
         com.google.android.gms.auth.api.signin.GoogleSignIn.getClient(this, com.google.android.gms.auth.api.signin.GoogleSignInOptions.DEFAULT_SIGN_IN).signOut()
         favoritosSet = Favoritos.locales(this)
@@ -465,11 +465,11 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         verificarEmailSiNecesario()
     }
 
-    /** Si hay usuario logueado pero email no verificado, abre pantalla de verificación. */
+    /** Si hay usuario logueado pero email no verificado, abre pantalla de verificaciÃ³n. */
     private fun verificarEmailSiNecesario() {
         val user = auth.currentUser
         if (user != null && !user.isEmailVerified) {
-            // Evitar bucle si ya está en la actividad de verificación
+            // Evitar bucle si ya estÃ¡ en la actividad de verificaciÃ³n
             if (this !is VerificacionEmailActivity) {
                 startActivity(Intent(this, VerificacionEmailActivity::class.java))
             }
@@ -477,9 +477,9 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     }
 
 /** Carga la zona por defecto del usuario (departamento + ciudad) desde Firestore
-     * PERO NO la aplica como filtro automático; solo marca que tiene zona configurada.
-     * El filtro por zona se aplica solo si el usuario lo selecciona explícitamente
-     * o si GPS no está disponible tras un tiempo razonable. */
+     * PERO NO la aplica como filtro automÃ¡tico; solo marca que tiene zona configurada.
+     * El filtro por zona se aplica solo si el usuario lo selecciona explÃ­citamente
+     * o si GPS no estÃ¡ disponible tras un tiempo razonable. */
     private fun cargarZonaUsuario() {
         val u = auth.currentUser ?: return
         db.collection("usuarios").document(u.uid).get()
@@ -489,7 +489,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
                 val dep = d["zonaDepartamento"] as? String
                 val ciu = d["zonaCiudad"] as? String
                 if (!dep.isNullOrBlank() || !ciu.isNullOrBlank()) {
-                    // NO aplicamos el filtro automáticamente; solo guardamos que tiene zona
+                    // NO aplicamos el filtro automÃ¡ticamente; solo guardamos que tiene zona
                     // El filtro por zona se activa solo si el usuario lo selecciona en Filtros
                     // o si GPS falla tras un timeout (no implementado: GPS tiene prioridad)
                     zonaConfigurada = true
@@ -499,14 +499,14 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
 .addOnFailureListener { }
     }
 
-    /** Muestra u oculta el estado vacío (llSheetVacio) cuando la zona del usuario no tiene inmuebles
-     * y no hay filtros explícitos activos. */
+    /** Muestra u oculta el estado vacÃ­o (llSheetVacio) cuando la zona del usuario no tiene inmuebles
+     * y no hay filtros explÃ­citos activos. */
     private fun actualizarEmptyState() {
         val hayFiltroExplicito = filtroDepartamento != null || filtroDistrito != null ||
             filtroTipo != null || filtroHabitaciones != null || soloFavoritos || busquedaActual.isNotBlank()
         // Solo mostramos el empty state si:
         // 1. El usuario tiene zona configurada (departamento/ciudad en Mi Perfil)
-        // 2. No hay filtros explícitos activos
+        // 2. No hay filtros explÃ­citos activos
         // 3. No hay inmuebles visibles en el listado
         val visibles = adapter.visibles()
         val showEmpty = zonaConfigurada && !hayFiltroExplicito && visibles.isEmpty()
@@ -536,7 +536,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         binding.btnFiltroBuscar.setOnClickListener { abrirDialogoFiltros() }
     }
 
-    /** Activa/desactiva el filtro de radio según haya filtros explícitos activos. */
+    /** Activa/desactiva el filtro de radio segÃºn haya filtros explÃ­citos activos. */
     private fun actualizarRadioPorFiltros() {
         val hayFiltroExplicito = filtroDepartamento != null || filtroDistrito != null ||
             filtroTipo != null || filtroHabitaciones != null || soloFavoritos ||
@@ -568,7 +568,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         )
     }
 
-    /** Vuelve a centrar el mapa (y el marcador) en donde está el usuario. */
+    /** Vuelve a centrar el mapa (y el marcador) en donde estÃ¡ el usuario. */
     private fun irAMiUbicacion() {
         if (!tienePermisoUbicacion()) {
             ActivityCompat.requestPermissions(
@@ -597,7 +597,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     }
 
     // ======================================================================
-    // Filtros por departamento / distrito (Perú - Lima por ahora)
+    // Filtros por departamento / distrito (PerÃº - Lima por ahora)
     // ======================================================================
 
     /** Indice del valor en la lista de un spinner (ignora mayusculas/acentos ya normalizados); 0 si no existe. */
@@ -621,21 +621,21 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         val tipos = resources.getStringArray(R.array.tipos_inmueble).toList()
         val opcionesHab = listOf(todos) + resources.getStringArray(R.array.opciones_habitaciones).toList()
 
-        // Función para obtener ciudades por departamento (mismo mapa que RegistrarPropiedadActivity)
+        // FunciÃ³n para obtener ciudades por departamento (mismo mapa que RegistrarPropiedadActivity)
         fun obtenerCiudades(departamento: String): List<String> {
             return when (departamento) {
                 "Amazonas" -> resources.getStringArray(R.array.ciudades_amazonas).toList()
                 "Ancash" -> resources.getStringArray(R.array.ciudades_ancash).toList()
-                "Apurímac" -> resources.getStringArray(R.array.ciudades_apurimac).toList()
+                "ApurÃ­mac" -> resources.getStringArray(R.array.ciudades_apurimac).toList()
                 "Arequipa" -> resources.getStringArray(R.array.ciudades_arequipa).toList()
                 "Ayacucho" -> resources.getStringArray(R.array.ciudades_ayacucho).toList()
                 "Cajamarca" -> resources.getStringArray(R.array.ciudades_cajamarca).toList()
                 "Callao" -> resources.getStringArray(R.array.ciudades_callao).toList()
                 "Cusco" -> resources.getStringArray(R.array.ciudades_cusco).toList()
                 "Huancavelica" -> resources.getStringArray(R.array.ciudades_huancavelica).toList()
-                "Huánuco" -> resources.getStringArray(R.array.ciudades_huanuco).toList()
+                "HuÃ¡nuco" -> resources.getStringArray(R.array.ciudades_huanuco).toList()
                 "Ica" -> resources.getStringArray(R.array.ciudades_ica).toList()
-                "Junín" -> resources.getStringArray(R.array.ciudades_junin).toList()
+                "JunÃ­n" -> resources.getStringArray(R.array.ciudades_junin).toList()
                 "La Libertad" -> resources.getStringArray(R.array.ciudades_lalibertad).toList()
                 "Lambayeque" -> resources.getStringArray(R.array.ciudades_lambayeque).toList()
                 "Lima" -> resources.getStringArray(R.array.distritos_lima).toList()
@@ -645,7 +645,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
                 "Pasco" -> resources.getStringArray(R.array.ciudades_pasco).toList()
                 "Piura" -> resources.getStringArray(R.array.ciudades_piura).toList()
                 "Puno" -> resources.getStringArray(R.array.ciudades_puno).toList()
-                "San Martín" -> resources.getStringArray(R.array.ciudades_sanmartin).toList()
+                "San MartÃ­n" -> resources.getStringArray(R.array.ciudades_sanmartin).toList()
                 "Tacna" -> resources.getStringArray(R.array.ciudades_tacna).toList()
                 "Tumbes" -> resources.getStringArray(R.array.ciudades_tumbes).toList()
                 "Ucayali" -> resources.getStringArray(R.array.ciudades_ucayali).toList()
@@ -678,7 +678,7 @@ fun llenar(sp: Spinner, opciones: List<String>) {
         val depActual = filtroDepartamento ?: todos
         val disActual = filtroDistrito ?: todos
         val tipoActual = filtroTipo ?: todos
-        val habActual = filtroHabitaciones?.let { if (it == 4) "4 o más" else it.toString() } ?: todos
+        val habActual = filtroHabitaciones?.let { if (it == 4) "4 o mÃ¡s" else it.toString() } ?: todos
         val opcionesDis = distritosPara(depActual)
 
         llenar(spinnerDep, opcionesDep)
@@ -730,7 +730,7 @@ fun llenar(sp: Spinner, opciones: List<String>) {
             filtroTipo = tipo.takeUnless { it == todos }
             filtroHabitaciones = when (habSel) {
                 todos -> null
-                "4 o más" -> 4
+                "4 o mÃ¡s" -> 4
                 else -> habSel.toIntOrNull()
             }
             val hayFiltroExplicito = filtroDepartamento != null || filtroDistrito != null ||
@@ -777,7 +777,7 @@ fun llenar(sp: Spinner, opciones: List<String>) {
         )
     }
 
-    /** Escucha en vivo los inmuebles guardados en Firestore (colección "propiedades"). */
+    /** Escucha en vivo los inmuebles guardados en Firestore (colecciÃ³n "propiedades"). */
     private fun escucharPropiedades() {
         escuchaPropiedades?.remove()
         escuchaPropiedades = db.collection("propiedades")
@@ -823,12 +823,12 @@ fun llenar(sp: Spinner, opciones: List<String>) {
     }
 
     // ======================================================================
-    // Badges estáticos de disponibilidad por zona sobre el mapa
+    // Badges estÃ¡ticos de disponibilidad por zona sobre el mapa
     // ======================================================================
 
-    /** Calcula el radio de búsqueda en km según el nivel de zoom del mapa.
+    /** Calcula el radio de bÃºsqueda en km segÃºn el nivel de zoom del mapa.
      * zoom 15 (por defecto) -> 5 km
-     * zoom 5 (todo Perú) -> 3000 km (cubre todo el país)
+     * zoom 5 (todo PerÃº) -> 3000 km (cubre todo el paÃ­s)
      * Cada nivel de zoom alejado duplica el radio. */
     private fun calcularRadioKmDesdeZoom(zoom: Float): Double {
         if (zoom >= 15f) return 5.0
@@ -841,7 +841,7 @@ fun llenar(sp: Spinner, opciones: List<String>) {
         mMap.setOnCameraIdleListener {
             posicionarBadges()
             actualizarMarcadoresEnZonaVisible()
-            // Actualizar radio de búsqueda según zoom (centro = ubicación usuario)
+            // Actualizar radio de bÃºsqueda segÃºn zoom (centro = ubicaciÃ³n usuario)
             if (ultimaUbicacion != null) {
                 val zoom = mMap.cameraPosition.zoom
                 val radioKm = calcularRadioKmDesdeZoom(zoom)
@@ -865,9 +865,9 @@ fun llenar(sp: Spinner, opciones: List<String>) {
         return BitmapDescriptorFactory.fromBitmap(bitmap)
     }
 
-    /** Añade/actualiza marcadores solo para inmuebles dentro de la vista actual del mapa.
+    /** AÃ±ade/actualiza marcadores solo para inmuebles dentro de la vista actual del mapa.
      * Usa todas las propiedades que pasan los filtros de texto/tipo/zona (SIN radio de distancia),
-     * para que los marcadores sigan visibles al acercarse aunque estén fuera del radio actual. */
+     * para que los marcadores sigan visibles al acercarse aunque estÃ©n fuera del radio actual. */
     private fun actualizarMarcadoresEnZonaVisible() {
         if (!::mMap.isInitialized) return
         if (!::iconoDefault.isInitialized) initIconosMarcadores()
@@ -889,7 +889,7 @@ fun llenar(sp: Spinner, opciones: List<String>) {
                 marcadores.add(marker)
             }
         }
-        // Reaplicar la selección previa si el marcador sigue en la zona visible
+        // Reaplicar la selecciÃ³n previa si el marcador sigue en la zona visible
         if (idMarcadorSeleccionado != null && marcadorSeleccionado == null) {
             val markerSel = marcadores.firstOrNull { it.tag == idMarcadorSeleccionado }
             if (markerSel != null) {
@@ -943,7 +943,7 @@ fun llenar(sp: Spinner, opciones: List<String>) {
         binding.overlayBadges.post { posicionarBadges() }
     }
 
-    /** ¿El inmueble coincide con la búsqueda por texto? (mismos campos que el adapter). */
+    /** Â¿El inmueble coincide con la bÃºsqueda por texto? (mismos campos que el adapter). */
     private fun propiedadCoincideTexto(p: Propiedad, texto: String): Boolean {
         val q = texto.trim().lowercase()
         if (q.isEmpty()) return true
@@ -994,7 +994,7 @@ fun llenar(sp: Spinner, opciones: List<String>) {
         }
         inner.addView(dot)
         inner.addView(TextView(this).apply {
-            text = "$zona · $count"
+            text = "$zona Â· $count"
             textSize = 11f
             setTextColor(getColor(R.color.text_primary))
             setTypeface(null, android.graphics.Typeface.BOLD)
@@ -1019,7 +1019,7 @@ fun llenar(sp: Spinner, opciones: List<String>) {
         mMap.uiSettings.isMyLocationButtonEnabled = false
 
         // Padding para que el mapa visible quede arriba del bottom sheet.
-        // Inicialmente el sheet está colapsado (peek 100dp); al deslizarlo,
+        // Inicialmente el sheet estÃ¡ colapsado (peek 100dp); al deslizarlo,
         // onSlide() actualiza este padding en tiempo real.
         mMap.setOnMapLoadedCallback {
             val topInset = binding.filaTop.measuredHeight + 16.dp
@@ -1045,7 +1045,7 @@ configurarBadges()
 
     /** Busca la propiedad asociada a un marcador (etiquetado con su id).
      * Usa todasParaMapa() SIN filtro de radio para que el InfoWindow
-     * funcione aunque el marcador esté fuera del radio de 5 km. */
+     * funcione aunque el marcador estÃ© fuera del radio de 5 km. */
     private fun propiedadDesdeMarcador(marker: Marker): Propiedad? {
         val id = marker.tag as? String ?: return null
         if (id.isBlank()) return null
@@ -1054,13 +1054,13 @@ configurarBadges()
 
     /** Normaliza el tipo a 4 opciones: habitacion, departamento, casa u otros. */
     private fun tipoMostrable(tipo: String): String = when (tipo.trim().lowercase()) {
-        "habitacion", "habitación", "cuarto" -> "Habitacion"
+        "habitacion", "habitaciÃ³n", "cuarto" -> "Habitacion"
         "departamento", "depto" -> "Departamento"
         "casa" -> "Casa"
         else -> "Otros"
     }
 
-    /** Construye el InfoWindow estilo Booking con foto, título, precio y botón ver. */
+    /** Construye el InfoWindow estilo Booking con foto, tÃ­tulo, precio y botÃ³n ver. */
     private fun construirInfoWindow(p: Propiedad): View {
         val card = com.google.android.material.card.MaterialCardView(this).apply {
             radius = (12.dp).toFloat()
@@ -1091,7 +1091,7 @@ configurarBadges()
             textSize = 12f
             setTextColor(getColor(R.color.text_secondary))
         })
-        // Botón "Ver"
+        // BotÃ³n "Ver"
         root.addView(com.google.android.material.button.MaterialButton(this).apply {
             text = "Ver propiedad"
             textSize = 12f
@@ -1170,7 +1170,7 @@ configurarBadges()
         mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(punto, DEFAULT_CAMERA_ZOOM))
     }
 
-    /** Centra el mapa en los inmuebles visibles tras aplicar búsqueda o filtros. */
+    /** Centra el mapa en los inmuebles visibles tras aplicar bÃºsqueda o filtros. */
     private fun actualizarZonaMapa(conMensaje: Boolean = true) {
         limpiarMarcadores()
         val hayFiltro = filtroDistrito != null || filtroDepartamento != null ||
@@ -1212,7 +1212,7 @@ configurarBadges()
                 mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(propiedad.ubicacion, 16f))
             }
         } catch (e: Exception) {
-            // Ignorar errores de animación del mapa
+            // Ignorar errores de animaciÃ³n del mapa
         }
         val intent = Intent(this, PropiedadDetalleActivity::class.java).apply {
             putExtra(PropiedadDetalleActivity.EXTRA_ID, propiedad.id)
@@ -1234,7 +1234,7 @@ configurarBadges()
                 PropiedadDetalleActivity.EXTRA_COMODIDADES,
                 ArrayList(propiedad.comodidades)
             )
-            // NO pasar fotos base64 por el intent: supera el límite de Binder
+            // NO pasar fotos base64 por el intent: supera el lÃ­mite de Binder
             // (TransactionTooLargeException). El detalle las carga por ID desde Firestore.
             putStringArrayListExtra(
                 PropiedadDetalleActivity.EXTRA_FOTOS_URL,
@@ -1270,7 +1270,7 @@ private fun limpiarMarcadores() {
     }
 
     // ======================================================================
-    // Autenticación (registro de usuarios vía Firebase Auth + colección usuarios)
+    // AutenticaciÃ³n (registro de usuarios vÃ­a Firebase Auth + colecciÃ³n usuarios)
     // ======================================================================
 
     private fun onBotonAuth() {
@@ -1466,3 +1466,4 @@ private val Int.dp: Int
     get() = (this * Resources.getSystem().displayMetrics.density).toInt()
 
 private fun Int.toDpFloat(): Float = this * Resources.getSystem().displayMetrics.density
+

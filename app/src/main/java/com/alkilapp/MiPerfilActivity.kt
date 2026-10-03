@@ -163,6 +163,10 @@ class MiPerfilActivity : AppCompatActivity() {
     private fun cargarMisDatos() {
         val u = auth.currentUser ?: run { finish(); return }
         binding.tvPerfilEmail.text = u.email ?: ""
+        // Estado de verificación de email
+        val verificado = u.isEmailVerified
+        binding.tvPerfilEmailVerificado.visibility = if (verificado) View.VISIBLE else View.GONE
+        binding.tvPerfilEmailPendiente.visibility = if (!verificado) View.VISIBLE else View.GONE
         db.collection("usuarios").document(u.uid).get()
             .addOnSuccessListener { doc ->
                 if (!doc.exists()) return@addOnSuccessListener

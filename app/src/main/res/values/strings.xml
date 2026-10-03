@@ -489,6 +489,8 @@
 <string name="auth_verificacion_enviada">Te enviamos un correo para verificar tu cuenta. Revisa tu bandeja de entrada (y spam).</string>
 <string name="auth_verificacion_error">No se pudo enviar la verificación. Intenta de nuevo.</string>
 <string name="auth_email_no_verificado">Verifica tu correo para continuar. Te reenviamos el enlace.</string>
+<string name="auth_email_no_verificado_publicar">Verifica tu correo para publicar inmuebles. Te reenviamos el enlace.</string>
+<string name="auth_email_no_verificado_chat">Verifica tu correo para chatear. Te reenviamos el enlace.</string>
 <string name="auth_reenviar_verificacion">Reenviar verificación</string>
 <string name="auth_verificacion_reenviada">Verificación reenviada. Revisa tu correo.</string>
 <string name="auth_verificacion_pendiente">Tu cuenta necesita verificación. Haz clic en el enlace que te enviamos por correo.</string>
@@ -661,6 +663,8 @@
     <string name="perfil_datos_fijos">Tu nombre y correo no se pueden modificar.</string>
     <string name="perfil_telefono_hint">Teléfono</string>
     <string name="perfil_email_label">Correo</string>
+<string name="perfil_email_verificado">Verificado</string>
+<string name="perfil_email_pendiente">Pendiente de verificación</string>
     <string name="perfil_tipo_label">Tipo de cuenta</string>
     <string name="perfil_zona_departamento_label">Departamento de tu zona</string>
     <string name="perfil_zona_ciudad_label">Ciudad/Distrito de tu zona</string>
