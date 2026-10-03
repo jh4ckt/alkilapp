@@ -1,6 +1,9 @@
 package com.alkilapp
 
 import android.os.Bundle
+import android.text.InputFilter
+import android.text.Spanned
+import android.util.Patterns
 import android.view.View
 import android.view.inputmethod.InputMethodManager
 import android.widget.Toast
@@ -51,11 +54,10 @@ class AuthActivity : AppCompatActivity() {
             auth.signInWithCredential(GoogleAuthProvider.getCredential(idToken, null))
                 .addOnCompleteListener { task ->
                     if (task.isSuccessful) {
-                        // finish() espera a que el perfil quede guardado.
                         guardarUsuarioEnBase { finish() }
                         Toast.makeText(this, R.string.auth_ok_google, Toast.LENGTH_SHORT).show()
                     } else {
-                        mostrarError(getString(R.string.auth_error, task.exception?.localizedMessage ?: "?"))
+                        mostrarErrorFirebase(task.exception)
                     }
                 }
         } catch (e: ApiException) {
@@ -68,8 +70,6 @@ class AuthActivity : AppCompatActivity() {
         binding = ActivityAuthBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        // Al rotar, el ToggleGroup vuelve al primer tab y el formulario de registro
-        // (nombre/telefono/departamento) se perdia a medias. Se restaura el modo.
         modoRegistro = savedInstanceState?.getBoolean(ESTADO_MODO_REGISTRO) ?: false
         binding.tgAuthModo.check(if (modoRegistro) R.id.btnTabCrear else R.id.btnTabIngresar)
 
@@ -81,6 +81,12 @@ class AuthActivity : AppCompatActivity() {
         binding.btnAuthAccion.setOnClickListener { enviarFormulario() }
         binding.btnAuthGoogle.setOnClickListener { iniciarSesionGoogle() }
         binding.btnAuthOlvide.setOnClickListener { enviarReset() }
+
+        // Celular: solo dígitos, máximo 9
+        binding.etAuthTelefono.filters = arrayOf(
+            InputFilter.LengthFilter(9),
+            SoloDigitosFilter()
+        )
 
         val departamentosRegistro = resources.getStringArray(R.array.departamentos_peru).toList()
         val opcionesDepartamento = listOf(getString(R.string.auth_departamento_selecciona)) + departamentosRegistro
@@ -115,7 +121,13 @@ class AuthActivity : AppCompatActivity() {
     private fun enviarFormulario() {
         val email = binding.etAuthEmail.text.toString().trim()
         val pass = binding.etAuthPassword.text.toString()
-        if (email.isBlank() || !email.contains("@")) {
+
+        // Validación email
+        if (email.isBlank()) {
+            mostrarError(getString(R.string.auth_email_vacio))
+            return
+        }
+        if (!Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
             mostrarError(getString(R.string.auth_email_invalido))
             return
         }
@@ -123,15 +135,17 @@ class AuthActivity : AppCompatActivity() {
             mostrarError(getString(R.string.auth_password_corta))
             return
         }
+
         if (modoRegistro) {
             val nombre = binding.etAuthNombre.text.toString().trim()
             if (nombre.isBlank()) {
                 mostrarError(getString(R.string.auth_nombre_requerido))
                 return
             }
+            // Celular: exactamente 9 dígitos
             val telefono = binding.etAuthTelefono.text.toString().trim()
-            if (telefono.filter { it.isDigit() }.length < 9) {
-                mostrarError(getString(R.string.auth_telefono_requerido))
+            if (telefono.length != 9) {
+                mostrarError(getString(R.string.auth_telefono_9_digitos))
                 return
             }
             val departamento = binding.spAuthDepartamento.selectedItem as? String
@@ -143,10 +157,32 @@ class AuthActivity : AppCompatActivity() {
                 mostrarError(getString(R.string.auth_pass_no_coincide))
                 return
             }
-            crearCuenta(email, pass, nombre, telefono, departamento)
+            // Verificar email duplicado ANTES de crear (evita excepción fea)
+            verificarEmailDisponible(email) { disponible ->
+                if (disponible) {
+                    crearCuenta(email, pass, nombre, telefono, departamento)
+                } else {
+                    mostrarError(getString(R.string.auth_email_duplicado))
+                }
+            }
         } else {
             iniciarSesion(email, pass)
         }
+    }
+
+    /** Verifica en Firestore si el email ya está registrado. */
+    private fun verificarEmailDisponible(email: String, callback: (Boolean) -> Unit) {
+        db.collection("usuarios")
+            .whereEqualTo("email", email)
+            .limit(1)
+            .get()
+            .addOnSuccessListener { snap ->
+                callback(snap.isEmpty())
+            }
+            .addOnFailureListener {
+                // Si falla la consulta, permitimos intentar crear (Firebase dirá si duplicado)
+                callback(true)
+            }
     }
 
     private fun iniciarSesion(email: String, pass: String) {
@@ -156,16 +192,15 @@ class AuthActivity : AppCompatActivity() {
             .addOnCompleteListener { task ->
                 bloquear(false)
                 if (task.isSuccessful) {
-                    // finish() espera a que el perfil quede guardado.
                     guardarUsuarioEnBase { finish() }
                     Toast.makeText(this, R.string.auth_ok_login, Toast.LENGTH_SHORT).show()
                 } else {
-                    mostrarError(getString(R.string.auth_error, task.exception?.localizedMessage ?: "?"))
+                    mostrarErrorFirebase(task.exception)
                 }
             }
     }
 
-    private fun crearCuenta(
+private fun crearCuenta(
         email: String,
         pass: String,
         nombre: String,
@@ -178,15 +213,13 @@ class AuthActivity : AppCompatActivity() {
             .addOnCompleteListener { task ->
                 if (!task.isSuccessful) {
                     bloquear(false)
-                    mostrarError(getString(R.string.auth_error, task.exception?.localizedMessage ?: "?"))
+                    mostrarErrorFirebase(task.exception)
                     return@addOnCompleteListener
                 }
                 val perfil = com.google.firebase.auth.UserProfileChangeRequest.Builder()
                     .setDisplayName(nombre)
                     .build()
                 task.result?.user?.updateProfile(perfil)
-                // El registro recien creado SIEMPRE es un doc nuevo: se espera a que
-                // exista antes de cerrar (si no, se perdia el perfil al rotar o salir).
                 guardarUsuarioEnBase(nombre, telefono, departamento) {
                     Toast.makeText(this, R.string.auth_ok_registro, Toast.LENGTH_SHORT).show()
                     finish()
@@ -197,8 +230,12 @@ class AuthActivity : AppCompatActivity() {
 
     private fun enviarReset() {
         val email = binding.etAuthEmail.text.toString().trim()
-        if (email.isBlank() || !email.contains("@")) {
+        if (email.isBlank()) {
             mostrarError(getString(R.string.auth_reset_falta_email))
+            return
+        }
+        if (!Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
+            mostrarError(getString(R.string.auth_email_invalido))
             return
         }
         auth.sendPasswordResetEmail(email)
@@ -206,7 +243,7 @@ class AuthActivity : AppCompatActivity() {
                 if (task.isSuccessful) {
                     Toast.makeText(this, R.string.auth_reset_enviado, Toast.LENGTH_LONG).show()
                 } else {
-                    mostrarError(getString(R.string.auth_error, task.exception?.localizedMessage ?: "?"))
+                    mostrarErrorFirebase(task.exception)
                 }
             }
     }
@@ -219,12 +256,7 @@ class AuthActivity : AppCompatActivity() {
         googleLauncher.launch(googleSignInClient.signInIntent)
     }
 
-    /** Crea/actualiza el documento del usuario sin pisar datos ya existentes.
-     *
-     * `alTerminar` se invoca SIEMPRE (exito o fallo) porque antes esta escritura
-     * era "fire and forget" y se llamaba finish() de inmediato: si el proceso
-     * moria o la Activity se destruia, el doc `usuarios/{uid}` se perdia y el
-     * usuario quedaba con cuenta pero sin perfil. */
+    /** Crea/actualiza el documento del usuario sin pisar datos ya existentes. */
     private fun guardarUsuarioEnBase(
         nombreNuevo: String? = null,
         telefonoNuevo: String? = null,
@@ -239,7 +271,7 @@ class AuthActivity : AppCompatActivity() {
                     ?: u.displayName
                     ?: u.email?.substringBefore("@")
                     ?: ""
-                ),
+            ),
             "email" to (u.email ?: ""),
             "uidAuth" to u.uid,
             "activo" to true
@@ -249,9 +281,7 @@ class AuthActivity : AppCompatActivity() {
                 val datos = HashMap<String, Any>(base)
                 if (doc.exists()) {
                     val nombreActual = (doc.data?.get("nombre") as? String).orEmpty()
-                    // Si ya tenia nombre propio (o se acaba de escribir uno), no lo pisamos.
                     if (nombreActual.isNotBlank() && nombreNuevo == null) datos.remove("nombre")
-                    // El celular se setea en el registro; no se pisa con un login posterior.
                     if (telefonoNuevo != null) datos["telefono"] = telefonoNuevo
                 } else {
                     datos["telefono"] = telefonoNuevo ?: ""
@@ -270,6 +300,22 @@ class AuthActivity : AppCompatActivity() {
                 ).show()
                 alTerminar?.invoke()
             }
+    }
+
+    /** Convierte excepciones de Firebase a mensajes en español amigables. */
+    private fun mostrarErrorFirebase(e: Exception?) {
+        val msg = when {
+            e == null -> getString(R.string.auth_error_desconocido)
+            e.message?.contains("EMAIL_EXISTS") == true -> getString(R.string.auth_email_duplicado)
+            e.message?.contains("INVALID_EMAIL") == true -> getString(R.string.auth_email_invalido)
+            e.message?.contains("WEAK_PASSWORD") == true -> getString(R.string.auth_password_corta)
+            e.message?.contains("USER_NOT_FOUND") == true -> getString(R.string.auth_usuario_no_encontrado)
+            e.message?.contains("WRONG_PASSWORD") == true -> getString(R.string.auth_password_incorrecta)
+            e.message?.contains("TOO_MANY_REQUESTS") == true -> getString(R.string.auth_demasiados_intentos)
+            e.message?.contains("NETWORK_ERROR") == true -> getString(R.string.auth_error_red)
+            else -> getString(R.string.auth_error, e.localizedMessage ?: "?")
+        }
+        mostrarError(msg)
     }
 
     private fun mostrarError(mensaje: String) {
@@ -292,6 +338,13 @@ class AuthActivity : AppCompatActivity() {
         if (bloqueado) {
             (getSystemService(INPUT_METHOD_SERVICE) as? InputMethodManager)
                 ?.hideSoftInputFromWindow(binding.root.windowToken, 0)
+        }
+    }
+
+    /** Filtro que solo permite dígitos (0-9). */
+    private class SoloDigitosFilter : InputFilter {
+        override fun filter(source: CharSequence, start: Int, end: Int, dest: Spanned, dstart: Int, dend: Int): CharSequence? {
+            return if (source.all { it.isDigit() }) null else ""
         }
     }
 
