@@ -439,7 +439,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     /** Muestra cuantos favoritos tiene el usuario en la fila del menu. */
     private fun actualizarBadgeFavoritos() {
         val panel = binding.panelMenu
-        val n = favoritosSet.size
+        // Leer directo de SharedPreferences para evitar cache stale
+        val n = Favoritos.locales(this).size
         panel.tvNavFavoritosBadge.visibility = if (n > 0) View.VISIBLE else View.GONE
         panel.tvNavFavoritosBadge.text = n.toString()
     }

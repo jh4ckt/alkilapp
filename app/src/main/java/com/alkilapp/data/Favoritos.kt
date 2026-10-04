@@ -101,4 +101,9 @@ object Favoritos {
 
     private fun prefs(ctx: Context) =
         ctx.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+
+    /** Limpia el cache local de favoritos (logout). */
+    fun limpiarLocales(ctx: Context) {
+        prefs(ctx).edit().remove(KEY).apply()
+    }
 }

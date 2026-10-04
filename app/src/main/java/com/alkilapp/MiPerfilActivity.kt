@@ -14,6 +14,7 @@ import android.widget.Toast
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import com.alkilapp.data.Favoritos
 import com.alkilapp.databinding.ActivityMiPerfilBinding
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
@@ -62,6 +63,8 @@ class MiPerfilActivity : AppCompatActivity() {
         binding.btnPerfilCerrarSesion.setOnClickListener {
             auth.signOut()
             com.google.android.gms.auth.api.signin.GoogleSignIn.getClient(this, com.google.android.gms.auth.api.signin.GoogleSignInOptions.DEFAULT_SIGN_IN).signOut()
+            // Limpiar favoritos locales al cerrar sesión
+            Favoritos.limpiarLocales(this)
             Toast.makeText(this, R.string.auth_sesion_cerrada, Toast.LENGTH_SHORT).show()
             finish()
         }
