@@ -911,7 +911,7 @@ class RegistrarPropiedadActivity : AppCompatActivity() {
                 spinnerMoneda.setSelection(monArr.indexOfFirst { it.contains(moneda, ignoreCase = true) }.coerceAtLeast(0))
                 spinnerDepartamento.setSelection(depArr.indexOfFirst { it == departamentoSel }.coerceAtLeast(0))
 
-                // Actualizar distritos según departamento antes de setear
+// Actualizar distritos según departamento antes de setear
                 val distritosLima = resources.getStringArray(R.array.distritos_lima).toList()
                 val distritosGenerico = listOf(getString(R.string.prop_distrito_sin), "Otro")
                 val nuevosDistritos = if (departamentoSel == "Lima") {
@@ -919,9 +919,10 @@ class RegistrarPropiedadActivity : AppCompatActivity() {
                 } else distritosGenerico
                 spinnerDistrito.adapter = crearAdapterSpinner(nuevosDistritos)
 
-                spinnerDistrito.setSelection(
-                    nuevosDistritos.indexOfFirst { it == distritoSel }.coerceAtLeast(0)
-                )
+                // Normalizar el distrito guardado para comparar sin distinción de mayúsculas/minúsculas ni espacios
+                val distritoNormalizado = distritoSel.trim().lowercase()
+                val indiceDistrito = nuevosDistritos.indexOfFirst { it.trim().lowercase() == distritoNormalizado }
+                spinnerDistrito.setSelection(indiceDistrito.coerceAtLeast(0))
 
                 // Comodidades
                 val comodidadesExistentes = l("comodidades").toSet()
