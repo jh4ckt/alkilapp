@@ -94,7 +94,8 @@ export default class Usuarios {
                 <th style="padding: 0.875rem 1rem; font-weight: 600;">Usuario</th>
                 <th style="padding: 0.875rem 1rem; font-weight: 600;">Contacto</th>
                 <th style="padding: 0.875rem 1rem; font-weight: 600;">Rol</th>
-                <th style="padding: 0.875rem 1rem; font-weight: 600;">Verificado</th>
+                <th style="padding: 0.875rem 1rem; font-weight: 600;">Email verificado</th>
+                <th style="padding: 0.875rem 1rem; font-weight: 600;">Identidad verificada (DNI)</th>
                 <th style="padding: 0.875rem 1rem; font-weight: 600;">Estado</th>
                 <th style="padding: 0.875rem 1rem; font-weight: 600;">Registro</th>
                 <th style="padding: 0.875rem 1rem; font-weight: 600; text-align: center;">Acciones</th>
@@ -102,7 +103,7 @@ export default class Usuarios {
             </thead>
             <tbody id="usuariosBody">
               <tr>
-                <td colspan="7" style="padding: 2.5rem; text-align: center; color: var(--text-muted, #64748b);">
+                <td colspan="8" style="padding: 2.5rem; text-align: center; color: var(--text-muted, #64748b);">
                   Cargando usuarios...
                 </td>
               </tr>
@@ -271,12 +272,16 @@ export default class Usuarios {
     }
 
     tbody.innerHTML = this.items.map(u => {
-      const userId = this.getUserId(u);
+const userId = this.getUserId(u);
       const estado = u.estado || 'activo';
       const pillClass = ESTADO_PILLS[estado] || 'grey';
       const estadoLabel = this.escape(ESTADO_LABELS[estado] || estado);
       const avatarUrl = u.fotoPerfil || '/assets/avatar-placeholder.svg';
-      const esVerificado = Boolean(u.verificado);
+      
+      // Separate email verification from DNI/identity verification
+      const v = u.verification || {};
+      const emailVerificado = v.emailVerified === true;
+      const identidadVerificada = v.identityVerified === true || v.status === 'aprobado';
 
       return `
         <tr data-id="${userId}" style="border-bottom: 1px solid var(--border-color, #e2e8f0); vertical-align: middle;">
@@ -302,11 +307,18 @@ export default class Usuarios {
             <span class="badge" style="text-transform: capitalize; padding: 0.25rem 0.5rem; border-radius: 0.375rem; font-size: 0.75rem; font-weight: 600; background: var(--bg-surface-secondary, #f1f5f9); color: var(--text-color, #334155);">${this.escape(u.rol || 'inquilino')}</span>
           </td>
 
-          <!-- Verificado -->
+          <!-- Email Verificado -->
           <td style="padding: 0.75rem 1rem;">
-            ${esVerificado 
-              ? `<span class="pill ok" style="font-size: 0.75rem; padding: 0.2rem 0.5rem; border-radius: 1rem; background: rgba(16,185,129,0.1); color: #10b981; font-weight: 600;">✓ Verificado</span>` 
-              : `<span class="pill pend" style="font-size: 0.75rem; padding: 0.2rem 0.5rem; border-radius: 1rem; background: rgba(245,158,11,0.1); color: #f59e0b; font-weight: 600;">Pendiente</span>`}
+            ${emailVerificado 
+              ? `<span class="pill ok" style="font-size: 0.75rem; padding: 0.2rem 0.5rem; border-radius: 1rem; background: rgba(16,185,129,0.1); color: #10b981; font-weight: 600;">✓ Email verificado</span>` 
+              : `<span class="pill pend" style="font-size: 0.75rem; padding: 0.2rem 0.5rem; border-radius: 1rem; background: rgba(245,158,11,0.1); color: #f59e0b; font-weight: 600;">Email pendiente</span>`}
+          </td>
+
+          <!-- Identidad Verificada (DNI) -->
+          <td style="padding: 0.75rem 1rem;">
+            ${identidadVerificada 
+              ? `<span class="pill ok" style="font-size: 0.75rem; padding: 0.2rem 0.5rem; border-radius: 1rem; background: rgba(16,185,129,0.1); color: #10b981; font-weight: 600;">✓ DNI verificado</span>` 
+              : `<span class="pill pend" style="font-size: 0.75rem; padding: 0.2rem 0.5rem; border-radius: 1rem; background: rgba(245,158,11,0.1); color: #f59e0b; font-weight: 600;">DNI pendiente</span>`}
           </td>
 
           <!-- Estado Badge -->
@@ -337,7 +349,7 @@ export default class Usuarios {
                 Guardar
               </button>
 
-              ${!esVerificado ? `
+              ${!v.emailVerified ? `
                 <!-- Botón Verificar Email -->
                 <button class="btn btn-sm btn-primary verify-email-btn" data-action="verificar-email" data-id="${userId}" title="Verificar email manualmente" style="padding: 4px 10px; font-size: 0.8rem; cursor: pointer;" title="Marcar email como verificado manualmente">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 6a10 10 0 1 0-3.64 9.36"/><path d="M22 21 15 15"/></svg>
@@ -442,7 +454,7 @@ export default class Usuarios {
 
     const confirm = await confirmModal(
       `¿Verificar manualmente el email de <strong>${this.escape(nombre)}</strong>?<br><br>Esto marcará el email como verificado sin requerir el código de 6 dígitos.`,
-      { title: 'Verificar email manualmente', confirmText: 'Verificar', danger: false }
+      { title: 'Verificar email manualmente', confirmText: 'Verificar', danger: false, html: true }
     );
 
     if (!confirm) return;

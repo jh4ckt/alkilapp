@@ -208,7 +208,10 @@ export function confirmModal(message, options = {}) {
       <button class="btn ${options.danger ? 'btn-danger' : 'btn-primary'}" data-result="true">${escapeHtml(options.confirmText || 'Confirmar')}</button>
     `;
 
-    const { close } = openModal(`<p>${escapeHtml(message)}</p>`, {
+    // If options.html is true, treat message as HTML; otherwise escape it
+    const content = options.html ? message : `<p>${escapeHtml(message)}</p>`;
+    
+    const { close } = openModal(content, {
       title: options.title || 'Confirmar',
       footer,
       onClose: () => {
