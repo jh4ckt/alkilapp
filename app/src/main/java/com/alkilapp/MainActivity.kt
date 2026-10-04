@@ -148,6 +148,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         }
     }
 
+    private var emailVerificationShownThisSession = false
+
     companion object {
         private const val LOCATION_PERMISSION_REQUEST_CODE = 1000
         private const val NOTIFICATIONS_PERMISSION_REQUEST_CODE = 1001
@@ -465,12 +467,14 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         verificarEmailSiNecesario()
     }
 
-    /** Si hay usuario logueado pero email no verificado, abre pantalla de verificaciÃ³n. */
+    /** Si hay usuario logueado pero email no verificado, abre pantalla de verificaciÃ³n.
+     * Solo la muestra una vez por sesiÃ³n al iniciar la app. */
     private fun verificarEmailSiNecesario() {
         val user = auth.currentUser
-        if (user != null && !user.isEmailVerified) {
+        if (user != null && !user.isEmailVerified && !emailVerificationShownThisSession) {
             // Evitar bucle si ya estÃ¡ en la actividad de verificaciÃ³n
             if (this !is VerificacionEmailActivity) {
+                emailVerificationShownThisSession = true
                 startActivity(Intent(this, VerificacionEmailActivity::class.java))
             }
         }

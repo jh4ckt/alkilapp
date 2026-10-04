@@ -11,17 +11,15 @@ import com.google.firebase.auth.FirebaseAuth
 
 /**
  * Pantalla para verificar el email del usuario.
- * NO se cierra hasta que el email esté verificado.
- * Reaparece periódicamente si el usuario la cierra sin verificar.
+ * Se muestra cuando:
+ * - App inicia y email no verificado
+ * - Usuario intenta publicar/chatear sin verificar
+ * NO se cierra permanentemente hasta que el email esté verificado.
  */
 class VerificacionEmailActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityVerificacionEmailBinding
     private val auth = FirebaseAuth.getInstance()
-    private val handler = Handler(Looper.getMainLooper())
-    private val CHECK_INTERVAL_MS = 30000L // 30 segundos
-    private var checkRunnable: Runnable? = null
-    private var userDismissed = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -30,41 +28,16 @@ class VerificacionEmailActivity : AppCompatActivity() {
 
         binding.btnReenviar.setOnClickListener { reenviarVerificacion() }
         binding.btnAbrirCorreo.setOnClickListener { abrirAppCorreo() }
-        binding.btnVerificarLuego.setOnClickListener { 
-            // Solo oculta temporalmente; reaparecerá en CHECK_INTERVAL_MS
-            userDismissed = true
-            moverATareaSegundoPlano()
-        }
+        binding.btnVerificarLuego.setOnClickListener { finish() }
 
         // Verificación inicial
         verificarEstado()
-        iniciarChequeoPeriodico()
     }
 
     override fun onResume() {
         super.onResume()
-        userDismissed = false
+        // Verificar si el usuario ya validó el email mientras estaba en la app de correo
         verificarEstado()
-    }
-
-    override fun onPause() {
-        super.onPause()
-        if (userDismissed) {
-            // Si el usuario la cerró, reprogramar reapertura
-            handler.postDelayed({ 
-                if (!isFinishing && !isDestroyed && auth.currentUser?.isEmailVerified != true) {
-                    // La actividad sigue en stack, traerla al frente
-                    val intent = Intent(this, VerificacionEmailActivity::class.java)
-                    intent.addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
-                    startActivity(intent)
-                }
-            }, CHECK_INTERVAL_MS)
-        }
-    }
-
-    override fun onDestroy() {
-        super.onDestroy()
-        handler.removeCallbacksAndMessages(null)
     }
 
     private fun verificarEstado() {
@@ -74,16 +47,6 @@ class VerificacionEmailActivity : AppCompatActivity() {
                 finish()
             }
         }
-    }
-
-    private fun iniciarChequeoPeriodico() {
-        checkRunnable = Runnable { 
-            if (!isFinishing && !isDestroyed && auth.currentUser?.isEmailVerified != true) {
-                verificarEstado()
-                handler.postDelayed(checkRunnable!!, CHECK_INTERVAL_MS)
-            }
-        }
-        handler.postDelayed(checkRunnable!!, CHECK_INTERVAL_MS)
     }
 
     private fun reenviarVerificacion() {
@@ -112,9 +75,5 @@ class VerificacionEmailActivity : AppCompatActivity() {
             val gmailIntent = packageManager.getLaunchIntentForPackage("com.google.android.gm")
             gmailIntent?.let { startActivity(it) } ?: Toast.makeText(this, "No hay app de correo instalada", Toast.LENGTH_SHORT).show()
         }
-    }
-
-    private fun moverATareaSegundoPlano() {
-        moveTaskToBack(true)
     }
 }
