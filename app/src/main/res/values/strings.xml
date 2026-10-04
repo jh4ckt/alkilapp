@@ -514,6 +514,8 @@
     <string name="chat_hint_escribir">Escribe un mensaje…</string>
     <string name="chat_enviar">Enviar mensaje</string>
     <string name="chat_atras">Volver</string>
+<string name="chat_iniciado_por_ti">Iniciado por ti</string>
+<string name="chat_sin_mensajes">Sin mensajes aún</string>
     <string name="chat_identidad_verificada">Identidad verificada</string>
     <string name="chat_cerrado_inmueble">El inmueble ya está en alquiler, no se permite comunicación con el dueño del inmueble.</string>
 
@@ -661,6 +663,10 @@
 
     <!-- Mi perfil (cabecera y datos personales) -->
     <string name="mi_perfil_titulo">Mi perfil</string>
+    <string name="perfil_cuenta_subtitulo">Tu cuenta AlkilApp</string>
+    <string name="perfil_seccion_datos">Datos personales</string>
+    <string name="perfil_seccion_preferencias">Preferencias y zona</string>
+    <string name="perfil_telefono_label">Teléfono de contacto</string>
     <string name="perfil_nombre_hint">Nombre</string>
     <string name="perfil_nombre_label">Nombre</string>
     <string name="perfil_datos_fijos">Tu nombre y correo no se pueden modificar.</string>

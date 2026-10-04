@@ -22,7 +22,10 @@ class ChatListActivity : AppCompatActivity() {
     private val uidsCargados = mutableSetOf<String>()
 
     private val adapter by lazy {
-        ChatListAdapter { chat -> abrirChat(chat) }
+        ChatListAdapter(
+            onClick = { chat -> abrirChat(chat) },
+            miUid = auth.currentUser?.uid ?: ""
+        )
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -65,7 +68,14 @@ class ChatListActivity : AppCompatActivity() {
                     ?.sortedByDescending { it.lastMessageAt }
                     ?: emptyList()
 
-                adapter.submitList(chats)
+                // Agrupar chats por listingId (inmueble)
+                val grupos = chats.groupBy { it.listingId }
+                    .mapValues { (_, chatsDelGrupo) ->
+                        chatsDelGrupo.sortedByDescending { it.lastMessageAt }
+                    }
+                    .toSortedMap()
+
+                adapter.submitGrupos(grupos)
                 mostrarVacio(chats.isEmpty())
 
                 // Carga perfiles de la otra persona (una vez por uid por sesión).

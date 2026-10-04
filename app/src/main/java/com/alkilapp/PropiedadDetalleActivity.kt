@@ -468,13 +468,16 @@ class PropiedadDetalleActivity : AppCompatActivity() {
         // PERMISSION_DENIED y el chat "no abría"). En un chat existente el merge no
         // pisa lastMessage/unreadCount.
         val chatId = "inm-$propId-$miUid"
+        val ahora = System.currentTimeMillis()
         db.collection("chats").document(chatId)
             .set(
                 hashMapOf(
                     "chatId" to chatId,
                     "listingId" to propId,
                     "listingTitle" to listingTitle,
-                    "participants" to listOf(miUid, idPropietario)
+                    "participants" to listOf(miUid, idPropietario),
+                    "creatorId" to miUid,
+                    "creadoEn" to ahora
                 ),
                 SetOptions.merge()
             )

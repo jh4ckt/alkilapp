@@ -17,7 +17,9 @@ data class ChatAlkil(
     val unreadMio: Int,
     val estado: String = "abierto",
     val acuerdo: Map<String, Any>? = null,
-    val deletedForUsers: List<String> = emptyList()
+    val deletedForUsers: List<String> = emptyList(),
+    val creatorId: String? = null,
+    val creadoEn: Long? = null
 ) {
     companion object {
         fun desde(doc: DocumentSnapshot, miUid: String): ChatAlkil? {
@@ -38,7 +40,10 @@ data class ChatAlkil(
                 unreadMio = unread.toInt(),
                 estado = d["estado"] as? String ?: "abierto",
                 acuerdo = d["acuerdo"] as? Map<String, Any>,
-                deletedForUsers = (d["deletedForUsers"] as? List<*>)?.filterIsInstance<String>() ?: emptyList()
+                deletedForUsers = (d["deletedForUsers"] as? List<*>)?.filterIsInstance<String>() ?: emptyList(),
+                creatorId = d["creatorId"] as? String,
+                creadoEn = (d["creadoEn"] as? Timestamp)?.toDate()?.time
+                    ?: (d["creadoEn"] as? Date)?.time
             )
         }
     }

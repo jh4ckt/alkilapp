@@ -16,20 +16,27 @@ import java.util.Date
 import java.util.Locale
 
 class ChatListAdapter(
-    private val onClick: (ChatAlkil) -> Unit
-) : RecyclerView.Adapter<ChatListAdapter.ViewHolder>() {
+    private val onClick: (ChatAlkil) -> Unit,
+    private val miUid: String
+) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
 
-    private val chats = mutableListOf<ChatAlkil>()
+    companion object {
+        const val TYPE_HEADER = 0
+        const val TYPE_ITEM = 1
+    }
+
+    private val grupos = mutableMapOf<String, List<ChatAlkil>>()
     private val perfiles = mutableMapOf<String, PerfilUsuario>()
     private val coloresAvatar = intArrayOf(
         R.color.avatar_1, R.color.avatar_2, R.color.avatar_3, R.color.avatar_4, R.color.avatar_5
     )
 
-    class ViewHolder(val binding: ItemChatBinding) : RecyclerView.ViewHolder(binding.root)
+    class HeaderViewHolder(val binding: android.view.View) : RecyclerView.ViewHolder(binding)
+    class ItemViewHolder(val binding: ItemChatBinding) : RecyclerView.ViewHolder(binding.root)
 
-    fun submitList(nueva: List<ChatAlkil>) {
-        chats.clear()
-        chats.addAll(nueva)
+    fun submitGrupos(nuevosGrupos: Map<String, List<ChatAlkil>>) {
+        grupos.clear()
+        grupos.putAll(nuevosGrupos)
         notifyDataSetChanged()
     }
 
@@ -38,48 +45,94 @@ class ChatListAdapter(
         notifyDataSetChanged()
     }
 
-    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
-        val binding = ItemChatBinding.inflate(LayoutInflater.from(parent.context), parent, false)
-        return ViewHolder(binding)
-    }
-
-    override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-        val chat = chats[position]
-        val b = holder.binding
-        val perfil = chat.otrosParticipantes.firstOrNull()?.let { perfiles[it] }
-
-        b.tvNombre.text = perfil?.nombre ?: "..."
-        b.tvAvatar.text = perfil?.inicial.toString()
-        b.tvAvatar.backgroundTintList = ColorStateList.valueOf(
-            holder.itemView.context.getColor(colorDeAvatar(perfil?.uid ?: chat.chatId))
-        )
-
-        b.ivVerificado.visibility = if (perfil?.verificado == true) View.VISIBLE else View.GONE
-        b.tvListing.text = chat.listingTitle
-
-        b.tvUltimo.text = chat.lastMessage.ifBlank { "Sin mensajes aún" }
-        b.tvUltimo.setTextColor(
-            holder.itemView.context.getColor(
-                if (chat.unreadMio > 0) R.color.text_primary else R.color.text_secondary
-            )
-        )
-        b.tvUltimo.typeface =
-            if (chat.unreadMio > 0) android.graphics.Typeface.DEFAULT_BOLD
-            else android.graphics.Typeface.DEFAULT
-
-        b.tvHora.text = if (chat.lastMessageAt > 0) formatearHora(chat.lastMessageAt) else ""
-
-        if (chat.unreadMio > 0) {
-            b.tvBadge.visibility = View.VISIBLE
-            b.tvBadge.text = chat.unreadMio.toString()
-        } else {
-            b.tvBadge.visibility = View.GONE
+    override fun getItemViewType(position: Int): Int {
+        var currentPos = 0
+        for ((_, chatsDelGrupo) in grupos) {
+            // Header
+            if (position == currentPos) return TYPE_HEADER
+            currentPos++
+            // Items
+            if (position < currentPos + chatsDelGrupo.size) return TYPE_ITEM
+            currentPos += chatsDelGrupo.size
         }
-
-        b.root.setOnClickListener { onClick(chat) }
+        return TYPE_ITEM
     }
 
-    override fun getItemCount(): Int = chats.size
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
+        val inflater = LayoutInflater.from(parent.context)
+        return when (viewType) {
+            TYPE_HEADER -> HeaderViewHolder(inflater.inflate(R.layout.item_chat_header, parent, false))
+            TYPE_ITEM -> ItemViewHolder(ItemChatBinding.inflate(inflater, parent, false))
+            else -> throw IllegalArgumentException("Unknown view type: $viewType")
+        }
+    }
+
+    override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
+        var currentPos = 0
+        for ((listingId, chatsDelGrupo) in grupos) {
+            // Header
+            if (position == currentPos) {
+                val headerHolder = holder as HeaderViewHolder
+                headerHolder.itemView.findViewById<TextView>(R.id.tvHeaderTitle).text =
+                    chatsDelGrupo.first().listingTitle
+                return
+            }
+            currentPos++
+
+            // Items
+            if (position < currentPos + chatsDelGrupo.size) {
+                val itemIndex = position - currentPos
+                val chat = chatsDelGrupo[itemIndex]
+                val itemHolder = holder as ItemViewHolder
+                val b = itemHolder.binding
+                val perfil = chat.otrosParticipantes.firstOrNull()?.let { perfiles[it] }
+
+                val esIniciadoPorMi = chat.creatorId == miUid
+
+                b.tvNombre.text = perfil?.nombre ?: "..."
+                b.tvAvatar.text = perfil?.inicial.toString()
+                b.tvAvatar.backgroundTintList = ColorStateList.valueOf(
+                    holder.itemView.context.getColor(colorDeAvatar(perfil?.uid ?: chat.chatId))
+                )
+
+                b.ivVerificado.visibility = if (perfil?.verificado == true) View.VISIBLE else View.GONE
+                b.tvListing.text = chat.listingTitle
+
+                b.tvUltimo.text = chat.lastMessage.ifBlank { holder.itemView.context.getString(R.string.chat_sin_mensajes) }
+                b.tvUltimo.setTextColor(
+                    holder.itemView.context.getColor(
+                        if (chat.unreadMio > 0) R.color.text_primary else R.color.text_secondary
+                    )
+                )
+                b.tvUltimo.typeface =
+                    if (chat.unreadMio > 0) android.graphics.Typeface.DEFAULT_BOLD
+                    else android.graphics.Typeface.DEFAULT
+
+                b.tvHora.text = if (chat.lastMessageAt > 0) formatearHora(chat.lastMessageAt) else ""
+
+                if (chat.unreadMio > 0) {
+                    b.tvBadge.visibility = View.VISIBLE
+                    b.tvBadge.text = chat.unreadMio.toString()
+                } else {
+                    b.tvBadge.visibility = View.GONE
+                }
+
+                b.tvIniciadoPorTi.visibility = if (esIniciadoPorMi) View.VISIBLE else View.GONE
+
+                b.root.setOnClickListener { onClick(chat) }
+                return
+            }
+            currentPos += chatsDelGrupo.size
+        }
+    }
+
+    override fun getItemCount(): Int {
+        var total = 0
+        for ((_, chatsDelGrupo) in grupos) {
+            total += 1 + chatsDelGrupo.size // header + items
+        }
+        return total
+    }
 
     private fun colorDeAvatar(clave: String): Int {
         return coloresAvatar[Math.floorMod(clave.hashCode(), coloresAvatar.size)]

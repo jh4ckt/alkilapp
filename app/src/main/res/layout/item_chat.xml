@@ -119,6 +119,22 @@
                     android:textSize="11sp"
                     android:textStyle="bold"
                     android:visibility="gone" />
+
+                <TextView
+                    android:id="@+id/tvIniciadoPorTi"
+                    android:layout_width="wrap_content"
+                    android:layout_height="20dp"
+                    android:layout_marginStart="8dp"
+                    android:background="@drawable/bg_iniciado_por_ti"
+                    android:gravity="center"
+                    android:minWidth="20dp"
+                    android:paddingStart="6dp"
+                    android:paddingEnd="6dp"
+                    android:text="@string/chat_iniciado_por_ti"
+                    android:textColor="@color/alkil_primary"
+                    android:textSize="11sp"
+                    android:textStyle="bold"
+                    android:visibility="gone" />
             </LinearLayout>
         </LinearLayout>
     </LinearLayout>
