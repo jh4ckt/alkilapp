@@ -101,13 +101,14 @@ export default class Publicaciones {
                 <th style="padding: 0.875rem 1rem; font-weight: 600;">Precio</th>
                 <th style="padding: 0.875rem 1rem; font-weight: 600;">Estado Actual</th>
                 <th style="padding: 0.875rem 1rem; font-weight: 600;">Destacado</th>
+                <th style="padding: 0.875rem 1rem; font-weight: 600;">Días dest. / Vence</th>
                 <th style="padding: 0.875rem 1rem; font-weight: 600;">Fecha</th>
                 <th style="padding: 0.875rem 1rem; font-weight: 600; text-align: center; white-space: nowrap; min-width: 320px;">Acciones</th>
               </tr>
             </thead>
             <tbody id="publicacionesTbody">
               <tr>
-                <td colspan="9" style="padding: 3rem; text-align: center; color: var(--text-muted, #64748b);">
+                <td colspan="10" style="padding: 3rem; text-align: center; color: var(--text-muted, #64748b);">
                   <div style="display: flex; flex-direction: column; align-items: center; gap: 0.5rem;">
                     <div class="spinner" style="width: 24px; height: 24px; border: 2px solid #cbd5e1; border-top-color: #3b82f6; border-radius: 50%; animation: spin 0.8s linear infinite;"></div>
                     <span>Cargando publicaciones...</span>
@@ -283,7 +284,7 @@ export default class Publicaciones {
     if (this.publicaciones.length === 0) {
       tbody.innerHTML = `
         <tr>
-          <td colspan="9" style="padding: 3.5rem 1rem; text-align: center; color: var(--text-muted, #64748b);">
+          <td colspan="10" style="padding: 3.5rem 1rem; text-align: center; color: var(--text-muted, #64748b);">
             <div style="display: flex; flex-direction: column; align-items: center; gap: 0.75rem;">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width: 42px; height: 42px; color: #94a3b8;">
                 <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
@@ -411,19 +412,33 @@ export default class Publicaciones {
             </span>
           </td>
 
-          <!-- Destacado -->
-          <td style="padding: 0.875rem 1rem; white-space: nowrap;">
-            ${pub.destacadoInfo && pub.destacadoInfo.tipo 
-              ? `<span style="background: #fef3c7; color: #b45309; border: 1px solid #fde68a; padding: 0.25rem 0.5rem; border-radius: 0.375rem; font-weight: 600; font-size: 0.725rem; display: inline-flex; align-items: center; gap: 0.25rem;">
-                  <svg viewBox="0 0 24 24" fill="currentColor" style="width:12px;height:12px;"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg> ${escDestacadoTipo}
-                </span>`
-              : (esDestacado 
+<!-- Destacado -->
+            <td style="padding: 0.875rem 1rem; white-space: nowrap;">
+              ${pub.destacadoInfo && pub.destacadoInfo.tipo 
                 ? `<span style="background: #fef3c7; color: #b45309; border: 1px solid #fde68a; padding: 0.25rem 0.5rem; border-radius: 0.375rem; font-weight: 600; font-size: 0.725rem; display: inline-flex; align-items: center; gap: 0.25rem;">
-                    <svg viewBox="0 0 24 24" fill="currentColor" style="width:12px;height:12px;"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg> DESTACADO
-                  </span>` 
-                : `<span style="color: var(--text-muted, #94a3b8); font-size: 0.8rem; font-weight: 400;">Estándar</span>`)
-            }
-          </td>
+                    <svg viewBox="0 0 24 24" fill="currentColor" style="width:12px;height:12px;"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg> ${escDestacadoTipo}
+                  </span>`
+                : (esDestacado 
+                  ? `<span style="background: #fef3c7; color: #b45309; border: 1px solid #fde68a; padding: 0.25rem 0.5rem; border-radius: 0.375rem; font-weight: 600; font-size: 0.725rem; display: inline-flex; align-items: center; gap: 0.25rem;">
+                      <svg viewBox="0 0 24 24" fill="currentColor" style="width:12px;height:12px;"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg> DESTACADO
+                    </span>` 
+                  : `<span style="color: var(--text-muted, #94a3b8); font-size: 0.8rem; font-weight: 400;">Estándar</span>`)
+              }
+            </td>
+
+            <!-- Días dest. / Vence -->
+            <td style="padding: 0.875rem 1rem; white-space: nowrap; font-size: 0.8rem;">
+              ${esDestacado && pub.destacadoInfo 
+                ? `<div style="display: flex; flex-direction: column; gap: 2px; line-height: 1.2;">
+                    <span style="font-weight: 600; color: var(--text-color, #0f172a);">${pub.destacadoInfo.dias || pub.destacadoDias || 0} días</span>
+                    <span style="font-size: 0.7rem; color: var(--text-muted, #64748b);">Vence: ${pub.destacadoInfo.vence ? formatDate(pub.destacadoInfo.vence) : (pub.featuredUntil ? formatDate(pub.featuredUntil) : '—')}</span>
+                    <span style="font-size: 0.7rem; color: ${pub.destacadoInfo.diasRestantes <= 3 ? '#dc2626' : 'var(--text-muted, #64748b)'};">
+                      ${pub.destacadoInfo.diasRestantes !== undefined ? `${pub.destacadoInfo.diasRestantes} días restantes` : (pub.destacadoDiasRestantes !== undefined ? `${pub.destacadoDiasRestantes} días restantes` : '—')}
+                    </span>
+                  </div>`
+                : `<span style="color: var(--text-muted, #94a3b8); font-size: 0.8rem;">—</span>`
+              }
+            </td>
 
           <!-- Fecha -->
           <td style="padding: 0.875rem 1rem; font-size: 0.8rem; color: var(--text-muted, #64748b); white-space: nowrap;">
