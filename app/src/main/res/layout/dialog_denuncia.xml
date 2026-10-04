@@ -21,9 +21,8 @@
         android:layout_width="match_parent"
         android:layout_height="48dp"
         android:layout_marginTop="10dp"
-        android:background="@drawable/bg_input_detalle"
-        android:paddingStart="12dp"
-        android:paddingEnd="12dp" />
+        android:background="@drawable/bg_spinner_rounded"
+        android:popupBackground="@drawable/bg_spinner_popup" />
 
     <EditText
         android:id="@+id/etDenunciaDetalle"

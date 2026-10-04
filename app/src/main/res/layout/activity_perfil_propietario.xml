@@ -88,8 +88,10 @@
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
+                        android:background="@drawable/bg_profile_owner_hero"
                         android:gravity="center"
-                        android:orientation="vertical">
+                        android:orientation="vertical"
+                        android:padding="16dp">
 
                         <FrameLayout
                             android:layout_width="80dp"
@@ -99,8 +101,7 @@
                                 android:id="@+id/ivPerfilFoto"
                                 android:layout_width="match_parent"
                                 android:layout_height="match_parent"
-                                android:background="@drawable/bg_avatar"
-                                android:backgroundTint="@color/alkil_primary"
+                                android:background="@drawable/bg_avatar_gradient"
                                 android:contentDescription="@string/perfil_foto_cd"
                                 android:scaleType="centerCrop"
                                 android:visibility="gone" />
@@ -109,8 +110,7 @@
                                 android:id="@+id/tvPerfilInicial"
                                 android:layout_width="match_parent"
                                 android:layout_height="match_parent"
-                                android:background="@drawable/bg_avatar"
-                                android:backgroundTint="@color/alkil_primary"
+                                android:background="@drawable/bg_avatar_gradient"
                                 android:gravity="center"
                                 android:textColor="@color/white"
                                 android:textSize="30sp"
@@ -137,12 +137,12 @@
                                 android:id="@+id/tvPerfilRol"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:background="@drawable/bg_chip_info"
+                                android:background="@drawable/bg_detalle_chip"
                                 android:paddingStart="8dp"
                                 android:paddingTop="3dp"
                                 android:paddingEnd="8dp"
                                 android:paddingBottom="3dp"
-                                android:textColor="@color/alkil_primary"
+                                android:textColor="@color/text_primary"
                                 android:textSize="11sp"
                                 android:textStyle="bold" />
 
@@ -160,6 +160,11 @@
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:layout_marginStart="3dp"
+                                android:background="@drawable/bg_detalle_chip"
+                                android:paddingStart="7dp"
+                                android:paddingTop="3dp"
+                                android:paddingEnd="7dp"
+                                android:paddingBottom="3dp"
                                 android:textColor="@color/success_text"
                                 android:textSize="11sp"
                                 android:textStyle="bold"
@@ -197,16 +202,16 @@
                             android:insetTop="0dp"
                             android:insetBottom="0dp"
                             android:text="@string/resena_btn"
-                            android:textColor="@color/alkil_primary"
+                            android:textColor="@color/gold_text"
                             android:textSize="12sp"
                             android:textStyle="bold"
                             android:visibility="gone"
-                            app:backgroundTint="@android:color/transparent"
                             app:cornerRadius="12dp"
                             app:icon="@drawable/ic_star"
                             app:iconGravity="textStart"
+                            app:backgroundTint="@color/alkil_gold_soft"
                             app:iconTint="@color/alkil_gold"
-                            app:strokeColor="@color/alkil_primary"
+                            app:strokeColor="@color/alkil_gold"
                             app:strokeWidth="1dp" />
                     </LinearLayout>
 
@@ -318,7 +323,7 @@
                         android:textColor="@color/white"
                         android:textSize="14sp"
                         android:textStyle="bold"
-                        app:backgroundTint="@color/alkil_primary"
+                        app:backgroundTint="@color/brand_accent_deep"
                         app:cornerRadius="12dp"
                         app:icon="@drawable/ic_chat"
                         app:iconGravity="textStart"

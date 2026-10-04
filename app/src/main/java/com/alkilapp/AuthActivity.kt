@@ -120,13 +120,7 @@ class AuthActivity : AppCompatActivity(), CoroutineScope {
 
         val departamentosRegistro = resources.getStringArray(R.array.departamentos_peru).toList()
         val opcionesDepartamento = listOf(getString(R.string.auth_departamento_selecciona)) + departamentosRegistro
-        binding.spAuthDepartamento.adapter = android.widget.ArrayAdapter(
-            this,
-            android.R.layout.simple_spinner_item,
-            opcionesDepartamento
-        ).apply {
-            setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-        }
+        binding.spAuthDepartamento.estilizar(opcionesDepartamento)
 
         aplicarModo(false)
     }

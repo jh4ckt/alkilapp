@@ -7,14 +7,12 @@
     android:fitsSystemWindows="true"
     android:orientation="vertical">
 
-    <!-- Cabecera -->
     <com.google.android.material.card.MaterialCardView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         app:cardBackgroundColor="@color/surface"
         app:cardCornerRadius="0dp"
         app:cardElevation="2dp">
-
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -24,7 +22,6 @@
             android:paddingTop="10dp"
             android:paddingEnd="16dp"
             android:paddingBottom="10dp">
-
             <ImageButton
                 android:id="@+id/btnPerfilBack"
                 android:layout_width="40dp"
@@ -32,7 +29,6 @@
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:contentDescription="@string/chat_atras"
                 android:src="@drawable/ic_back" />
-
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
@@ -48,262 +44,359 @@
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
+        android:clipToPadding="false"
+        android:fillViewport="false"
+        android:paddingBottom="16dp"
         android:scrollbars="none">
-
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="24dp"
-            android:paddingTop="16dp">
+            android:paddingStart="16dp"
+            android:paddingTop="16dp"
+            android:paddingEnd="16dp"
+            android:paddingBottom="16dp">
 
-            <!-- Foto de perfil -->
-            <LinearLayout
+            <!-- Perfil principal: salvia suave para enmarcar el avatar y el nombre. -->
+            <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                app:cardBackgroundColor="@android:color/transparent"
+                app:cardCornerRadius="20dp"
+                app:cardElevation="1dp"
+                app:strokeColor="@color/divider"
+                app:strokeWidth="1dp">
+                <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@drawable/bg_profile_owner_hero"
                 android:gravity="center_vertical"
-                android:orientation="horizontal">
+                    android:orientation="horizontal"
+                    android:padding="18dp">
+                    <FrameLayout
+                        android:layout_width="76dp"
+                        android:layout_height="76dp">
+                        <com.google.android.material.imageview.ShapeableImageView
+                            android:id="@+id/ivPerfilFoto"
+                            android:layout_width="76dp"
+                            android:layout_height="76dp"
+                            android:contentDescription="@string/perfil_foto_cd"
+                            android:scaleType="centerCrop"
+                            android:visibility="gone"
+                            app:shapeAppearanceOverlay="@style/AlkilAppCircle" />
+                        <TextView
+                            android:id="@+id/tvPerfilInicial"
+                            android:layout_width="76dp"
+                            android:layout_height="76dp"
+                            android:background="@drawable/bg_avatar"
+                            android:backgroundTint="@color/alkil_primary"
+                            android:gravity="center"
+                            android:textColor="@color/white"
+                            android:textSize="28sp"
+                            android:textStyle="bold" />
+                    </FrameLayout>
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="14dp"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+                        <TextView
+                            android:id="@+id/tvPerfilNombre"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:ellipsize="end"
+                            android:maxLines="2"
+                            android:textColor="@color/text_primary"
+                            android:textSize="18sp"
+                            android:textStyle="bold" />
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="3dp"
+                            android:text="@string/perfil_cuenta_subtitulo"
+                            android:textColor="@color/text_secondary"
+                            android:textSize="12sp" />
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnPerfilFoto"
+                            style="@style/Widget.Material3.Button.OutlinedButton"
+                            android:layout_width="wrap_content"
+                            android:layout_height="38dp"
+                            android:layout_marginTop="9dp"
+                            android:insetTop="0dp"
+                            android:insetBottom="0dp"
+                            android:minWidth="0dp"
+                            android:text="@string/perfil_foto_agregar"
+                            android:textAllCaps="false"
+                            android:textColor="@color/coral_text"
+                            android:textSize="12sp"
+                            app:cornerRadius="11dp"
+                            app:icon="@drawable/ic_editar"
+                            app:iconGravity="textStart"
+                            app:iconTint="@color/coral_text"
+                            app:strokeColor="@color/alkil_coral_dark" />
+                    </LinearLayout>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
 
-                <FrameLayout
-                    android:layout_width="88dp"
-                    android:layout_height="88dp">
-
-                    <com.google.android.material.imageview.ShapeableImageView
-                        android:id="@+id/ivPerfilFoto"
-                        android:layout_width="88dp"
-                        android:layout_height="88dp"
-                        android:contentDescription="@string/perfil_foto_cd"
-                        android:scaleType="centerCrop"
-                        android:visibility="gone"
-                        app:shapeAppearanceOverlay="@style/AlkilAppCircle" />
-
-                    <TextView
-                        android:id="@+id/tvPerfilInicial"
-                        android:layout_width="88dp"
-                        android:layout_height="88dp"
-                        android:background="@drawable/bg_avatar"
-                        android:gravity="center"
-                        android:textColor="@color/white"
-                        android:textSize="32sp"
-                        android:textStyle="bold" />
-                </FrameLayout>
-
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btnPerfilFoto"
-                    style="@style/Widget.Material3.Button.TextButton"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="16dp"
-                    android:text="@string/perfil_foto_agregar" />
-            </LinearLayout>
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="20dp"
-                android:text="@string/perfil_nombre_label"
-                android:textSize="14sp"
-                android:textStyle="bold" />
-
-            <TextView
-                android:id="@+id/tvPerfilNombre"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:textColor="@color/text_secondary"
-                android:textSize="14sp" />
-
-            <com.google.android.material.textfield.TextInputLayout
+            <!-- Datos personales y contacto. -->
+            <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="12dp"
-                android:hint="@string/perfil_telefono_hint">
-
-                <com.google.android.material.textfield.TextInputEditText
-                    android:id="@+id/etPerfilTelefono"
+                app:cardBackgroundColor="@color/surface"
+                app:cardCornerRadius="18dp"
+                app:cardElevation="1dp"
+                app:strokeColor="@color/divider"
+                app:strokeWidth="1dp">
+                <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:importantForAutofill="no"
-                    android:inputType="phone"
-                    android:maxLines="1" />
-            </com.google.android.material.textfield.TextInputLayout>
+                    android:orientation="vertical"
+                    android:padding="16dp">
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/perfil_seccion_datos"
+                        android:textColor="@color/text_primary"
+                        android:textSize="16sp"
+                        android:textStyle="bold" />
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:text="@string/perfil_email_label"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="12sp"
+                        android:textStyle="bold" />
+                    <TextView
+                        android:id="@+id/tvPerfilEmail"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="3dp"
+                        android:textColor="@color/text_primary"
+                        android:textSize="14sp" />
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="7dp"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+                        <TextView
+                            android:id="@+id/tvPerfilEmailVerificado"
+                            android:layout_width="wrap_content"
+                            android:layout_height="26dp"
+                            android:background="@drawable/bg_detalle_chip"
+                            android:gravity="center"
+                            android:paddingStart="10dp"
+                            android:paddingEnd="10dp"
+                            android:text="@string/perfil_email_verificado"
+                            android:textColor="@color/success_text"
+                            android:textSize="11sp"
+                            android:textStyle="bold"
+                            android:visibility="gone" />
+                        <TextView
+                            android:id="@+id/tvPerfilEmailPendiente"
+                            android:layout_width="wrap_content"
+                            android:layout_height="26dp"
+                            android:background="@drawable/bg_chip_info"
+                            android:backgroundTint="@color/alkil_gold_soft"
+                            android:gravity="center"
+                            android:paddingStart="10dp"
+                            android:paddingEnd="10dp"
+                            android:text="@string/perfil_email_pendiente"
+                            android:textColor="@color/gold_text"
+                            android:textSize="11sp"
+                            android:textStyle="bold"
+                            android:visibility="gone" />
+                    </LinearLayout>
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="14dp"
+                        android:text="@string/perfil_telefono_label"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="12sp"
+                        android:textStyle="bold" />
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:hint="@string/perfil_telefono_hint">
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/etPerfilTelefono"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:importantForAutofill="no"
+                            android:inputType="phone"
+                            android:maxLines="1" />
+                    </com.google.android.material.textfield.TextInputLayout>
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:text="@string/perfil_datos_fijos"
+                        android:textColor="@color/text_muted"
+                        android:textSize="12sp" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
 
-            <TextView
-                android:layout_width="wrap_content"
+            <!-- Preferencias de cuenta y ubicación. -->
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:text="@string/perfil_email_label"
-                android:textSize="14sp"
-                android:textStyle="bold" />
-
-            <LinearLayout
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center_vertical">
-
-                <TextView
-                    android:id="@+id/tvPerfilEmail"
-                    android:layout_width="wrap_content"
+                android:layout_marginTop="12dp"
+                app:cardBackgroundColor="@color/surface"
+                app:cardCornerRadius="18dp"
+                app:cardElevation="1dp"
+                app:strokeColor="@color/divider"
+                app:strokeWidth="1dp">
+                <LinearLayout
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:textColor="@color/text_secondary"
-                    android:textSize="14sp" />
-
-                <TextView
-                    android:id="@+id/tvPerfilEmailVerificado"
-                    android:layout_width="wrap_content"
-                    android:layout_height="24dp"
-                    android:layout_marginStart="8dp"
-                    android:background="@drawable/bg_chip_verificado"
-                    android:gravity="center"
-                    android:paddingStart="8dp"
-                    android:paddingEnd="8dp"
-                    android:text="@string/perfil_email_verificado"
-                    android:textColor="@color/white"
-                    android:textSize="11sp"
-                    android:textStyle="bold"
-                    android:visibility="gone" />
-
-                <TextView
-                    android:id="@+id/tvPerfilEmailPendiente"
-                    android:layout_width="wrap_content"
-                    android:layout_height="24dp"
-                    android:layout_marginStart="8dp"
-                    android:background="@color/alkil_rojo"
-                    android:gravity="center"
-                    android:paddingStart="8dp"
-                    android:paddingEnd="8dp"
-                    android:text="@string/perfil_email_pendiente"
-                    android:textColor="@color/white"
-                    android:textSize="11sp"
-                    android:textStyle="bold"
-                    android:visibility="gone" />
-            </LinearLayout>
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:text="@string/perfil_datos_fijos"
-                android:textColor="@color/text_muted"
-                android:textSize="12sp" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:text="@string/perfil_tipo_label"
-                android:textSize="14sp"
-                android:textStyle="bold" />
-
-            <Spinner
-                android:id="@+id/spPerfilTipo"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:text="@string/perfil_zona_departamento_label"
-                android:textSize="14sp"
-                android:textStyle="bold" />
-
-            <Spinner
-                android:id="@+id/spPerfilZonaDepartamento"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:text="@string/perfil_zona_ciudad_label"
-                android:textSize="14sp"
-                android:textStyle="bold" />
-
-            <Spinner
-                android:id="@+id/spPerfilZonaCiudad"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content" />
+                    android:orientation="vertical"
+                    android:padding="16dp">
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/perfil_seccion_preferencias"
+                        android:textColor="@color/text_primary"
+                        android:textSize="16sp"
+                        android:textStyle="bold" />
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:text="@string/perfil_tipo_label"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="12sp"
+                        android:textStyle="bold" />
+                    <Spinner
+                        android:id="@+id/spPerfilTipo"
+                        android:layout_width="match_parent"
+                        android:layout_height="48dp"
+                        android:background="@drawable/bg_spinner_rounded"
+                        android:popupBackground="@drawable/bg_spinner_popup"
+                        android:spinnerMode="dropdown" />
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:text="@string/perfil_zona_departamento_label"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="12sp"
+                        android:textStyle="bold" />
+                    <Spinner
+                        android:id="@+id/spPerfilZonaDepartamento"
+                        android:layout_width="match_parent"
+                        android:layout_height="48dp"
+                        android:background="@drawable/bg_spinner_rounded"
+                        android:popupBackground="@drawable/bg_spinner_popup"
+                        android:spinnerMode="dropdown" />
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:text="@string/perfil_zona_ciudad_label"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="12sp"
+                        android:textStyle="bold" />
+                    <Spinner
+                        android:id="@+id/spPerfilZonaCiudad"
+                        android:layout_width="match_parent"
+                        android:layout_height="48dp"
+                        android:background="@drawable/bg_spinner_rounded"
+                        android:popupBackground="@drawable/bg_spinner_popup"
+                        android:spinnerMode="dropdown" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="24dp"
+                android:layout_marginTop="16dp"
                 android:orientation="horizontal"
                 android:weightSum="2">
-
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btnPerfilEditar"
                     android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
+                    android:layout_height="48dp"
                     android:layout_marginEnd="6dp"
-                    android:backgroundTint="@color/alkil_coral"
+                    android:layout_weight="1"
+                    android:backgroundTint="@color/brand_accent_deep"
                     android:insetTop="0dp"
                     android:insetBottom="0dp"
                     android:text="@string/perfil_editar"
-                    android:textSize="16sp" />
-
+                    android:textAllCaps="false"
+                    android:textColor="@color/white"
+                    android:textSize="14sp"
+                    app:cornerRadius="13dp" />
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btnPerfilCancelar"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
                     android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
+                    android:layout_height="48dp"
                     android:layout_marginStart="6dp"
-                    android:backgroundTint="@color/text_secondary"
+                    android:layout_weight="1"
                     android:insetTop="0dp"
                     android:insetBottom="0dp"
                     android:text="@string/perfil_cancelar"
-                    android:textSize="16sp"
-                    android:visibility="gone" />
-
+                    android:textAllCaps="false"
+                    android:visibility="gone"
+                    app:cornerRadius="13dp"
+                    app:strokeColor="@color/divider" />
             </LinearLayout>
 
             <LinearLayout
+                android:id="@+id/layPerfilGuardar"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
+                android:layout_marginTop="10dp"
                 android:orientation="horizontal"
-                android:weightSum="2"
                 android:visibility="gone"
-                android:id="@+id/layPerfilGuardar">
-
+                android:weightSum="2">
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btnPerfilGuardar"
                     android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
+                    android:layout_height="48dp"
                     android:layout_marginEnd="6dp"
+                    android:layout_weight="1"
                     android:backgroundTint="@color/brand_accent_deep"
                     android:insetTop="0dp"
                     android:insetBottom="0dp"
                     android:text="@string/perfil_guardar"
-                    android:textSize="16sp" />
-
+                    android:textAllCaps="false"
+                    android:textColor="@color/white"
+                    android:textSize="14sp"
+                    app:cornerRadius="13dp" />
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btnPerfilCancelar2"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
                     android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
+                    android:layout_height="48dp"
                     android:layout_marginStart="6dp"
-                    android:backgroundTint="@color/text_secondary"
+                    android:layout_weight="1"
                     android:insetTop="0dp"
                     android:insetBottom="0dp"
                     android:text="@string/perfil_cancelar"
-                    android:textSize="16sp" />
-
+                    android:textAllCaps="false"
+                    app:cornerRadius="13dp"
+                    app:strokeColor="@color/divider" />
             </LinearLayout>
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnPerfilCerrarSesion"
-                style="@style/Widget.Material3.Button.TextButton"
+                style="@style/Widget.Material3.Button.OutlinedButton"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
+                android:layout_height="48dp"
+                android:layout_marginTop="12dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
                 android:text="@string/auth_cerrar_sesion"
-                android:textColor="@color/alkil_rojo" />
+                android:textAllCaps="false"
+                android:textColor="@color/alkil_rojo"
+                app:cornerRadius="13dp"
+                app:strokeColor="@color/alkil_rojo" />
         </LinearLayout>
     </ScrollView>
-
 </LinearLayout>

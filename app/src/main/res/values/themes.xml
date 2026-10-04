@@ -39,6 +39,9 @@
 
         <item name="android:statusBarColor">@color/brand_primary</item>
         <item name="android:windowBackground">@color/bg_main</item>
+
+        <!-- PopupMenu (menú ⋮ de mis publicaciones / chat) con fondo redondeado -->
+        <item name="android:popupMenuStyle">@style/AlkilPopupMenuStyle</item>
     </style>
 
     <style name="AlkilAppCircle" parent="">
@@ -49,5 +52,10 @@
     <style name="AlkilAppRounded" parent="">
         <item name="cornerFamily">rounded</item>
         <item name="cornerSize">14dp</item>
+    </style>
+
+    <!-- Fondo redondeado para los PopupMenu (via android:popupMenuStyle del tema) -->
+    <style name="AlkilPopupMenuStyle">
+        <item name="android:popupBackground">@drawable/bg_popup_menu</item>
     </style>
 </resources>

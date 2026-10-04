@@ -281,6 +281,14 @@ class PerfilPropietarioActivity : AppCompatActivity() {
         val cont = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(0, 10.dp, 0, 10.dp)
+            background = getDrawable(R.drawable.bg_profile_review)
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                topMargin = 5.dp
+                bottomMargin = 5.dp
+            }
         }
 
         val fila = LinearLayout(this).apply {
@@ -321,7 +329,6 @@ class PerfilPropietarioActivity : AppCompatActivity() {
             cont.addView(tvCom)
         }
 
-        cont.background = getDrawable(R.drawable.bg_input_detalle)
         cont.setPadding(12.dp, 10.dp, 12.dp, 10.dp)
         return cont
     }
@@ -489,9 +496,11 @@ class PerfilPropietarioActivity : AppCompatActivity() {
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
             ).apply { topMargin = 8.dp }
-            radius = 14.dp.toFloat()
+            radius = 16.dp.toFloat()
             cardElevation = 1.dp.toFloat()
             setCardBackgroundColor(getColor(R.color.surface))
+            strokeWidth = 1.dp
+            strokeColor = getColor(R.color.divider)
             isClickable = true
             setOnClickListener { abrirDetalle(p) }
         }
@@ -499,6 +508,7 @@ class PerfilPropietarioActivity : AppCompatActivity() {
         val cont = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(14.dp, 12.dp, 14.dp, 12.dp)
+            background = getDrawable(R.drawable.bg_detail_ivory)
         }
 
         cont.addView(TextView(this).apply {
@@ -560,7 +570,7 @@ class PerfilPropietarioActivity : AppCompatActivity() {
                     insetTop = 0
                     insetBottom = 0
                     setTextColor(getColor(R.color.alkil_primary))
-                    backgroundTintList = ColorStateList.valueOf(getColor(R.color.alkil_coral_soft))
+                    backgroundTintList = ColorStateList.valueOf(getColor(R.color.alkil_primary_soft))
                     setOnClickListener { pausarPublicacion(p) }
                 }
                 val lpP = LinearLayout.LayoutParams(
@@ -577,8 +587,8 @@ class PerfilPropietarioActivity : AppCompatActivity() {
                     isAllCaps = false
                     insetTop = 0
                     insetBottom = 0
-                    setTextColor(getColor(R.color.alkil_primary))
-                    backgroundTintList = ColorStateList.valueOf(getColor(R.color.alkil_coral_soft))
+                    setTextColor(getColor(R.color.success_text))
+                    backgroundTintList = ColorStateList.valueOf(getColor(R.color.alkil_mint_soft))
                     setOnClickListener { reactivarPublicacion(p) }
                 }
                 val lpR = LinearLayout.LayoutParams(
@@ -618,8 +628,8 @@ class PerfilPropietarioActivity : AppCompatActivity() {
         val (etiqueta, colorText, colorBg) = when (p.estadoNormalizado) {
             "disponible" -> Triple(
                 getString(R.string.prop_estado_disponible),
-                R.color.alkil_coral_dark,
-                R.color.alkil_coral_soft
+                R.color.success_text,
+                R.color.alkil_mint_soft
             )
             "finalizado" -> Triple(
                 getString(R.string.prop_estado_finalizado),

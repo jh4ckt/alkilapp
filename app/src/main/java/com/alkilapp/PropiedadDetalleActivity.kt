@@ -581,13 +581,7 @@ class PropiedadDetalleActivity : AppCompatActivity() {
         val vista = layoutInflater.inflate(R.layout.dialog_denuncia, null)
         val spMotivo = vista.findViewById<android.widget.Spinner>(R.id.spDenunciaMotivo)
         val etDetalle = vista.findViewById<android.widget.EditText>(R.id.etDenunciaDetalle)
-        spMotivo.adapter = android.widget.ArrayAdapter(
-            this,
-            android.R.layout.simple_spinner_item,
-            resources.getStringArray(R.array.motivos_denuncia)
-        ).apply {
-            setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-        }
+        spMotivo.estilizar(resources.getStringArray(R.array.motivos_denuncia).toList())
 
         com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
             .setTitle(R.string.denuncia_titulo)

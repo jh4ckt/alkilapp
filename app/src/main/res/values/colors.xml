@@ -17,20 +17,20 @@
     <color name="brand_primary">#1E293B</color>
     <color name="brand_primary_dark">#0F172A</color>
     <color name="brand_primary_light">#E2E8F0</color>
-    <color name="brand_primary_soft">#F1F5F9</color>
+    <color name="brand_primary_soft">#F0ECE4</color>
 
     <!-- background / card -->
-    <color name="bg_main">#F8FAFC</color>
+    <color name="bg_main">#F7F4EE</color>
     <color name="surface_card">#FFFFFF</color>
 
     <!-- border-subtle: bordes de cards e inputs -->
-    <color name="border_subtle">#E2E8F0</color>
+    <color name="border_subtle">#E5DED3</color>
 
     <!-- text-muted: metraje, habitaciones, ubicacion, labels -->
-    <color name="text_muted">#64748B</color>
+    <color name="text_muted">#625C53</color>
 
     <!-- text-hint: placeholders de inputs (legibles sobre blanco) -->
-    <color name="text_hint">#64748B</color>
+    <color name="text_hint">#625C53</color>
 
     <!-- on-dark-soft: texto secundario sobre fondo brand_primary -->
     <color name="on_dark_soft">#CBD5E1</color>
@@ -59,7 +59,7 @@
     <color name="alkil_primary">#1E293B</color>
     <color name="alkil_primary_dark">#0F172A</color>
     <color name="alkil_primary_light">#E2E8F0</color>
-    <color name="alkil_primary_soft">#F1F5F9</color>
+    <color name="alkil_primary_soft">#F0ECE4</color>
 
     <color name="chat_tick_read">#38BDF8</color>
     <color name="alkil_coral">#FF6B5E</color>
@@ -72,15 +72,18 @@
     <color name="alkil_amber">#D97706</color>
     <color name="alkil_amber_soft">#FEF3C7</color>
     <color name="alkil_gray">#64748B</color>
-    <color name="alkil_gray_soft">#F1F5F9</color>
+    <color name="alkil_gray_soft">#F2EFE9</color>
 
-    <color name="bg_soft">#F8FAFC</color>
+    <color name="bg_soft">#F7F4EE</color>
     <color name="surface">#FFFFFF</color>
     <color name="text_primary">#1E293B</color>
-    <color name="text_secondary">#64748B</color>
-    <color name="bubble_otro">#F1F5F9</color>
-    <color name="slate_100">#F1F5F9</color>
-    <color name="divider">#E2E8F0</color>
+    <color name="text_secondary">#5B6268</color>
+    <color name="bubble_otro">#F2EFE9</color>
+    <color name="slate_100">#F2EFE9</color>
+    <color name="divider">#E5DED3</color>
+
+    <!-- Superficie secundaria verde-salvia para agrupar información sin competir con el coral. -->
+    <color name="surface_warm">#F4EFE5</color>
 
     <color name="white">#FFFFFF</color>
     <color name="ic_launcher_background">#0B2447</color>

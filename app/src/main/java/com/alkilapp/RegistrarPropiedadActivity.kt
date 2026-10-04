@@ -64,6 +64,8 @@ class RegistrarPropiedadActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityRegistrarPropiedadBinding
     private lateinit var fusedLocationClient: FusedLocationProviderClient
+    private lateinit var paginasPublicacion: List<View>
+    private var pasoPublicacion = 0
 
     private val auth by lazy { FirebaseAuth.getInstance() }
     private val db by lazy { FirebaseFirestore.getInstance("alkilappdb") }
@@ -157,6 +159,16 @@ class RegistrarPropiedadActivity : AppCompatActivity() {
 
         binding.btnRegistrarBack.setOnClickListener { finish() }
         binding.btnRegistrarGuardar.setOnClickListener { guardarPropiedad(editMode, propiedadId) }
+        paginasPublicacion = listOf(
+            binding.pagePublicarFotos,
+            binding.pagePublicarDatos,
+            binding.pagePublicarUbicacion,
+            binding.pagePublicarCaracteristicas,
+            binding.pagePublicarDescripcion
+        )
+        binding.btnPublicarSiguiente.setOnClickListener { cambiarPasoPublicacion(pasoPublicacion + 1) }
+        binding.btnPublicarAnterior.setOnClickListener { cambiarPasoPublicacion(pasoPublicacion - 1) }
+        actualizarPasoPublicacion(0, animar = false)
         binding.btnPropElegirMapa.setOnClickListener {
             val origen = Intent(this, MapaSeleccionActivity::class.java).apply {
                 putExtra(MapaSeleccionActivity.EXTRA_LAT_INICIAL, latAgregar)
@@ -179,21 +191,11 @@ class RegistrarPropiedadActivity : AppCompatActivity() {
         val distritosGenerico = listOf(getString(R.string.prop_distrito_sin), "Otro")
         val distritosPublicar = listOf(getString(R.string.prop_distrito_sin)) + distritosLima
 
-        spinnerTipo.adapter = ArrayAdapter(
-            this, android.R.layout.simple_spinner_item, tipos
-        ).apply { setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
-        spinnerOperacion.adapter = ArrayAdapter(
-            this, android.R.layout.simple_spinner_item, operaciones
-        ).apply { setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
-        spinnerMoneda.adapter = ArrayAdapter(
-            this, android.R.layout.simple_spinner_item, monedas
-        ).apply { setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
-        spinnerDepartamento.adapter = ArrayAdapter(
-            this, android.R.layout.simple_spinner_item, departamentos
-        ).apply { setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
-        spinnerDistrito.adapter = ArrayAdapter(
-            this, android.R.layout.simple_spinner_item, distritosPublicar
-        ).apply { setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
+        spinnerTipo.adapter = crearAdapterSpinner(tipos.toList())
+        spinnerOperacion.adapter = crearAdapterSpinner(operaciones.toList())
+        spinnerMoneda.adapter = crearAdapterSpinner(monedas.toList())
+        spinnerDepartamento.adapter = crearAdapterSpinner(departamentos)
+        spinnerDistrito.adapter = crearAdapterSpinner(distritosPublicar)
 
         // Función para obtener ciudades por departamento
         fun obtenerCiudades(departamento: String): List<String> {
@@ -227,21 +229,11 @@ class RegistrarPropiedadActivity : AppCompatActivity() {
             }
         }
 
-        spinnerTipo.adapter = ArrayAdapter(
-            this, android.R.layout.simple_spinner_item, tipos
-        ).apply { setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
-        spinnerOperacion.adapter = ArrayAdapter(
-            this, android.R.layout.simple_spinner_item, operaciones
-        ).apply { setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
-        spinnerMoneda.adapter = ArrayAdapter(
-            this, android.R.layout.simple_spinner_item, monedas
-        ).apply { setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
-        spinnerDepartamento.adapter = ArrayAdapter(
-            this, android.R.layout.simple_spinner_item, departamentos
-        ).apply { setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
-        spinnerDistrito.adapter = ArrayAdapter(
-            this, android.R.layout.simple_spinner_item, distritosPublicar
-        ).apply { setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
+        spinnerTipo.adapter = crearAdapterSpinner(tipos.toList())
+        spinnerOperacion.adapter = crearAdapterSpinner(operaciones.toList())
+        spinnerMoneda.adapter = crearAdapterSpinner(monedas.toList())
+        spinnerDepartamento.adapter = crearAdapterSpinner(departamentos)
+        spinnerDistrito.adapter = crearAdapterSpinner(distritosPublicar)
 
         // Actualizar ciudades según departamento seleccionado
         spinnerDepartamento.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
@@ -253,11 +245,7 @@ class RegistrarPropiedadActivity : AppCompatActivity() {
                 } else {
                     listOf(getString(R.string.prop_distrito_sin), "Otro") + ciudades
                 }
-                spinnerDistrito.adapter = ArrayAdapter(
-                    this@RegistrarPropiedadActivity,
-                    android.R.layout.simple_spinner_item,
-                    opciones
-                ).apply { setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
+                spinnerDistrito.adapter = crearAdapterSpinner(opciones)
             }
             override fun onNothingSelected(parent: android.widget.AdapterView<*>?) {}
         }
@@ -286,6 +274,126 @@ class RegistrarPropiedadActivity : AppCompatActivity() {
         configurarBuscadorDireccion()
 
         actualizarUbicacionSiPosible()
+    }
+
+    private fun crearAdapterSpinner(opciones: List<String>): ArrayAdapter<String> =
+        spinnerAdapter(this, opciones)
+
+    private fun cambiarPasoPublicacion(destino: Int) {
+        if (destino !in paginasPublicacion.indices) return
+        if (destino > pasoPublicacion && !validarPasoPublicacion(pasoPublicacion)) return
+
+        val origen = pasoPublicacion
+        val direccion = if (destino > origen) 1f else -1f
+        val distancia = (binding.contenedorPasosPublicar.width.takeIf { it > 0 }
+            ?: resources.displayMetrics.widthPixels).toFloat()
+        val paginaActual = paginasPublicacion[origen]
+        val paginaSiguiente = paginasPublicacion[destino]
+
+        paginaSiguiente.visibility = View.VISIBLE
+        paginaSiguiente.translationX = direccion * distancia
+        paginaSiguiente.animate().translationX(0f).setDuration(220).start()
+        paginaActual.animate()
+            .translationX(-direccion * distancia)
+            .setDuration(220)
+            .withEndAction {
+                paginaActual.visibility = View.GONE
+                paginaActual.translationX = 0f
+            }
+            .start()
+        actualizarPasoPublicacion(destino, animar = true)
+    }
+
+    private fun actualizarPasoPublicacion(paso: Int, animar: Boolean) {
+        pasoPublicacion = paso
+        if (!animar) {
+            paginasPublicacion.forEachIndexed { index, pagina ->
+                pagina.visibility = if (index == paso) View.VISIBLE else View.GONE
+                pagina.translationX = 0f
+            }
+        }
+        binding.tvPublicarPaso.text = getString(
+            R.string.prop_paso_contador, paso + 1, paginasPublicacion.size
+        )
+        binding.tvPublicarTituloPaso.setText(
+            when (paso) {
+                0 -> R.string.prop_paso_fotos
+                1 -> R.string.prop_paso_datos
+                2 -> R.string.prop_paso_ubicacion
+                3 -> R.string.prop_paso_caracteristicas
+                else -> R.string.prop_paso_descripcion
+            }
+        )
+        binding.progressPublicar.progress = paso + 1
+        binding.btnPublicarAnterior.visibility = if (paso == 0) View.GONE else View.VISIBLE
+        binding.btnPublicarSiguiente.visibility = if (paso == paginasPublicacion.lastIndex) View.GONE else View.VISIBLE
+        binding.btnRegistrarGuardar.visibility = if (paso == paginasPublicacion.lastIndex) View.VISIBLE else View.GONE
+        binding.scrollPublicarForm.post { binding.scrollPublicarForm.scrollTo(0, 0) }
+    }
+
+    private fun validarPasoPublicacion(paso: Int): Boolean {
+        fun enfocar(view: View): Boolean {
+            view.requestFocus()
+            return false
+        }
+        return when (paso) {
+            0 -> if (fotosFormulario.isEmpty()) {
+                mostrarError(R.string.prop_fotos_requeridas)
+                enfocar(binding.btnPropAgregarFoto)
+            } else true
+            1 -> {
+                if (binding.etPropTitulo.text.isNullOrBlank()) {
+                    mostrarError(R.string.prop_titulo_requerido)
+                    enfocar(binding.etPropTitulo)
+                } else {
+                    val precioTexto = binding.etPropPrecio.text?.toString()?.trim().orEmpty()
+                    val precio = precioTexto.toDoubleOrNull() ?: 0.0
+                    if (precio <= 1.0) {
+                        mostrarError(if (precioTexto.isEmpty()) R.string.prop_precio_requerido else R.string.prop_precio_mayor_uno)
+                        enfocar(binding.etPropPrecio)
+                    } else true
+                }
+            }
+            2 -> {
+                val departamento = binding.spPropDepartamento.selectedItem?.toString().orEmpty()
+                val distrito = binding.spPropDistrito.selectedItem?.toString().orEmpty()
+                when {
+                    binding.etPropDireccion.text.isNullOrBlank() -> {
+                        mostrarError(R.string.prop_direccion_requerida)
+                        enfocar(binding.etPropDireccion)
+                    }
+                    departamento.isBlank() || departamento == getString(R.string.prop_departamento_sin) -> {
+                        mostrarError(R.string.prop_departamento_requerido)
+                        enfocar(binding.spPropDepartamento)
+                    }
+                    distrito.isBlank() || distrito == getString(R.string.prop_distrito_sin) || distrito == "Otro" -> {
+                        mostrarError(R.string.prop_distrito_requerido)
+                        enfocar(binding.spPropDistrito)
+                    }
+                    else -> true
+                }
+            }
+            3 -> {
+                val habitaciones = binding.etPropAmbientes.text?.toString()?.toIntOrNull() ?: 0
+                val area = binding.etPropSuperficie.text?.toString()?.toDoubleOrNull() ?: 0.0
+                when {
+                    habitaciones <= 0 -> {
+                        mostrarError(R.string.prop_ambientes_requerido)
+                        enfocar(binding.etPropAmbientes)
+                    }
+                    area <= 0 -> {
+                        mostrarError(R.string.prop_superficie_requerido)
+                        enfocar(binding.etPropSuperficie)
+                    }
+                    else -> true
+                }
+            }
+            4 -> if (binding.etPropDescripcion.text.isNullOrBlank()) {
+                mostrarError(R.string.prop_descripcion_requerida)
+                enfocar(binding.etPropDescripcion)
+            } else true
+            else -> true
+        }
     }
 
     /** Autocomplete de direcciones vía Google (Places SDK). */
@@ -805,11 +913,7 @@ class RegistrarPropiedadActivity : AppCompatActivity() {
                 val nuevosDistritos = if (departamentoSel == "Lima") {
                     listOf(getString(R.string.prop_distrito_sin)) + distritosLima
                 } else distritosGenerico
-                spinnerDistrito.adapter = ArrayAdapter(
-                    this,
-                    android.R.layout.simple_spinner_item,
-                    nuevosDistritos
-                ).apply { setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
+                spinnerDistrito.adapter = crearAdapterSpinner(nuevosDistritos)
 
                 spinnerDistrito.setSelection(
                     nuevosDistritos.indexOfFirst { it == distritoSel }.coerceAtLeast(0)
@@ -1183,7 +1287,7 @@ class RegistrarPropiedadActivity : AppCompatActivity() {
     private fun mostrarError(mensaje: String) {
         // Si el mensaje es largo (> 100 chars), usar diálogo para que se lea completo
         if (mensaje.length > 100) {
-            androidx.appcompat.app.AlertDialog.Builder(this)
+            com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
                 .setMessage(mensaje)
                 .setPositiveButton(android.R.string.ok, null)
                 .setIcon(android.R.drawable.ic_dialog_alert)

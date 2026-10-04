@@ -10,7 +10,6 @@ import android.text.InputFilter
 import android.util.Base64
 import android.view.View
 import android.widget.AdapterView
-import android.widget.ArrayAdapter
 import android.widget.Toast
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -86,11 +85,7 @@ class VerificacionActivity : AppCompatActivity() {
         binding.btnVerifFotoReverso.setOnClickListener { elegirFotoReverso() }
         binding.btnVerifEnviar.setOnClickListener { enviar() }
 
-        binding.spVerifTipo.adapter = ArrayAdapter(
-            this,
-            android.R.layout.simple_spinner_item,
-            tipos
-        ).apply { setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
+        binding.spVerifTipo.estilizar(tipos.toList())
 
         // El formato del numero depende del tipo: el DNI peruano son 8 digitos y
         // no admite letras, asi que el teclado y el filtro se ajustan al vuelo.

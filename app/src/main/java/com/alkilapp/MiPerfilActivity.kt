@@ -69,18 +69,12 @@ class MiPerfilActivity : AppCompatActivity() {
             finish()
         }
 
-        binding.spPerfilTipo.adapter = ArrayAdapter(
-            this,
-            android.R.layout.simple_spinner_item,
-            resources.getStringArray(R.array.tipos_usuario)
-        ).apply { setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
+        binding.spPerfilTipo.adapter = crearAdapterSpinner(
+            resources.getStringArray(R.array.tipos_usuario).toList()
+        )
 
         departamentos = resources.getStringArray(R.array.departamentos_peru).toList()
-        binding.spPerfilZonaDepartamento.adapter = ArrayAdapter(
-            this,
-            android.R.layout.simple_spinner_item,
-            departamentos
-        ).apply { setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
+        binding.spPerfilZonaDepartamento.adapter = crearAdapterSpinner(departamentos)
 
         binding.spPerfilZonaDepartamento.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: AdapterView<*>?, view: android.view.View?, position: Int, id: Long) {
@@ -91,11 +85,7 @@ class MiPerfilActivity : AppCompatActivity() {
                 } else {
                     listOf(getString(R.string.prop_distrito_sin), "Otro") + ciudades
                 }
-                binding.spPerfilZonaCiudad.adapter = ArrayAdapter(
-                    this@MiPerfilActivity,
-                    android.R.layout.simple_spinner_item,
-                    opciones
-                ).apply { setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
+                binding.spPerfilZonaCiudad.adapter = crearAdapterSpinner(opciones)
             }
             override fun onNothingSelected(parent: AdapterView<*>?) {}
         }
@@ -112,6 +102,9 @@ class MiPerfilActivity : AppCompatActivity() {
         bloquearCampos()
         cargarMisDatos()
     }
+
+    private fun crearAdapterSpinner(opciones: List<String>): ArrayAdapter<String> =
+        spinnerAdapter(this, opciones)
 
     private fun desbloquearCampos() {
         binding.etPerfilTelefono.isEnabled = true

@@ -91,11 +91,11 @@
                 android:layout_marginTop="4dp"
                 android:layout_marginEnd="12dp"
                 android:background="@drawable/bg_chip_info"
-                android:backgroundTint="@color/alkil_coral_soft"
+                android:backgroundTint="@color/alkil_gold_soft"
                 android:gravity="center"
                 android:padding="14dp"
                 android:text="@string/detalle_revision_banner"
-                android:textColor="@color/alkil_primary"
+                android:textColor="@color/gold_text"
                 android:textSize="13sp"
                 android:textStyle="bold"
                 android:visibility="gone" />
@@ -107,7 +107,7 @@
                 android:layout_marginTop="4dp"
                 android:layout_marginEnd="12dp"
                 android:background="@drawable/bg_chip_info"
-                android:backgroundTint="@color/alkil_coral_soft"
+                android:backgroundTint="@color/alkil_primary_soft"
                 android:gravity="center"
                 android:padding="14dp"
                 android:text="Publicación pausada - no se muestra en el listado"
@@ -187,13 +187,45 @@
                 android:layout_marginEnd="12dp"
                 app:cardBackgroundColor="@color/surface"
                 app:cardCornerRadius="16dp"
-                app:cardElevation="1dp">
+                app:cardElevation="1dp"
+                app:strokeColor="@color/divider"
+                app:strokeWidth="1dp">
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
                     android:padding="16dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:id="@+id/tvDetTipo"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:letterSpacing="0.06"
+                            android:textColor="@color/coral_text"
+                            android:textSize="11sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/tvDetEstado"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:background="@drawable/bg_detalle_chip"
+                            android:paddingStart="11dp"
+                            android:paddingTop="5dp"
+                            android:paddingEnd="11dp"
+                            android:paddingBottom="5dp"
+                            android:textColor="@color/success_text"
+                            android:textSize="11sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
 
                     <TextView
                         android:id="@+id/tvDetTitulo"
@@ -202,21 +234,33 @@
                         android:ellipsize="end"
                         android:maxLines="2"
                         android:textColor="@color/text_primary"
-                        android:textSize="18sp"
+                        android:textSize="20sp"
                         android:textStyle="bold" />
 
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="6dp"
+                        android:layout_marginTop="10dp"
+                        android:background="@drawable/bg_detail_price"
+                        android:gravity="center_vertical"
                         android:orientation="horizontal">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal"
+                            android:paddingStart="10dp"
+                            android:paddingTop="8dp"
+                            android:paddingEnd="10dp"
+                            android:paddingBottom="8dp">
 
                         <TextView
                             android:id="@+id/tvDetPrecio"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:textColor="@color/alkil_primary"
-                            android:textSize="21sp"
+                            android:textColor="@color/coral_text"
+                            android:textSize="23sp"
                             android:textStyle="bold" />
 
                         <TextView
@@ -225,7 +269,7 @@
                             android:layout_height="wrap_content"
                             android:layout_marginStart="8dp"
                             android:layout_gravity="center_vertical"
-                            android:background="@drawable/bg_chip_info"
+                            android:background="@drawable/bg_detalle_chip"
                             android:paddingStart="8dp"
                             android:paddingTop="3dp"
                             android:paddingEnd="8dp"
@@ -235,22 +279,8 @@
                             android:textStyle="bold"
                             android:visibility="gone" />
 
-                        <TextView
-                            android:id="@+id/tvDetDestacado"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginStart="10dp"
-                            android:layout_gravity="center_vertical"
-                            android:background="@drawable/bg_etiqueta_destacado"
-                            android:paddingStart="10dp"
-                            android:paddingTop="3dp"
-                            android:paddingEnd="10dp"
-                            android:paddingBottom="3dp"
-                            android:text="@string/destacado_etiqueta"
-                            android:textColor="@color/white"
-                            android:textSize="11sp"
-                            android:textStyle="bold"
-                            android:visibility="gone" />
+                        </LinearLayout>
+
                     </LinearLayout>
 
                     <TextView
@@ -258,6 +288,9 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="2dp"
+                        android:drawableStart="@drawable/ic_location"
+                        android:drawablePadding="5dp"
+                        android:drawableTint="@color/text_secondary"
                         android:textColor="@color/text_secondary"
                         android:textSize="14sp" />
 
@@ -293,108 +326,59 @@
                             android:textSize="12sp" />
                     </LinearLayout>
 
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="16dp"
+                android:layout_marginTop="16dp"
+                android:layout_marginEnd="16dp"
+                android:text="@string/detalle_acerca_titulo"
+                android:textColor="@color/text_primary"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardDetAcerca"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="12dp"
+                android:layout_marginTop="8dp"
+                android:layout_marginEnd="12dp"
+                app:cardBackgroundColor="@android:color/transparent"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="1dp"
+                app:strokeColor="@color/divider"
+                app:strokeWidth="1dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:background="@drawable/bg_detail_ivory"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
                     <TextView
                         android:id="@+id/tvDetComodidades"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="12dp"
                         android:textColor="@color/text_primary"
-                        android:textSize="13sp" />
+                        android:textSize="13sp"
+                        android:visibility="gone" />
 
                     <TextView
                         android:id="@+id/tvDetDescripcion"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="12dp"
+                        android:layout_marginTop="8dp"
+                        android:lineSpacingExtra="3dp"
                         android:textColor="@color/text_secondary"
-                        android:textSize="14sp" />
+                        android:textSize="14sp"
+                        android:visibility="gone" />
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
-
-            <!-- VER UBICACIÓN EN MAPA -->
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btnVerMapa"
-                android:layout_width="match_parent"
-                android:layout_height="52dp"
-                android:layout_marginStart="16dp"
-                android:layout_marginTop="16dp"
-                android:layout_marginEnd="16dp"
-                android:insetTop="0dp"
-                android:insetBottom="0dp"
-                android:paddingStart="14dp"
-                android:paddingEnd="14dp"
-                android:text="@string/detalle_ver_mapa"
-                android:textColor="@color/white"
-                android:textSize="15sp"
-                android:textStyle="bold"
-                app:backgroundTint="@color/alkil_primary"
-                app:cornerRadius="14dp"
-                app:icon="@drawable/ic_location"
-                app:iconGravity="textStart"
-                app:iconTint="@color/white" />
-
-            <!-- CHAT CON EL PROPIETARIO -->
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btnChatPropietario"
-                android:layout_width="match_parent"
-                android:layout_height="52dp"
-                android:layout_marginStart="16dp"
-                android:layout_marginTop="16dp"
-                android:layout_marginEnd="16dp"
-                android:insetTop="0dp"
-                android:insetBottom="0dp"
-                android:paddingStart="14dp"
-                android:paddingEnd="14dp"
-                android:text="@string/detalle_chatear"
-                android:textColor="@color/white"
-                android:textSize="15sp"
-                android:textStyle="bold"
-                app:backgroundTint="@color/brand_accent_deep"
-                app:cornerRadius="14dp"
-                app:icon="@drawable/ic_chat"
-                app:iconGravity="textStart"
-                app:iconTint="@color/white" />
-
-            <!-- DENUNCIAR ANUNCIO -->
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btnDenunciar"
-                style="@style/Widget.Material3.Button.OutlinedButton"
-                android:layout_width="match_parent"
-                android:layout_height="48dp"
-                android:layout_marginStart="16dp"
-                android:layout_marginTop="10dp"
-                android:layout_marginEnd="16dp"
-                android:insetTop="0dp"
-                android:insetBottom="0dp"
-                android:text="@string/denuncia_btn"
-                android:textSize="14sp"
-                app:backgroundTint="@android:color/transparent"
-                app:cornerRadius="14dp"
-                app:icon="@drawable/ic_flag"
-                app:iconGravity="textStart"
-                app:iconTint="@color/alkil_rojo"
-                app:strokeColor="@color/alkil_rojo"
-                app:strokeWidth="1dp" />
-
-            <!-- DAR POR FINALIZADA (solo el propietario) -->
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btnFinalizarPub"
-                style="@style/Widget.Material3.Button.OutlinedButton"
-                android:layout_width="match_parent"
-                android:layout_height="48dp"
-                android:layout_marginStart="16dp"
-                android:layout_marginTop="10dp"
-                android:layout_marginEnd="16dp"
-                android:insetTop="0dp"
-                android:insetBottom="0dp"
-                android:text="@string/detalle_finalizar_btn"
-                android:textColor="@color/alkil_rojo"
-                android:textSize="14sp"
-                android:textStyle="bold"
-                app:backgroundTint="@color/alkil_coral_soft"
-                app:cornerRadius="14dp"
-                app:strokeColor="@color/alkil_rojo"
-                app:strokeWidth="1dp" />
 
             <!-- TARJETA DEL PROPIETARIO -->
             <com.google.android.material.card.MaterialCardView
@@ -405,13 +389,16 @@
                 android:layout_marginTop="16dp"
                 android:layout_marginEnd="12dp"
                 android:visibility="gone"
-                app:cardBackgroundColor="@color/surface"
+                app:cardBackgroundColor="@android:color/transparent"
                 app:cardCornerRadius="16dp"
-                app:cardElevation="1dp">
+                app:cardElevation="1dp"
+                app:strokeColor="@color/divider"
+                app:strokeWidth="1dp">
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:background="@drawable/bg_profile_owner_hero"
                     android:gravity="center_vertical"
                     android:orientation="horizontal"
                     android:padding="16dp">
@@ -499,6 +486,104 @@
                     </LinearLayout>
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnDenunciar"
+                style="@style/Widget.Material3.Button.OutlinedButton"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:layout_marginStart="16dp"
+                android:layout_marginTop="12dp"
+                android:layout_marginEnd="16dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:text="@string/denuncia_btn"
+                android:textAllCaps="false"
+                android:textSize="13sp"
+                app:backgroundTint="@android:color/transparent"
+                app:cornerRadius="14dp"
+                app:icon="@drawable/ic_flag"
+                app:iconGravity="textStart"
+                app:iconTint="@color/alkil_rojo"
+                app:strokeColor="@color/alkil_rojo"
+                app:strokeWidth="1dp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnFinalizarPub"
+                style="@style/Widget.Material3.Button.OutlinedButton"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:layout_marginStart="16dp"
+                android:layout_marginTop="8dp"
+                android:layout_marginEnd="16dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:text="@string/detalle_finalizar_btn"
+                android:textColor="@color/alkil_rojo"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                app:backgroundTint="@color/alkil_coral_soft"
+                app:cornerRadius="14dp"
+                app:strokeColor="@color/alkil_rojo"
+                app:strokeWidth="1dp" />
         </LinearLayout>
     </ScrollView>
+
+    <com.google.android.material.card.MaterialCardView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        app:cardBackgroundColor="@color/surface"
+        app:cardCornerRadius="0dp"
+        app:cardElevation="5dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:paddingStart="14dp"
+            android:paddingTop="10dp"
+            android:paddingEnd="14dp"
+            android:paddingBottom="10dp">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnVerMapa"
+                style="@style/Widget.Material3.Button.OutlinedButton"
+                android:layout_width="0dp"
+                android:layout_height="52dp"
+                android:layout_marginEnd="5dp"
+                android:layout_weight="1"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:text="@string/detalle_mapa_cta"
+                android:textAllCaps="false"
+                android:textColor="@color/gold_text"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                app:backgroundTint="@color/white"
+                app:cornerRadius="14dp"
+                app:icon="@drawable/ic_location"
+                app:iconGravity="textStart"
+                app:iconTint="@color/alkil_primary"
+                app:strokeColor="@color/brand_primary_light" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnChatPropietario"
+                android:layout_width="0dp"
+                android:layout_height="52dp"
+                android:layout_marginStart="5dp"
+                android:layout_weight="1"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:text="@string/detalle_chat_cta"
+                android:textAllCaps="false"
+                android:textColor="@color/white"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                app:backgroundTint="@color/brand_accent_deep"
+                app:cornerRadius="14dp"
+                app:icon="@drawable/ic_chat"
+                app:iconGravity="textStart"
+                app:iconTint="@color/white" />
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
 </LinearLayout>

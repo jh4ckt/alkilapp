@@ -20,7 +20,6 @@ import android.util.Base64
 import android.view.View
 import android.view.MotionEvent
 import android.view.ViewGroup
-import android.widget.ArrayAdapter
 import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.ImageView
@@ -207,7 +206,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             val fine = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
             val coarse = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION)
             if (fine != PackageManager.PERMISSION_GRANTED && coarse != PackageManager.PERMISSION_GRANTED) {
-                androidx.appcompat.app.AlertDialog.Builder(this)
+                com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
                     .setTitle("Activar ubicaci\u00F3n")
                     .setMessage("AlkilApp necesita tu ubicaci\u00F3n para mostrar inmuebles cercanos, calcular distancias y centrar el mapa en tu zona. Por favor, activa el permiso de ubicaci\u00F3n en los ajustes.")
                     .setPositiveButton("Activar ahora") { _, _ ->
@@ -669,9 +668,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         }
 
 fun llenar(sp: Spinner, opciones: List<String>) {
-            sp.adapter = ArrayAdapter(
-                this, android.R.layout.simple_spinner_item, opciones
-            ).apply { setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
+            sp.estilizar(opciones)
         }
 
         /** Ciudades/distritos que corresponden al departamento elegido. */

@@ -46,11 +46,10 @@
     <Spinner
         android:id="@+id/spFiltroDepartamento"
         android:layout_width="match_parent"
-        android:layout_height="44dp"
+        android:layout_height="48dp"
         android:layout_marginTop="4dp"
-        android:background="@drawable/bg_input_detalle"
-        android:paddingStart="12dp"
-        android:paddingEnd="12dp" />
+        android:background="@drawable/bg_spinner_rounded"
+        android:popupBackground="@drawable/bg_spinner_popup" />
 
     <TextView
         android:id="@+id/tvLblFiltroDistrito"
@@ -65,11 +64,10 @@
     <Spinner
         android:id="@+id/spFiltroDistrito"
         android:layout_width="match_parent"
-        android:layout_height="44dp"
+        android:layout_height="48dp"
         android:layout_marginTop="4dp"
-        android:background="@drawable/bg_input_detalle"
-        android:paddingStart="12dp"
-        android:paddingEnd="12dp" />
+        android:background="@drawable/bg_spinner_rounded"
+        android:popupBackground="@drawable/bg_spinner_popup" />
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -94,11 +92,10 @@
             <Spinner
                 android:id="@+id/spFiltroTipo"
                 android:layout_width="match_parent"
-                android:layout_height="44dp"
+                android:layout_height="48dp"
                 android:layout_marginTop="4dp"
-                android:background="@drawable/bg_input_detalle"
-                android:paddingStart="12dp"
-                android:paddingEnd="12dp" />
+                android:background="@drawable/bg_spinner_rounded"
+                android:popupBackground="@drawable/bg_spinner_popup" />
         </LinearLayout>
 
         <LinearLayout
@@ -119,11 +116,10 @@
             <Spinner
                 android:id="@+id/spFiltroHabitaciones"
                 android:layout_width="match_parent"
-                android:layout_height="44dp"
+                android:layout_height="48dp"
                 android:layout_marginTop="4dp"
-                android:background="@drawable/bg_input_detalle"
-                android:paddingStart="12dp"
-                android:paddingEnd="12dp" />
+                android:background="@drawable/bg_spinner_rounded"
+                android:popupBackground="@drawable/bg_spinner_popup" />
         </LinearLayout>
     </LinearLayout>
 

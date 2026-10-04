@@ -132,6 +132,8 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="6dp"
+                        android:background="@drawable/bg_spinner_rounded"
+                        android:popupBackground="@drawable/bg_spinner_popup"
                         android:visibility="gone" />
 
                     <com.google.android.material.textfield.TextInputLayout
