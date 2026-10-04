@@ -561,6 +561,11 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             abrirDialogoAutenticar()
             return
         }
+        if (auth.currentUser!!.isEmailVerified != true) {
+            Toast.makeText(this, R.string.auth_email_no_verificado_publicar, Toast.LENGTH_LONG).show()
+            startActivity(Intent(this, VerificacionEmailActivity::class.java))
+            return
+        }
         var punto = ultimaUbicacion
         if (punto == null && ::mMap.isInitialized) punto = mMap.cameraPosition.target
         if (punto == null) punto = LatLng(0.0, 0.0)
@@ -595,6 +600,11 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
                 getString(R.string.chat_requiere_sesion),
                 Toast.LENGTH_SHORT
             ).show()
+            return
+        }
+        if (auth.currentUser!!.isEmailVerified != true) {
+            Toast.makeText(this, R.string.auth_email_no_verificado_chat, Toast.LENGTH_LONG).show()
+            startActivity(Intent(this, VerificacionEmailActivity::class.java))
             return
         }
         startActivity(Intent(this, ChatListActivity::class.java))

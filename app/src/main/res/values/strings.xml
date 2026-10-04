@@ -534,6 +534,9 @@
     <string name="detalle_foto_cd">Foto del inmueble</string>
     <string name="detalle_no_fotos">Sin fotos disponibles</string>
     <string name="detalle_chatear">Chatear con el Propietario</string>
+    <string name="detalle_acerca_titulo">Acerca del inmueble</string>
+    <string name="detalle_mapa_cta">Ver mapa</string>
+    <string name="detalle_chat_cta">Chatear</string>
     <string name="detalle_chatear_sesion">Iniciá sesión para chatear</string>
     <string name="detalle_solicitar_alquiler">Solicitar alquiler</string>
     <string name="detalle_solicitar_cita">Agendar visita</string>

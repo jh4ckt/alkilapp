@@ -1,6 +1,7 @@
 package com.alkilapp
 
 import android.content.Intent
+import android.content.res.ColorStateList
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Color
@@ -93,6 +94,7 @@ class PropiedadDetalleActivity : AppCompatActivity() {
 
         // Información principal
         binding.tvDetTitulo.text = listingTitle
+        binding.tvDetTipo.text = tipoMostrable(intent.getStringExtra(EXTRA_TIPO).orEmpty())
         binding.tvDetDireccion.text = direccionCompleta()
         binding.tvDetPrecio.text = formatearPrecio(
             intent.getDoubleExtra(EXTRA_PRECIO, 0.0),
@@ -107,8 +109,25 @@ class PropiedadDetalleActivity : AppCompatActivity() {
         }
         binding.tvDetOperacion.visibility = View.VISIBLE
 
-        val vistasPill = listOf(binding.tvDetallePill, binding.tvDetDestacado)
-        vistasPill.forEach { it.visibility = if (isFeatured) View.VISIBLE else View.GONE }
+        binding.tvDetallePill.visibility = if (isFeatured) View.VISIBLE else View.GONE
+
+        val (estadoLabel, estadoText, estadoFondo) = when (estado) {
+            "disponible" -> Triple(
+                getString(R.string.prop_estado_disponible), R.color.success_text, R.color.alkil_mint_soft
+            )
+            "finalizado" -> Triple(
+                getString(R.string.prop_estado_finalizado), R.color.text_secondary, R.color.alkil_gray_soft
+            )
+            "pausada" -> Triple(
+                getString(R.string.prop_estado_pausada), R.color.text_secondary, R.color.alkil_gray_soft
+            )
+            else -> Triple(
+                getString(R.string.prop_estado_revision), R.color.gold_text, R.color.alkil_gold_soft
+            )
+        }
+        binding.tvDetEstado.text = estadoLabel
+        binding.tvDetEstado.setTextColor(getColor(estadoText))
+        binding.tvDetEstado.backgroundTintList = ColorStateList.valueOf(getColor(estadoFondo))
 
         // Chips de info: ambientes / superficie
         val ambientes = intent.getIntExtra(EXTRA_AMBIENTES, 0)
@@ -137,6 +156,9 @@ class PropiedadDetalleActivity : AppCompatActivity() {
         binding.tvDetDescripcion.visibility =
             if (descripcion.isNotBlank()) View.VISIBLE else View.GONE
         binding.tvDetDescripcion.text = descripcion
+        binding.cardDetAcerca.visibility = if (comodidades.isNotEmpty() || descripcion.isNotBlank()) {
+            View.VISIBLE
+        } else View.GONE
 
         // Galería (las fotos base64 ya no viajan por el intent: superaban el
         // límite de Binder y causaban TransactionTooLargeException. Se cargan por ID.)
@@ -195,6 +217,13 @@ class PropiedadDetalleActivity : AppCompatActivity() {
             abrirPerfilPropietario()
         }
         cargarPropietario()
+    }
+
+    private fun tipoMostrable(tipo: String): String = when (tipo.trim().lowercase()) {
+        "habitacion", "habitación", "cuarto" -> "HABITACIÓN"
+        "departamento", "depto" -> "DEPARTAMENTO"
+        "casa" -> "CASA"
+        else -> tipo.ifBlank { "INMUEBLE" }.uppercase()
     }
 
     private fun cargarDesdeFirestore(propId: String) {
@@ -425,6 +454,11 @@ class PropiedadDetalleActivity : AppCompatActivity() {
         val miUid = auth.currentUser?.uid
         if (miUid == null) {
             Toast.makeText(this, R.string.detalle_chatear_sesion, Toast.LENGTH_SHORT).show()
+            return
+        }
+        if (auth.currentUser!!.isEmailVerified != true) {
+            Toast.makeText(this, R.string.auth_email_no_verificado_chat, Toast.LENGTH_LONG).show()
+            startActivity(Intent(this, VerificacionEmailActivity::class.java))
             return
         }
         if (idPropietario.isBlank() || propId.isBlank()) return

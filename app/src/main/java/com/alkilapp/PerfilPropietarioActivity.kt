@@ -819,6 +819,11 @@ class PerfilPropietarioActivity : AppCompatActivity() {
 
     private fun abrirChat() {
         val miUid = auth.currentUser?.uid ?: return
+        if (auth.currentUser!!.isEmailVerified != true) {
+            Toast.makeText(this, R.string.auth_email_no_verificado_chat, Toast.LENGTH_LONG).show()
+            startActivity(Intent(this, VerificacionEmailActivity::class.java))
+            return
+        }
         if (listingId.isBlank() || uid.isBlank()) return
         val chatId = "inm-$listingId-$miUid"
         db.collection("chats").document(chatId)
