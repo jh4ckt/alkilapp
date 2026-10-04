@@ -879,7 +879,11 @@ class RegistrarPropiedadActivity : AppCompatActivity() {
         db.collection("propiedades").document(propiedadId).get()
             .addOnSuccessListener { doc ->
                 val d = doc.data ?: return@addOnSuccessListener
-                fun s(k: String): String = d[k] as? String ?: ""
+                fun s(k: String): String = when (val v = d[k]) {
+                    is String -> v
+                    is Number -> v.toString()
+                    else -> ""
+                }
                 fun n(k: String): Double = (d[k] as? Number)?.toDouble() ?: 0.0
                 fun l(k: String): List<String> = (d[k] as? List<*>)?.filterIsInstance<String>() ?: emptyList()
 
