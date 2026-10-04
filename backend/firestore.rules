@@ -64,7 +64,10 @@ service cloud.firestore {
       // "verification" escrito por el cliente es solo un ENVIO: estado "pendiente" y
       // sin "identityVerified"/"motivo" (los pone el admin al aprobar o rechazar).
       function verificationPermitida() {
-        return !('verification' in request.resource.data)
+        // Solo validar si el cliente MODIFICA el campo 'verification'.
+        // Si 'verification' NO está en affectedKeys, el cliente no lo tocó → permitir.
+        // Cliente MODIFICÓ verification: validar que sea un envío pendiente válido.
+        return request.resource.data.diff(resource.data).affectedKeys().hasAll(['verification']) == false
           || (request.resource.data.verification is map
             && !('identityVerified' in request.resource.data.verification)
             && !('motivo' in request.resource.data.verification)
