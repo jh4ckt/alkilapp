@@ -387,6 +387,27 @@ async function handleAPI(req, res, url) {
                 return json(res, 200, { ok: true });
             }
 
+            // Usuarios - Verificar email manualmente
+            const uv = ruta.match(/^\/api\/usuarios\/([^/]+)\/verificar-email$/);
+            if (uv && req.method === 'POST') {
+                const id = decodeURIComponent(uv[1]);
+                const ref = db.collection('usuarios').doc(id);
+                const doc = await ref.get();
+                if (!doc.exists) return json(res, 404, { error: 'Usuario no encontrado' });
+                await ref.set({
+                    verification: {
+                        ...(doc.get('verification') || {}),
+                        emailVerified: true,
+                        status: 'aprobado',
+                        verificadoEn: new Date(),
+                        verificadoPor: 'admin-panel'
+                    },
+                    trustLevel: 'basic',
+                    verificationBadge: true,
+                }, { merge: true });
+                return json(res, 200, { ok: true, mensaje: 'Email verificado manualmente por admin' });
+            }
+
             // Reportes
             const rm = ruta.match(/^\/api\/reportes\/([^/]+)\/resolver$/);
             if (rm) {

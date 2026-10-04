@@ -204,6 +204,8 @@ export default class Usuarios {
           const nuevoEstado = selectEl.value;
           this.solicitarCambioEstado(id, nuevoEstado);
         }
+      } else if (action === 'verificar-email') {
+        this.verificarEmailManual(id);
       } else if (action === 'ver') {
         this.verDetalleUsuario(id);
       }
@@ -272,8 +274,6 @@ export default class Usuarios {
       const userId = this.getUserId(u);
       const estado = u.estado || 'activo';
       const pillClass = ESTADO_PILLS[estado] || 'grey';
-      // El fallback "| estado" podiaInjectar HTML si el valor no estaba en el
-      // diccionario: se escapa siempre.
       const estadoLabel = this.escape(ESTADO_LABELS[estado] || estado);
       const avatarUrl = u.fotoPerfil || '/assets/avatar-placeholder.svg';
       const esVerificado = Boolean(u.verificado);
@@ -321,7 +321,7 @@ export default class Usuarios {
             ${u.creado ? formatDate(u.creado) : '-'}
           </td>
 
-          <!-- Acciones: Cambiar Estado + Ver -->
+          <!-- Acciones: Cambiar Estado + Ver + Verificar Email -->
           <td style="padding: 0.75rem 1rem; text-align: center;">
             <div style="display: flex; align-items: center; justify-content: center; gap: 6px;">
               
@@ -336,6 +336,14 @@ export default class Usuarios {
               <button class="btn btn-sm btn-secondary save-user-btn" data-action="guardar-estado" data-id="${userId}" disabled style="opacity: 0.6; padding: 4px 10px; font-size: 0.8rem; cursor: pointer;" title="Guardar cambio de estado">
                 Guardar
               </button>
+
+              ${!esVerificado ? `
+                <!-- Botón Verificar Email -->
+                <button class="btn btn-sm btn-primary verify-email-btn" data-action="verificar-email" data-id="${userId}" title="Verificar email manualmente" style="padding: 4px 10px; font-size: 0.8rem; cursor: pointer;" title="Marcar email como verificado manualmente">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 6a10 10 0 1 0-3.64 9.36"/><path d="M22 21 15 15"/></svg>
+                  <span style="margin-left: 4px;">Verificar email</span>
+                </button>
+              ` : ''}
 
               <!-- Botón Ver Detalle -->
               <button class="btn btn-sm btn-ghost" data-action="ver" data-id="${userId}" title="Ver expediente/reportes" style="padding: 4px 8px; cursor: pointer;">
@@ -421,6 +429,32 @@ export default class Usuarios {
       closeCurrentModal();
       await this.ejecutarCambioEstado(id, nuevoEstado, motivo, reporteId);
     });
+  }
+
+  async verificarEmailManual(id) {
+    if (!id || id === 'undefined' || id === 'null') {
+      showToast('Error: ID de usuario inválido', 'danger');
+      return;
+    }
+
+    const usuario = this.items.find(u => String(this.getUserId(u)) === String(id));
+    const nombre = usuario ? usuario.nombre : 'el usuario';
+
+    const confirm = await confirmModal(
+      `¿Verificar manualmente el email de <strong>${this.escape(nombre)}</strong>?<br><br>Esto marcará el email como verificado sin requerir el código de 6 dígitos.`,
+      { title: 'Verificar email manualmente', confirmText: 'Verificar', danger: false }
+    );
+
+    if (!confirm) return;
+
+    try {
+      await this.api.post(`/usuarios/${id}/verificar-email`, {});
+      showToast(`Email de ${nombre} verificado manualmente`, 'success');
+      await this.loadData();
+    } catch (err) {
+      console.error('Error al verificar email:', err);
+      showToast(`Error: ${err.message || 'No se pudo verificar el email'}`, 'danger');
+    }
   }
 
   async ejecutarCambioEstado(id, estado, motivo, reporteId = null) {
