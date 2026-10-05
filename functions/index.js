@@ -21,16 +21,17 @@
  *
  *   Destinatario configurable con SOPORTE_DESTINO (por defecto alkilapp2026@gmail.com).
  */
-const functions = require('firebase-functions');
-const admin = require('firebase-admin');
+const functions = require('firebase-functions/v1');
+const { getApps, initializeApp } = require('firebase-admin/app');
 
-if (!admin.apps.length) admin.initializeApp();
+if (!getApps().length) initializeApp();
 
 // Destinatario de las notificaciones de soporte
 const DESTINO = process.env.SOPORTE_DESTINO || 'alkilapp2026@gmail.com';
 
-// Credenciales: functions.config() (legado) o variables de entorno
-const cfg = (typeof functions.config === 'function' ? functions.config() : {}) || {};
+// functions.config() fue eliminado en firebase-functions v7: la configuracion
+// sale solo de variables de entorno (SOPORTE_DESTINO, RESEND_*, GMAIL_*).
+const cfg = {};
 const RESEND_API_KEY = process.env.RESEND_API_KEY || '';
 const RESEND_FROM = process.env.RESEND_FROM || 'AlkilApp Soporte <onboarding@resend.dev>';
 const GMAIL_USER = process.env.GMAIL_USER || (cfg.gmail && cfg.gmail.user) || DESTINO;
