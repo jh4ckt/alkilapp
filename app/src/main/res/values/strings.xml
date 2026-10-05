@@ -8,6 +8,10 @@
     <string name="location_error">No se logró obtener la ubicación actual</string>
     <string name="permission_denied">Permiso de ubicación denegado</string>
 
+    <!-- Chips rápidos de tipo + contador de resultados sobre el mapa -->
+    <string name="chips_tipo_todo">Todo</string>
+    <string name="mapa_contador">%1$d inmuebles encontrados</string>
+
     <!-- Autenticación -->
     <string name="auth_ingresar">Ingresar</string>
     <string name="auth_registrarse">Registrarse</string>
@@ -568,6 +572,7 @@
     <string name="detalle_amb">%1$d hab.</string>
     <string name="detalle_superficie">%1$s m²</string>
     <string name="detalle_comodidades">Comodidades: %1$s</string>
+    <string name="detalle_comodidades_titulo">Comodidades</string>
     <string name="detalle_operacion_venta">Venta</string>
     <string name="detalle_operacion_alquiler">Alquiler</string>
     <string name="detalle_operacion_desconocida">—</string>

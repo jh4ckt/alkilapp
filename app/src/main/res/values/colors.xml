@@ -19,6 +19,9 @@
     <color name="brand_primary_light">#E2E8F0</color>
     <color name="brand_primary_soft">#F0ECE4</color>
 
+    <!-- precio-navy: precios y valores (mapa/lista/detalle). Coral queda SOLO en CTAs solidos. -->
+    <color name="precio_navy">#0B2447</color>
+
     <!-- background / card -->
     <color name="bg_main">#F7F4EE</color>
     <color name="surface_card">#FFFFFF</color>

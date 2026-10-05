@@ -129,26 +129,38 @@ class PropiedadDetalleActivity : AppCompatActivity() {
         binding.tvDetEstado.setTextColor(getColor(estadoText))
         binding.tvDetEstado.backgroundTintList = ColorStateList.valueOf(getColor(estadoFondo))
 
-        // Chips de info: ambientes / superficie
+        // Fichas de specs: ambientes / superficie
         val ambientes = intent.getIntExtra(EXTRA_AMBIENTES, 0)
         val superficie = intent.getDoubleExtra(EXTRA_SUPERFICIE, 0.0)
-        binding.tvDetAmbientes.visibility =
+        binding.tileDetAmbientes.visibility =
             if (ambientes > 0) View.VISIBLE else View.GONE
         if (ambientes > 0) binding.tvDetAmbientes.text = getString(R.string.detalle_amb, ambientes)
-        binding.tvDetSuperficie.visibility =
+        binding.tileDetSuperficie.visibility =
             if (superficie > 0) View.VISIBLE else View.GONE
         if (superficie > 0) {
             binding.tvDetSuperficie.text =
                 getString(R.string.detalle_superficie, superficie.toInt().toString())
         }
 
+        // Comodidades como tags (pills) en fila horizontal
         val comodidades = intent.getStringArrayListExtra(EXTRA_COMODIDADES) ?: emptyList()
-        binding.tvDetComodidades.visibility =
-            if (comodidades.isNotEmpty()) View.VISIBLE else View.GONE
-        if (comodidades.isNotEmpty()) {
-            binding.tvDetComodidades.text = getString(
-                R.string.detalle_comodidades,
-                comodidades.joinToString(" · ")
+        val hayComodidades = comodidades.isNotEmpty()
+        binding.tvDetComodidades.visibility = if (hayComodidades) View.VISIBLE else View.GONE
+        binding.hsvDetComodidades.visibility = if (hayComodidades) View.VISIBLE else View.GONE
+        binding.llDetComodidades.removeAllViews()
+        comodidades.forEach { c ->
+            binding.llDetComodidades.addView(
+                android.widget.TextView(this).apply {
+                    text = c
+                    textSize = 12f
+                    setTextColor(getColor(R.color.text_primary))
+                    setBackgroundResource(R.drawable.bg_chip_spec)
+                    setPadding(12.dp, 7.dp, 12.dp, 7.dp)
+                    layoutParams = LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.WRAP_CONTENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT
+                    ).apply { marginEnd = 8.dp }
+                }
             )
         }
 

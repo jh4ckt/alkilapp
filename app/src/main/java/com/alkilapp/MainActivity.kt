@@ -7,6 +7,7 @@ import android.content.res.ColorStateList
 import android.content.res.Resources
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.Build
@@ -37,6 +38,7 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.doOnPreDraw
 import androidx.core.widget.doAfterTextChanged
 import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.alkilapp.data.Favoritos
 import com.alkilapp.data.Propiedad
 import com.alkilapp.databinding.ActivityMainBinding
@@ -79,8 +81,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     private val marcadores = mutableListOf<Marker>()
     private var marcadorSeleccionado: Marker? = null
     private var idMarcadorSeleccionado: String? = null
-    private lateinit var iconoDefault: BitmapDescriptor
-    private lateinit var iconoSeleccionado: BitmapDescriptor
+    // Cache de iconos de marcador (normal/activo -> BitmapDescriptor)
+    private val iconosMarcador = HashMap<Boolean, BitmapDescriptor>()
 
     private val auth by lazy { FirebaseAuth.getInstance() }
     private val db by lazy { FirebaseFirestore.getInstance("alkilappdb") }
@@ -325,8 +327,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             val arriba = InsetsUtils.arriba(insets)
             val abajo = InsetsUtils.abajo(insets)
 
-            binding.filaTop.layoutParams =
-                (binding.filaTop.layoutParams as ViewGroup.MarginLayoutParams).apply {
+            binding.stackTop.layoutParams =
+                (binding.stackTop.layoutParams as ViewGroup.MarginLayoutParams).apply {
                     topMargin = 8.dp + arriba
                 }
             binding.bottomSheet.setPadding(0, 0, 0, abajo)
@@ -530,6 +532,24 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         binding.rvDepartamentos.layoutManager = LinearLayoutManager(this)
         binding.rvDepartamentos.adapter = adapter
 
+        // Contador "N inmuebles encontrados" + refresco de marcadores: se actualizan con
+        // cada notificacion del adapter (aplicar() usa notifyDataSetChanged). Antes los
+        // marcadores solo se dibujaban al mover la cámara: al cargar Firestore el mapa
+        // quedaba sin pines hasta el primer gesto del usuario.
+        binding.rvDepartamentos.adapter?.registerAdapterDataObserver(
+            object : RecyclerView.AdapterDataObserver() {
+                override fun onChanged() = trasCambioDatosAdapter()
+                override fun onItemRangeChanged(positionStart: Int, itemCount: Int) =
+                    trasCambioDatosAdapter()
+                override fun onItemRangeInserted(positionStart: Int, itemCount: Int) =
+                    trasCambioDatosAdapter()
+                override fun onItemRangeRemoved(positionStart: Int, itemCount: Int) =
+                    trasCambioDatosAdapter()
+            }
+        )
+        actualizarContadorMapa()
+        setupChipsTipo()
+
         binding.etBusqueda.doAfterTextChanged { texto ->
             busquedaActual = texto?.toString().orEmpty()
             adapter.filter(busquedaActual)
@@ -538,6 +558,59 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             actualizarEmptyState()
         }
         binding.btnFiltroBuscar.setOnClickListener { abrirDialogoFiltros() }
+    }
+
+    /** Actualiza el pill con el conteo de inmuebles visibles sobre el mapa. */
+    private fun actualizarContadorMapa() {
+        val n = adapter.itemCount
+        binding.tvContadorMapa.text = getString(R.string.mapa_contador, n)
+        binding.tvContadorMapa.visibility = if (n > 0) View.VISIBLE else View.GONE
+    }
+
+    /** Contador + marcadores cuando cambian los datos del adapter (debounced para
+     *  que el diff de submitList no dispare varios refrescos seguidos). */
+    private var refrescoMarcadoresPendiente = false
+    private fun trasCambioDatosAdapter() {
+        actualizarContadorMapa()
+        if (!::mMap.isInitialized || refrescoMarcadoresPendiente) return
+        refrescoMarcadoresPendiente = true
+        handlerMain.postDelayed({
+            refrescoMarcadoresPendiente = false
+            if (::mMap.isInitialized) actualizarMarcadoresEnZonaVisible()
+        }, 150)
+    }
+
+    /** Chips rapidos de tipo (Todo / Departamento / Casa / Habitacion) sobre el mapa. */
+    private fun setupChipsTipo() {
+        val chips = listOf(
+            binding.chipTipoTodo to null,
+            binding.chipTipoDepartamento to "departamento",
+            binding.chipTipoCasa to "casa",
+            binding.chipTipoHabitacion to "habitacion"
+        )
+        chips.forEach { (chip, clave) ->
+            chip.setOnClickListener {
+                filtroTipo = clave
+                val hayFiltroExplicito = filtroDepartamento != null || filtroDistrito != null ||
+                    filtroTipo != null || filtroHabitaciones != null || soloFavoritos ||
+                    busquedaActual.isNotBlank()
+                adapter.setIgnorarRadioPorFiltro(hayFiltroExplicito)
+                adapter.setFiltros(filtroDepartamento, filtroDistrito, filtroTipo, filtroHabitaciones)
+                refrescarChipsTipo()
+                actualizarBotonFiltros()
+                actualizarZonaMapa()
+                actualizarEmptyState()
+            }
+        }
+        refrescarChipsTipo()
+    }
+
+    /** Refleja filtroTipo en la seleccion visual de los chips. */
+    private fun refrescarChipsTipo() {
+        binding.chipTipoTodo.isSelected = filtroTipo == null
+        binding.chipTipoDepartamento.isSelected = filtroTipo == "departamento"
+        binding.chipTipoCasa.isSelected = filtroTipo == "casa"
+        binding.chipTipoHabitacion.isSelected = filtroTipo == "habitacion"
     }
 
     /** Activa/desactiva el filtro de radio segÃºn haya filtros explÃ­citos activos. */
@@ -640,16 +713,16 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             return when (departamento) {
                 "Amazonas" -> resources.getStringArray(R.array.ciudades_amazonas).toList()
                 "Ancash" -> resources.getStringArray(R.array.ciudades_ancash).toList()
-                "ApurÃ­mac" -> resources.getStringArray(R.array.ciudades_apurimac).toList()
+                "Apurímac" -> resources.getStringArray(R.array.ciudades_apurimac).toList()
                 "Arequipa" -> resources.getStringArray(R.array.ciudades_arequipa).toList()
                 "Ayacucho" -> resources.getStringArray(R.array.ciudades_ayacucho).toList()
                 "Cajamarca" -> resources.getStringArray(R.array.ciudades_cajamarca).toList()
                 "Callao" -> resources.getStringArray(R.array.ciudades_callao).toList()
                 "Cusco" -> resources.getStringArray(R.array.ciudades_cusco).toList()
                 "Huancavelica" -> resources.getStringArray(R.array.ciudades_huancavelica).toList()
-                "HuÃ¡nuco" -> resources.getStringArray(R.array.ciudades_huanuco).toList()
+                "Huánuco" -> resources.getStringArray(R.array.ciudades_huanuco).toList()
                 "Ica" -> resources.getStringArray(R.array.ciudades_ica).toList()
-                "JunÃ­n" -> resources.getStringArray(R.array.ciudades_junin).toList()
+                "Junín" -> resources.getStringArray(R.array.ciudades_junin).toList()
                 "La Libertad" -> resources.getStringArray(R.array.ciudades_lalibertad).toList()
                 "Lambayeque" -> resources.getStringArray(R.array.ciudades_lambayeque).toList()
                 "Lima" -> resources.getStringArray(R.array.distritos_lima).toList()
@@ -659,7 +732,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
                 "Pasco" -> resources.getStringArray(R.array.ciudades_pasco).toList()
                 "Piura" -> resources.getStringArray(R.array.ciudades_piura).toList()
                 "Puno" -> resources.getStringArray(R.array.ciudades_puno).toList()
-                "San MartÃ­n" -> resources.getStringArray(R.array.ciudades_sanmartin).toList()
+                "San Martín" -> resources.getStringArray(R.array.ciudades_sanmartin).toList()
                 "Tacna" -> resources.getStringArray(R.array.ciudades_tacna).toList()
                 "Tumbes" -> resources.getStringArray(R.array.ciudades_tumbes).toList()
                 "Ucayali" -> resources.getStringArray(R.array.ciudades_ucayali).toList()
@@ -690,7 +763,7 @@ fun llenar(sp: Spinner, opciones: List<String>) {
         val depActual = filtroDepartamento ?: todos
         val disActual = filtroDistrito ?: todos
         val tipoActual = filtroTipo ?: todos
-        val habActual = filtroHabitaciones?.let { if (it == 4) "4 o mÃ¡s" else it.toString() } ?: todos
+        val habActual = filtroHabitaciones?.let { if (it == 4) "4 o más" else it.toString() } ?: todos
         val opcionesDis = distritosPara(depActual)
 
         llenar(spinnerDep, opcionesDep)
@@ -742,7 +815,7 @@ fun llenar(sp: Spinner, opciones: List<String>) {
             filtroTipo = tipo.takeUnless { it == todos }
             filtroHabitaciones = when (habSel) {
                 todos -> null
-                "4 o mÃ¡s" -> 4
+                "4 o más" -> 4
                 else -> habSel.toIntOrNull()
             }
             val hayFiltroExplicito = filtroDepartamento != null || filtroDistrito != null ||
@@ -753,6 +826,7 @@ fun llenar(sp: Spinner, opciones: List<String>) {
                 filtroDepartamento, filtroDistrito, filtroTipo, filtroHabitaciones
             )
             adapter.setSoloFavoritos(soloFavoritos)
+            refrescarChipsTipo()
             actualizarBotonFiltros()
             actualizarZonaMapa()
             actualizarEmptyState()
@@ -769,6 +843,7 @@ fun llenar(sp: Spinner, opciones: List<String>) {
             adapter.setIgnorarRadioPorFiltro(false)
             adapter.setFiltros(null, null)
             adapter.setSoloFavoritos(false)
+            refrescarChipsTipo()
             actualizarBotonFiltros()
             actualizarZonaMapa()
             actualizarEmptyState()
@@ -862,19 +937,25 @@ fun llenar(sp: Spinner, opciones: List<String>) {
         }
     }
 
-    private fun initIconosMarcadores() {
-        iconoDefault = cargarIconoRes(R.drawable.ic_marker_inmueble)
-        iconoSeleccionado = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN)
+    /** Icono del marcador en forma de pin (rasteriza el vector: fromResource crashea con vectores).
+     *  activo=false: cuerpo blanco + borde navy + centro navy.
+     *  activo=true (marcador seleccionado): cuerpo coral + centro blanco. */
+    private fun markerIcono(activo: Boolean): BitmapDescriptor {
+        iconosMarcador[activo]?.let { return it }
+        val descriptor = cargarIconoRes(if (activo) R.drawable.ic_marker_activo else R.drawable.ic_marker_inmueble)
+        iconosMarcador[activo] = descriptor
+        return descriptor
     }
 
-    /** Rasteriza un recurso de dibujo (vector) en un Bitmap para usarlo como icono de marcador. */
     private fun cargarIconoRes(resId: Int): BitmapDescriptor {
-        val icono = AppCompatResources.getDrawable(this, resId) ?: return BitmapDescriptorFactory.defaultMarker()
-        val bitmap = Bitmap.createBitmap(icono.intrinsicWidth, icono.intrinsicHeight, Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(bitmap)
-        icono.setBounds(0, 0, icono.intrinsicWidth, icono.intrinsicHeight)
-        icono.draw(canvas)
-        return BitmapDescriptorFactory.fromBitmap(bitmap)
+        val drawable = androidx.core.content.ContextCompat.getDrawable(this, resId)
+            ?: return BitmapDescriptorFactory.defaultMarker()
+        val w = drawable.intrinsicWidth.coerceAtLeast(1)
+        val h = drawable.intrinsicHeight.coerceAtLeast(1)
+        val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+        drawable.setBounds(0, 0, w, h)
+        drawable.draw(Canvas(bmp))
+        return BitmapDescriptorFactory.fromBitmap(bmp)
     }
 
     /** AÃ±ade/actualiza marcadores solo para inmuebles dentro de la vista actual del mapa.
@@ -882,7 +963,6 @@ fun llenar(sp: Spinner, opciones: List<String>) {
      * para que los marcadores sigan visibles al acercarse aunque estÃ©n fuera del radio actual. */
     private fun actualizarMarcadoresEnZonaVisible() {
         if (!::mMap.isInitialized) return
-        if (!::iconoDefault.isInitialized) initIconosMarcadores()
         val bounds = mMap.projection.visibleRegion.latLngBounds
         limpiarMarcadores()
         val visibles = adapter.todasParaMapa().filter { p ->
@@ -894,7 +974,8 @@ fun llenar(sp: Spinner, opciones: List<String>) {
                     .position(p.ubicacion)
                     .title(p.titulo)
                     .snippet(p.precioFormateado)
-                    .icon(iconoDefault)
+                    .icon(markerIcono(false))
+                    .anchor(0.5f, 1.0f)
             )
             if (marker != null) {
                 marker.tag = p.id
@@ -905,7 +986,7 @@ fun llenar(sp: Spinner, opciones: List<String>) {
         if (idMarcadorSeleccionado != null && marcadorSeleccionado == null) {
             val markerSel = marcadores.firstOrNull { it.tag == idMarcadorSeleccionado }
             if (markerSel != null) {
-                markerSel.setIcon(iconoSeleccionado)
+                markerSel.setIcon(markerIcono(true))
                 markerSel.showInfoWindow()
                 marcadorSeleccionado = markerSel
             } else {
@@ -914,9 +995,11 @@ fun llenar(sp: Spinner, opciones: List<String>) {
         }
         mMap.setOnMarkerClickListener { marker ->
             // Resetear el anterior
-            marcadorSeleccionado?.setIcon(iconoDefault)
+            marcadorSeleccionado?.let {
+                it.setIcon(markerIcono(false))
+            }
             // Seleccionar el nuevo
-            marker.setIcon(iconoSeleccionado)
+            marker.setIcon(markerIcono(true))
             marcadorSeleccionado = marker
             idMarcadorSeleccionado = marker.tag as? String
             // Centrar el mapa en el punto seleccionado (manteniendo el zoom)
@@ -1006,7 +1089,7 @@ fun llenar(sp: Spinner, opciones: List<String>) {
         }
         inner.addView(dot)
         inner.addView(TextView(this).apply {
-            text = "$zona Â· $count"
+            text = "$zona · $count"
             textSize = 11f
             setTextColor(getColor(R.color.text_primary))
             setTypeface(null, android.graphics.Typeface.BOLD)
@@ -1066,59 +1149,118 @@ configurarBadges()
 
     /** Normaliza el tipo a 4 opciones: habitacion, departamento, casa u otros. */
     private fun tipoMostrable(tipo: String): String = when (tipo.trim().lowercase()) {
-        "habitacion", "habitaciÃ³n", "cuarto" -> "Habitacion"
+        "habitacion", "habitación", "cuarto" -> "Habitacion"
         "departamento", "depto" -> "Departamento"
         "casa" -> "Casa"
         else -> "Otros"
     }
 
-    /** Construye el InfoWindow estilo Booking con foto, tÃ­tulo, precio y botÃ³n ver. */
+    /** Construye el InfoWindow estilo mini-card: foto + tipo/zona + titulo + precio navy + boton Ver. */
     private fun construirInfoWindow(p: Propiedad): View {
         val card = com.google.android.material.card.MaterialCardView(this).apply {
-            radius = (12.dp).toFloat()
-            cardElevation = (4.dp).toFloat()
+            radius = (16.dp).toFloat()
+            cardElevation = (6.dp).toFloat()
             setCardBackgroundColor(getColor(R.color.white))
         }
-        val root = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(12.dp, 10.dp, 12.dp, 10.dp)
+        val fila = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = android.view.Gravity.CENTER_VERTICAL
+            setPadding(10.dp, 10.dp, 10.dp, 10.dp)
         }
-        // Tipo de inmueble (pedido del padre: en el popup se ve el tipo, no el titulo)
-        root.addView(TextView(this).apply {
-            text = tipoMostrable(p.tipo)
+
+        // Miniatura de la foto (marco redondeado con fondo suave si no hay foto)
+        val marcoFoto = com.google.android.material.card.MaterialCardView(this).apply {
+            radius = (12.dp).toFloat()
+            cardElevation = 0f
+            setCardBackgroundColor(getColor(R.color.brand_primary_soft))
+        }
+        val foto = ImageView(this).apply {
+            scaleType = ImageView.ScaleType.CENTER_CROP
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
+            )
+        }
+        thumbInfoWindow(p)?.let { foto.setImageBitmap(it) }
+        marcoFoto.addView(foto)
+        marcoFoto.layoutParams = LinearLayout.LayoutParams(96.dp, 80.dp)
+
+        // Columna de textos
+        val columna = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+            (layoutParams as LinearLayout.LayoutParams).marginStart = 10.dp
+        }
+        val zona = p.barrio.ifEmpty { p.ciudad }
+        val lineaTipo = if (zona.isBlank()) tipoMostrable(p.tipo)
+            else "${tipoMostrable(p.tipo)} · $zona"
+        columna.addView(TextView(this).apply {
+            text = lineaTipo
+            textSize = 11f
+            setTextColor(getColor(R.color.text_muted))
+        })
+        columna.addView(TextView(this).apply {
+            text = p.titulo
             textSize = 14f
-            setTypeface(null, android.graphics.Typeface.BOLD)
+            setTypeface(null, Typeface.BOLD)
+            maxLines = 2
+            ellipsize = android.text.TextUtils.TruncateAt.END
             setTextColor(getColor(R.color.text_primary))
         })
-        // Precio grande
-        root.addView(TextView(this).apply {
+        columna.addView(TextView(this).apply {
             text = p.precioFormateado
-            textSize = 18f
-            setTypeface(null, android.graphics.Typeface.BOLD)
-            setTextColor(getColor(R.color.alkil_primary))
+            textSize = 17f
+            setTypeface(null, Typeface.BOLD)
+            setTextColor(getColor(R.color.precio_navy))
         })
-        // Zona
-        root.addView(TextView(this).apply {
-            text = p.barrio.ifEmpty { p.ciudad }
-            textSize = 12f
-            setTextColor(getColor(R.color.text_secondary))
-        })
-        // BotÃ³n "Ver"
-        root.addView(com.google.android.material.button.MaterialButton(this).apply {
-            text = "Ver propiedad"
+
+        // Boton "Ver" (visual: el click en la info window abre el detalle via
+        // OnInfoWindowClickListener, las info windows de Android no reparten clicks internos)
+        val botonVer = MaterialButton(this).apply {
+            text = "Ver"
             textSize = 12f
             insetTop = 0.dp
             insetBottom = 0.dp
-            backgroundTintList = ColorStateList.valueOf(getColor(R.color.alkil_primary))
+            backgroundTintList = ColorStateList.valueOf(getColor(R.color.brand_accent))
             setTextColor(getColor(R.color.white))
-            setOnClickListener { abrirDetallePropiedad(p) }
             layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply { topMargin = 8.dp }
-        })
-        card.addView(root)
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                36.dp
+            ).apply { marginStart = 8.dp }
+        }
+
+        fila.addView(marcoFoto)
+        fila.addView(columna)
+        fila.addView(botonVer)
+        card.addView(fila)
         return card
+    }
+
+    /** Decodifica la primera foto de la propiedad a un tamano apto para el mini-thumb del InfoWindow. */
+    private fun thumbInfoWindow(p: Propiedad): Bitmap? {
+        val foto = p.fotos.firstOrNull() ?: return null
+        return try {
+            val bytes = Base64.decode(foto, Base64.NO_WRAP)
+            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+            val opts = BitmapFactory.Options().apply {
+                inSampleSize = factorMuestraThumb(bounds.outWidth, bounds.outHeight, 320.dp)
+            }
+            BitmapFactory.decodeByteArray(bytes, 0, bytes.size, opts)
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    /** Mayor potencia de 2 que deja la imagen decodificada >= `objetivo` px. */
+    private fun factorMuestraThumb(ancho: Int, alto: Int, objetivo: Int): Int {
+        var muestra = 1
+        var mayor = maxOf(ancho, alto)
+        while (mayor / 2 >= objetivo) {
+            mayor /= 2
+            muestra *= 2
+        }
+        return muestra
     }
 
     private fun verificarPermisosUbicacion() {
@@ -1188,6 +1330,7 @@ configurarBadges()
         val hayFiltro = filtroDistrito != null || filtroDepartamento != null ||
             soloFavoritos || busquedaActual.isNotBlank()
         if (!hayFiltro) {
+            if (::mMap.isInitialized) actualizarMarcadoresEnZonaVisible()
             if (ultimaUbicacion != null) centrarEn(ultimaUbicacion!!, true)
             return
         }
@@ -1206,6 +1349,8 @@ configurarBadges()
                         .position(p.ubicacion)
                         .title(p.tipo)
                         .snippet(p.precioFormateado)
+                        .icon(markerIcono(false))
+                        .anchor(0.5f, 1.0f)
                 )!!.apply { tag = p.id }
             )
             builder.include(p.ubicacion)

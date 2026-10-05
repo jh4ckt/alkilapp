@@ -91,17 +91,15 @@ class PropiedadAdapter(
                 )
         }
 
-        // Detalles: habitaciones y superficie (texto secundario / text-muted).
+        // Detalles: habitaciones y superficie (chips suaves de la tarjeta).
         val hayAmbientes = item.ambientes > 0
-        binding.tvAmbientes.visibility = if (hayAmbientes) View.VISIBLE else View.GONE
-        binding.ivAmbientesIcon.visibility = if (hayAmbientes) View.VISIBLE else View.GONE
+        binding.pillAmbientes.visibility = if (hayAmbientes) View.VISIBLE else View.GONE
         if (hayAmbientes) {
             binding.tvAmbientes.text = ctx.getString(R.string.prop_ambientes, item.ambientes)
         }
 
         val haySuperficie = item.superficieM2 > 0
-        binding.tvSuperficie.visibility = if (haySuperficie) View.VISIBLE else View.GONE
-        binding.ivSuperficieIcon.visibility = if (haySuperficie) View.VISIBLE else View.GONE
+        binding.pillSuperficie.visibility = if (haySuperficie) View.VISIBLE else View.GONE
         if (haySuperficie) {
             binding.tvSuperficie.text = ctx.getString(
                 R.string.prop_superficie,
@@ -109,7 +107,9 @@ class PropiedadAdapter(
             )
         }
 
-        // Insignia de estado (status-success para "Disponible").
+        // Insignia de estado SOLO cuando hay un estado especial (pausada,
+        // en revision, etc). Para "Disponible" manda la insignia de TIPO
+        // (Habitacion / Departamento / Casa / Otros) en la misma posicion.
         val estado = item.estadoNormalizado
         val textoEstado = when (estado) {
             "disponible" -> ctx.getString(R.string.prop_estado_disponible)
@@ -117,13 +117,21 @@ class PropiedadAdapter(
             "under_review" -> ctx.getString(R.string.prop_estado_revision)
             else -> ""
         }
-        binding.tvEstadoBadge.visibility = if (textoEstado.isNotEmpty()) View.VISIBLE else View.GONE
-        if (textoEstado.isNotEmpty()) {
+        val mostrarEstado = textoEstado.isNotEmpty() && estado != "disponible"
+        binding.tvEstadoBadge.visibility = if (mostrarEstado) View.VISIBLE else View.GONE
+        if (mostrarEstado) {
             binding.tvEstadoBadge.text = textoEstado
             val colorRes = if (estado == "disponible") R.color.status_success_dark else R.color.text_muted
             binding.tvEstadoBadge.backgroundTintList = ColorStateList.valueOf(ctx.getColor(colorRes))
             // Forzar el color de fondo mutando el drawable (bg_pill_estado tiene color hardcodeado)
             binding.tvEstadoBadge.background?.mutate()?.setColorFilter(ctx.getColor(colorRes), PorterDuff.Mode.SRC_ATOP)
+        }
+        binding.tvTipoBadge.visibility = if (mostrarEstado) View.GONE else View.VISIBLE
+        binding.tvTipoBadge.text = when (tipoClave(item.tipo)) {
+            "habitacion" -> "Habitación"
+            "departamento" -> "Departamento"
+            "casa" -> "Casa"
+            else -> "Otros"
         }
 
         // Destacado: borde acento + etiqueta flotante.
@@ -141,9 +149,10 @@ class PropiedadAdapter(
         // Favorito (corazon). El listado no toca Firestore: pide alternar al
         // contexto (MainActivity) que persiste local + nube y refresca el set.
         val esFav = favoritos.contains(item.id)
-        binding.btnFavorito.icon = if (esFav)
-            ContextCompat.getDrawable(ctx, R.drawable.ic_corazon_lleno) else
-            ContextCompat.getDrawable(ctx, R.drawable.ic_corazon)
+        binding.btnFavorito.setImageDrawable(
+            if (esFav) ContextCompat.getDrawable(ctx, R.drawable.ic_corazon_lleno)
+            else ContextCompat.getDrawable(ctx, R.drawable.ic_corazon)
+        )
         binding.btnFavorito.setOnClickListener {
             onAlternarFavorito(item)
         }
