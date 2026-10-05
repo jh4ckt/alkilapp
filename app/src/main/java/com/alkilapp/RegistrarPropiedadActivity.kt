@@ -898,8 +898,10 @@ class RegistrarPropiedadActivity : AppCompatActivity() {
                 val operacion = s("operacion")
                 val moneda = s("moneda")
                 val barrio = s("barrio")
+                val distrito = s("distrito")
+                val barrioFinal = if (barrio.isNotBlank()) barrio else distrito
                 val departamentoSel = if (s("ciudad").isBlank()) "Lima" else s("ciudad")
-                val distritoSel = if (barrio.isBlank()) getString(R.string.prop_distrito_sin) else barrio
+                val distritoSel = if (barrioFinal.isBlank()) getString(R.string.prop_distrito_sin) else barrioFinal
 
                 val tiposArr = resources.getStringArray(R.array.tipos_inmueble)
                 val operArr = resources.getStringArray(R.array.operaciones)
@@ -919,10 +921,13 @@ class RegistrarPropiedadActivity : AppCompatActivity() {
                 } else distritosGenerico
                 spinnerDistrito.adapter = crearAdapterSpinner(nuevosDistritos)
 
-                // Normalizar el distrito guardado para comparar sin distinción de mayúsculas/minúsculas ni espacios
-                val distritoNormalizado = distritoSel.trim().lowercase()
-                val indiceDistrito = nuevosDistritos.indexOfFirst { it.trim().lowercase() == distritoNormalizado }
-                spinnerDistrito.setSelection(indiceDistrito.coerceAtLeast(0))
+                // Usar post para asegurar que el adapter esté listo antes de setear la selección
+                binding.spPropDistrito.post {
+                    // Normalizar el distrito guardado para comparar sin distinción de mayúsculas/minúsculas ni espacios
+                    val distritoNormalizado = distritoSel.trim().lowercase()
+                    val indiceDistrito = nuevosDistritos.indexOfFirst { it.trim().lowercase() == distritoNormalizado }
+                    spinnerDistrito.setSelection(indiceDistrito.coerceAtLeast(0))
+                }
 
                 // Comodidades
                 val comodidadesExistentes = l("comodidades").toSet()
@@ -1057,6 +1062,7 @@ class RegistrarPropiedadActivity : AppCompatActivity() {
             "moneda" to codigoMoneda,
             "direccion" to direccion,
             "barrio" to barrio,
+            "distrito" to barrio, // Backup field for district
             "ciudad" to departamento,
             "lat" to latAgregar,
             "lng" to lngAgregar,
