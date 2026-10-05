@@ -77,6 +77,7 @@ class RegistrarPropiedadActivity : AppCompatActivity() {
     private val placesClient by lazy { Places.createClient(this) }
     private val debounceBusqueda = Handler(Looper.getMainLooper())
     private var consultaBusquedaActual = 0
+    private var cargandoInicial = false
     private val rectPeru = LatLngBounds(
         LatLng(-18.6, -81.5),
         LatLng(-0.5, -68.0)
@@ -156,6 +157,7 @@ class RegistrarPropiedadActivity : AppCompatActivity() {
 
         val editMode = intent.getBooleanExtra(EXTRA_EDIT_MODE, false)
         val propiedadId = intent.getStringExtra(EXTRA_PROPIEDAD_ID)?.orEmpty() ?: ""
+        var cargandoInicial = editMode && propiedadId.isNotBlank()
 
         binding.btnRegistrarBack.setOnClickListener { finish() }
         binding.btnRegistrarGuardar.setOnClickListener { guardarPropiedad(editMode, propiedadId) }
@@ -236,8 +238,9 @@ class RegistrarPropiedadActivity : AppCompatActivity() {
         spinnerDistrito.adapter = crearAdapterSpinner(distritosPublicar)
 
         // Actualizar ciudades según departamento seleccionado
-        spinnerDepartamento.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
+spinnerDepartamento.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: android.widget.AdapterView<*>?, view: View?, position: Int, id: Long) {
+                if (cargandoInicial) return
                 val dep = departamentos[position]
                 val ciudades = obtenerCiudades(dep)
                 val opciones = if (dep == "Lima") {
@@ -949,6 +952,9 @@ class RegistrarPropiedadActivity : AppCompatActivity() {
             }
             .addOnFailureListener { e ->
                 Toast.makeText(this, "Error cargando datos: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
+            .addOnSuccessListener {
+                cargandoInicial = false
             }
     }
 
