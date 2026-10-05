@@ -78,6 +78,38 @@ class RegistrarPropiedadActivity : AppCompatActivity() {
     private val debounceBusqueda = Handler(Looper.getMainLooper())
     private var consultaBusquedaActual = 0
     private var cargandoInicial = false
+
+    private fun obtenerCiudades(departamento: String): List<String> {
+        return when (departamento) {
+            "Amazonas" -> resources.getStringArray(R.array.ciudades_amazonas).toList()
+            "Ancash" -> resources.getStringArray(R.array.ciudades_ancash).toList()
+            "Apurímac" -> resources.getStringArray(R.array.ciudades_apurimac).toList()
+            "Arequipa" -> resources.getStringArray(R.array.ciudades_arequipa).toList()
+            "Ayacucho" -> resources.getStringArray(R.array.ciudades_ayacucho).toList()
+            "Cajamarca" -> resources.getStringArray(R.array.ciudades_cajamarca).toList()
+            "Callao" -> resources.getStringArray(R.array.ciudades_callao).toList()
+            "Cusco" -> resources.getStringArray(R.array.ciudades_cusco).toList()
+            "Huancavelica" -> resources.getStringArray(R.array.ciudades_huancavelica).toList()
+            "Huánuco" -> resources.getStringArray(R.array.ciudades_huanuco).toList()
+            "Ica" -> resources.getStringArray(R.array.ciudades_ica).toList()
+            "Junín" -> resources.getStringArray(R.array.ciudades_junin).toList()
+            "La Libertad" -> resources.getStringArray(R.array.ciudades_lalibertad).toList()
+            "Lambayeque" -> resources.getStringArray(R.array.ciudades_lambayeque).toList()
+            "Lima" -> resources.getStringArray(R.array.distritos_lima).toList()
+            "Loreto" -> resources.getStringArray(R.array.ciudades_loreto).toList()
+            "Madre de Dios" -> resources.getStringArray(R.array.ciudades_madrededios).toList()
+            "Moquegua" -> resources.getStringArray(R.array.ciudades_moquegua).toList()
+            "Pasco" -> resources.getStringArray(R.array.ciudades_pasco).toList()
+            "Piura" -> resources.getStringArray(R.array.ciudades_piura).toList()
+            "Puno" -> resources.getStringArray(R.array.ciudades_puno).toList()
+            "San Martín" -> resources.getStringArray(R.array.ciudades_sanmartin).toList()
+            "Tacna" -> resources.getStringArray(R.array.ciudades_tacna).toList()
+            "Tumbes" -> resources.getStringArray(R.array.ciudades_tumbes).toList()
+            "Ucayali" -> resources.getStringArray(R.array.ciudades_ucayali).toList()
+            else -> listOf(getString(R.string.prop_distrito_sin), "Otro")
+        }
+    }
+
     private val rectPeru = LatLngBounds(
         LatLng(-18.6, -81.5),
         LatLng(-0.5, -68.0)
@@ -157,7 +189,7 @@ class RegistrarPropiedadActivity : AppCompatActivity() {
 
         val editMode = intent.getBooleanExtra(EXTRA_EDIT_MODE, false)
         val propiedadId = intent.getStringExtra(EXTRA_PROPIEDAD_ID)?.orEmpty() ?: ""
-        var cargandoInicial = editMode && propiedadId.isNotBlank()
+        cargandoInicial = editMode && propiedadId.isNotBlank()
 
         binding.btnRegistrarBack.setOnClickListener { finish() }
         binding.btnRegistrarGuardar.setOnClickListener { guardarPropiedad(editMode, propiedadId) }
@@ -197,39 +229,7 @@ class RegistrarPropiedadActivity : AppCompatActivity() {
         spinnerOperacion.adapter = crearAdapterSpinner(operaciones.toList())
         spinnerMoneda.adapter = crearAdapterSpinner(monedas.toList())
         spinnerDepartamento.adapter = crearAdapterSpinner(departamentos)
-        spinnerDistrito.adapter = crearAdapterSpinner(distritosPublicar)
-
-        // Función para obtener ciudades por departamento
-        fun obtenerCiudades(departamento: String): List<String> {
-            return when (departamento) {
-                "Amazonas" -> resources.getStringArray(R.array.ciudades_amazonas).toList()
-                "Ancash" -> resources.getStringArray(R.array.ciudades_ancash).toList()
-                "Apurímac" -> resources.getStringArray(R.array.ciudades_apurimac).toList()
-                "Arequipa" -> resources.getStringArray(R.array.ciudades_arequipa).toList()
-                "Ayacucho" -> resources.getStringArray(R.array.ciudades_ayacucho).toList()
-                "Cajamarca" -> resources.getStringArray(R.array.ciudades_cajamarca).toList()
-                "Callao" -> resources.getStringArray(R.array.ciudades_callao).toList()
-                "Cusco" -> resources.getStringArray(R.array.ciudades_cusco).toList()
-                "Huancavelica" -> resources.getStringArray(R.array.ciudades_huancavelica).toList()
-                "Huánuco" -> resources.getStringArray(R.array.ciudades_huanuco).toList()
-                "Ica" -> resources.getStringArray(R.array.ciudades_ica).toList()
-                "Junín" -> resources.getStringArray(R.array.ciudades_junin).toList()
-                "La Libertad" -> resources.getStringArray(R.array.ciudades_lalibertad).toList()
-                "Lambayeque" -> resources.getStringArray(R.array.ciudades_lambayeque).toList()
-                "Lima" -> resources.getStringArray(R.array.distritos_lima).toList()
-                "Loreto" -> resources.getStringArray(R.array.ciudades_loreto).toList()
-                "Madre de Dios" -> resources.getStringArray(R.array.ciudades_madrededios).toList()
-                "Moquegua" -> resources.getStringArray(R.array.ciudades_moquegua).toList()
-                "Pasco" -> resources.getStringArray(R.array.ciudades_pasco).toList()
-                "Piura" -> resources.getStringArray(R.array.ciudades_piura).toList()
-                "Puno" -> resources.getStringArray(R.array.ciudades_puno).toList()
-                "San Martín" -> resources.getStringArray(R.array.ciudades_sanmartin).toList()
-                "Tacna" -> resources.getStringArray(R.array.ciudades_tacna).toList()
-                "Tumbes" -> resources.getStringArray(R.array.ciudades_tumbes).toList()
-                "Ucayali" -> resources.getStringArray(R.array.ciudades_ucayali).toList()
-                else -> listOf(getString(R.string.prop_distrito_sin), "Otro")
-            }
-        }
+spinnerDistrito.adapter = crearAdapterSpinner(distritosPublicar)
 
         spinnerTipo.adapter = crearAdapterSpinner(tipos.toList())
         spinnerOperacion.adapter = crearAdapterSpinner(operaciones.toList())
@@ -909,7 +909,7 @@ spinnerDepartamento.onItemSelectedListener = object : android.widget.AdapterView
                 val tiposArr = resources.getStringArray(R.array.tipos_inmueble)
                 val operArr = resources.getStringArray(R.array.operaciones)
                 val monArr = resources.getStringArray(R.array.monedas)
-                val depArr = resources.getStringArray(R.array.departamentos_peru)
+val depArr = resources.getStringArray(R.array.departamentos_peru)
 
                 spinnerTipo.setSelection(tiposArr.indexOfFirst { it == tipo }.coerceAtLeast(0))
                 spinnerOperacion.setSelection(operArr.indexOfFirst { it == operacion }.coerceAtLeast(0))
@@ -917,18 +917,19 @@ spinnerDepartamento.onItemSelectedListener = object : android.widget.AdapterView
                 spinnerDepartamento.setSelection(depArr.indexOfFirst { it == departamentoSel }.coerceAtLeast(0))
 
 // Actualizar distritos según departamento antes de setear
-                val distritosLima = resources.getStringArray(R.array.distritos_lima).toList()
-                val distritosGenerico = listOf(getString(R.string.prop_distrito_sin), "Otro")
-                val nuevosDistritos = if (departamentoSel == "Lima") {
-                    listOf(getString(R.string.prop_distrito_sin)) + distritosLima
-                } else distritosGenerico
+                val ciudades = obtenerCiudades(departamentoSel)
+                val nuevosDistritos: List<String> = if (departamentoSel == "Lima") {
+                    listOf(getString(R.string.prop_distrito_sin)) + ciudades
+                } else {
+                    listOf(getString(R.string.prop_distrito_sin), "Otro") + ciudades
+                }
                 spinnerDistrito.adapter = crearAdapterSpinner(nuevosDistritos)
 
                 // Usar post para asegurar que el adapter esté listo antes de setear la selección
                 binding.spPropDistrito.post {
                     // Normalizar el distrito guardado para comparar sin distinción de mayúsculas/minúsculas ni espacios
                     val distritoNormalizado = distritoSel.trim().lowercase()
-                    val indiceDistrito = nuevosDistritos.indexOfFirst { it.trim().lowercase() == distritoNormalizado }
+                    val indiceDistrito = nuevosDistritos.indexOfFirst { item: String -> item.trim().lowercase() == distritoNormalizado }
                     spinnerDistrito.setSelection(indiceDistrito.coerceAtLeast(0))
                 }
 
