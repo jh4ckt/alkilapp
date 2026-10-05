@@ -80,33 +80,12 @@ class RegistrarPropiedadActivity : AppCompatActivity() {
     private var cargandoInicial = false
 
     private fun obtenerCiudades(departamento: String): List<String> {
-        return when (departamento) {
-            "Amazonas" -> resources.getStringArray(R.array.ciudades_amazonas).toList()
-            "Ancash" -> resources.getStringArray(R.array.ciudades_ancash).toList()
-            "Apurímac" -> resources.getStringArray(R.array.ciudades_apurimac).toList()
-            "Arequipa" -> resources.getStringArray(R.array.ciudades_arequipa).toList()
-            "Ayacucho" -> resources.getStringArray(R.array.ciudades_ayacucho).toList()
-            "Cajamarca" -> resources.getStringArray(R.array.ciudades_cajamarca).toList()
-            "Callao" -> resources.getStringArray(R.array.ciudades_callao).toList()
-            "Cusco" -> resources.getStringArray(R.array.ciudades_cusco).toList()
-            "Huancavelica" -> resources.getStringArray(R.array.ciudades_huancavelica).toList()
-            "Huánuco" -> resources.getStringArray(R.array.ciudades_huanuco).toList()
-            "Ica" -> resources.getStringArray(R.array.ciudades_ica).toList()
-            "Junín" -> resources.getStringArray(R.array.ciudades_junin).toList()
-            "La Libertad" -> resources.getStringArray(R.array.ciudades_lalibertad).toList()
-            "Lambayeque" -> resources.getStringArray(R.array.ciudades_lambayeque).toList()
-            "Lima" -> resources.getStringArray(R.array.distritos_lima).toList()
-            "Loreto" -> resources.getStringArray(R.array.ciudades_loreto).toList()
-            "Madre de Dios" -> resources.getStringArray(R.array.ciudades_madrededios).toList()
-            "Moquegua" -> resources.getStringArray(R.array.ciudades_moquegua).toList()
-            "Pasco" -> resources.getStringArray(R.array.ciudades_pasco).toList()
-            "Piura" -> resources.getStringArray(R.array.ciudades_piura).toList()
-            "Puno" -> resources.getStringArray(R.array.ciudades_puno).toList()
-            "San Martín" -> resources.getStringArray(R.array.ciudades_sanmartin).toList()
-            "Tacna" -> resources.getStringArray(R.array.ciudades_tacna).toList()
-            "Tumbes" -> resources.getStringArray(R.array.ciudades_tumbes).toList()
-            "Ucayali" -> resources.getStringArray(R.array.ciudades_ucayali).toList()
-            else -> listOf(getString(R.string.prop_distrito_sin), "Otro")
+        val key = normalizarDepto(departamento)
+        val resId = ciudadesPorDepto[key]
+        return if (resId != null) {
+            resources.getStringArray(resId).toList()
+        } else {
+            listOf(getString(R.string.prop_distrito_sin), "Otro")
         }
     }
 
@@ -175,6 +154,41 @@ class RegistrarPropiedadActivity : AppCompatActivity() {
         const val EXTRA_FOTOS_URL = "extra_fotos_url"
         private const val MAX_FOTOS = 7
         private const val LADO_PREVIEW_PX = 128
+
+        // Mapa de departamentos normalizados (sin acentos, minúsculas, sin espacios) a IDs de recursos
+        val ciudadesPorDepto = mapOf(
+            "amazonas" to R.array.ciudades_amazonas,
+            "ancash" to R.array.ciudades_ancash,
+            "apurimac" to R.array.ciudades_apurimac,
+            "arequipa" to R.array.ciudades_arequipa,
+            "ayacucho" to R.array.ciudades_ayacucho,
+            "cajamarca" to R.array.ciudades_cajamarca,
+            "callao" to R.array.ciudades_callao,
+            "cusco" to R.array.ciudades_cusco,
+            "huancavelica" to R.array.ciudades_huancavelica,
+            "huanuco" to R.array.ciudades_huanuco,
+            "ica" to R.array.ciudades_ica,
+            "junin" to R.array.ciudades_junin,
+            "la libertad" to R.array.ciudades_lalibertad,
+            "lambayeque" to R.array.ciudades_lambayeque,
+            "lima" to R.array.distritos_lima,
+            "loreto" to R.array.ciudades_loreto,
+            "madre de dios" to R.array.ciudades_madrededios,
+            "moquegua" to R.array.ciudades_moquegua,
+            "pasco" to R.array.ciudades_pasco,
+            "piura" to R.array.ciudades_piura,
+            "puno" to R.array.ciudades_puno,
+            "san martin" to R.array.ciudades_sanmartin,
+            "tacna" to R.array.ciudades_tacna,
+            "tumbes" to R.array.ciudades_tumbes,
+            "ucayali" to R.array.ciudades_ucayali
+        )
+
+        private fun normalizarDepto(departamento: String): String {
+            return Normalizer.normalize(departamento, Normalizer.Form.NFD)
+                .replace("[\\p{InCombiningDiacriticalMarks}]".toRegex(), "")
+                .lowercase(Locale.ROOT)
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
