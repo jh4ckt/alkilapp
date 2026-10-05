@@ -1,0 +1,13 @@
+# CODEOWNERS - quien debe revisar que (GitHub)
+# Solo se exige si la ruleset "Protect main" tiene "Require review from Code Owners".
+# El orden importa: las ultimas lineas que coinciden con un archivo mandan.
+
+* @jh4ckt @AbrahamVL7
+
+# Solo el dueno: infraestructura, seguridad y firmado de releases
+/.github/ @jh4ckt
+/functions/ @jh4ckt
+/backend/firestore.rules @jh4ckt
+/app/google-services.json @jh4ckt
+/build.gradle.kts @jh4ckt
+/app/build.gradle.kts @jh4ckt
