@@ -79,6 +79,13 @@ class RegistrarPropiedadActivity : AppCompatActivity() {
     private var consultaBusquedaActual = 0
     private var cargandoInicial = false
 
+    /**
+     * Distrito guardado en Firestore que aún no ha podido aplicarse al spinner.
+     * Lo consume el listener del spinner de Departamento, que es el UNICO lugar
+     * autorizado para reconstruir el adapter de Distrito.
+     */
+    private var distritoPendiente: String? = null
+
     private fun obtenerCiudades(departamento: String): List<String> {
         val key = normalizarDepto(departamento)
         val resId = ciudadesPorDepto[key]
@@ -86,6 +93,33 @@ class RegistrarPropiedadActivity : AppCompatActivity() {
             resources.getStringArray(resId).toList()
         } else {
             listOf(getString(R.string.prop_distrito_sin), "Otro")
+        }
+    }
+
+    /**
+     * Construye las opciones del spinner de Distrito para un departamento y, si hay
+     * un distrito guardado pendiente, lo selecciona despues de que el adapter exista.
+     *
+     * concentrating toda la logica aqui evita la condicion de carrera que hacia que
+     * el adapter se reconstruyera DESPUES de aplicar la seleccion (dejando "Sin distrito").
+     */
+    private fun aplicarDistritosParaDepartamento(departamento: String) {
+        val ciudades = obtenerCiudades(departamento)
+        val opciones = if (departamento == "Lima") {
+            listOf(getString(R.string.prop_distrito_sin)) + ciudades
+        } else {
+            listOf(getString(R.string.prop_distrito_sin), "Otro") + ciudades
+        }
+        binding.spPropDistrito.adapter = crearAdapterSpinner(opciones)
+
+        val pendiente = distritoPendiente
+        if (!pendiente.isNullOrBlank() && pendiente != getString(R.string.prop_distrito_sin)) {
+            val objetivo = normalizarTexto(pendiente)
+            val indice = opciones.indexOfFirst { normalizarTexto(it) == objetivo }
+            binding.spPropDistrito.post {
+                binding.spPropDistrito.setSelection(indice.coerceAtLeast(0))
+            }
+            distritoPendiente = null
         }
     }
 
@@ -251,18 +285,11 @@ spinnerTipo.adapter = crearAdapterSpinner(tipos.toList())
         spinnerDepartamento.adapter = crearAdapterSpinner(departamentos)
         spinnerDistrito.adapter = crearAdapterSpinner(distritosPublicar)
 
-        // Actualizar ciudades según departamento seleccionado
-spinnerDepartamento.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
+// Actualizar ciudades según departamento seleccionado
+        spinnerDepartamento.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: android.widget.AdapterView<*>?, view: View?, position: Int, id: Long) {
                 if (cargandoInicial) return
-                val dep = departamentos[position]
-                val ciudades = obtenerCiudades(dep)
-                val opciones = if (dep == "Lima") {
-                    listOf(getString(R.string.prop_distrito_sin)) + ciudades
-                } else {
-                    listOf(getString(R.string.prop_distrito_sin), "Otro") + ciudades
-                }
-                spinnerDistrito.adapter = crearAdapterSpinner(opciones)
+                aplicarDistritosParaDepartamento(departamentos[position])
             }
             override fun onNothingSelected(parent: android.widget.AdapterView<*>?) {}
         }
@@ -928,25 +955,14 @@ val depArr = resources.getStringArray(R.array.departamentos_peru)
                 spinnerTipo.setSelection(tiposArr.indexOfFirst { it == tipo }.coerceAtLeast(0))
                 spinnerOperacion.setSelection(operArr.indexOfFirst { it == operacion }.coerceAtLeast(0))
                 spinnerMoneda.setSelection(monArr.indexOfFirst { it.contains(moneda, ignoreCase = true) }.coerceAtLeast(0))
-                // Usar comparación normalizada para el departamento (maneja espacios, acentos, mayúsculas)
-                spinnerDepartamento.setSelection(depArr.indexOfFirst { normalizarTexto(it) == normalizarTexto(departamentoSel) }.coerceAtLeast(0))
-
-// Actualizar distritos según departamento antes de setear
-                val ciudades = obtenerCiudades(departamentoSel)
-                val nuevosDistritos: List<String> = if (departamentoSel == "Lima") {
-                    listOf(getString(R.string.prop_distrito_sin)) + ciudades
-                } else {
-                    listOf(getString(R.string.prop_distrito_sin), "Otro") + ciudades
-                }
-                spinnerDistrito.adapter = crearAdapterSpinner(nuevosDistritos)
-
-                // Usar post para asegurar que el adapter esté listo antes de setear la selección
-                binding.spPropDistrito.post {
-                    // Normalizar el distrito guardado para comparar sin distinción de mayúsculas/minúsculas, acentos ni espacios
-                    val distritoNormalizado = normalizarTexto(distritoSel)
-                    val indiceDistrito = nuevosDistritos.indexOfFirst { item: String -> normalizarTexto(item) == distritoNormalizado }
-                    spinnerDistrito.setSelection(indiceDistrito.coerceAtLeast(0))
-                }
+                // El adapter de Distrito lo reconstruye exclusivamente el listener del spinner
+                // Departamento. Aqui solo dejamos el valor guardado pendiente y pedimos
+                // ese departamento; el listener lo aplicara cuando arme el adapter.
+                distritoPendiente = distritoSel
+                spinnerDepartamento.setSelection(
+                    depArr.indexOfFirst { normalizarTexto(it) == normalizarTexto(departamentoSel) }
+                        .coerceAtLeast(0)
+                )
 
                 // Comodidades
                 val comodidadesExistentes = l("comodidades").toSet()
@@ -1215,6 +1231,7 @@ val depArr = resources.getStringArray(R.array.departamentos_peru)
             "moneda" to codigoMoneda,
             "direccion" to direccion,
             "barrio" to barrio,
+            "distrito" to barrio, // Mismo campo que escribe el modo edicion
             "ciudad" to departamento,
             "lat" to latAgregar,
             "lng" to lngAgregar,
