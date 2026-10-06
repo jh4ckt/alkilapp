@@ -36,198 +36,15 @@
         android:clipToPadding="false"
         android:orientation="vertical">
 
-    <!-- Fila superior: menú (hamburguesa) + barra de búsqueda/filtro, alineados -->
-    <LinearLayout
-        android:id="@+id/filaTop"
+    <!-- Stack superior (Compose): fila de menu + busqueda/filtro + boton
+         publicar, chips rapidos de tipo y pill de contador. El margen superior
+         (8dp + inset de barra de estado) lo aplica el codigo sobre stackTop. -->
+    <androidx.compose.ui.platform.ComposeView
+        android:id="@+id/cvStackTop"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginStart="12dp"
-        android:layout_marginEnd="16dp"
         android:clipChildren="false"
-        android:clipToPadding="false"
-        android:gravity="center_vertical"
-        android:orientation="horizontal">
-
-        <ImageButton
-            android:id="@+id/btnMenu"
-            android:layout_width="46dp"
-            android:layout_height="46dp"
-            android:background="@drawable/bg_sidebar"
-            android:contentDescription="@string/menu_principal_cd"
-            android:importantForAutofill="no"
-            android:padding="11dp"
-            android:src="@drawable/ic_hamburger"
-            app:tint="@color/alkil_primary" />
-
-        <!-- 4. Barra de búsqueda y filtro (junto al menú) -->
-        <com.google.android.material.card.MaterialCardView
-            android:id="@+id/cardBusqueda"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="10dp"
-            android:layout_weight="1"
-            app:cardBackgroundColor="@color/surface_card"
-            app:cardCornerRadius="24dp"
-            app:cardElevation="0dp"
-            app:strokeColor="@color/border_subtle"
-            app:strokeWidth="1dp">
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:padding="12dp"
-            android:gravity="center_vertical">
-
-            <ImageView
-                android:layout_width="24dp"
-                android:layout_height="24dp"
-                android:src="@android:drawable/ic_menu_search"
-                android:tint="@color/precio_navy" />
-
-            <EditText
-                android:id="@+id/etBusqueda"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:background="@null"
-                android:hint="@string/search_hint"
-                android:inputType="text"
-                android:paddingStart="12dp"
-                android:textColor="@color/precio_navy"
-                android:textColorHint="@color/text_secondary"
-                android:textSize="14sp" />
-
-            <ImageButton
-                android:id="@+id/btnFiltroBuscar"
-                android:layout_width="40dp"
-                android:layout_height="40dp"
-                android:background="?attr/selectableItemBackgroundBorderless"
-                android:contentDescription="@string/filtros_titulo"
-                android:padding="8dp"
-                android:scaleType="centerInside"
-                android:src="@drawable/ic_filter"
-                app:tint="@color/precio_navy" />
-
-        </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
-
-        <!-- 5. Botón flotante para publicar: pegado a la barra de búsqueda -->
-        <com.google.android.material.floatingactionbutton.FloatingActionButton
-            android:id="@+id/fabAgregar"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"
-            android:contentDescription="@string/prop_agregar_titulo"
-            android:src="@drawable/ic_add" />
-    </LinearLayout>
-
-    <!-- 5b. Chips rapidos de tipo sobre el mapa (Todo / Departamento / Casa / Habitacion) -->
-    <HorizontalScrollView
-        android:id="@+id/scrollChipsTipo"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="12dp"
-        android:layout_marginTop="6dp"
-        android:layout_marginEnd="12dp"
-        android:clipChildren="false"
-        android:clipToPadding="false"
-        android:fadingEdgeLength="0dp"
-        android:paddingEnd="40dp"
-        android:scrollbars="none">
-
-        <LinearLayout
-            android:id="@+id/llChipsTipo"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal">
-
-            <TextView
-                android:id="@+id/chipTipoTodo"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginEnd="8dp"
-                android:background="@drawable/bg_chip_tipo"
-                android:clickable="true"
-                android:focusable="true"
-                android:paddingStart="15dp"
-                android:paddingTop="7dp"
-                android:paddingEnd="15dp"
-                android:paddingBottom="7dp"
-                android:text="@string/chips_tipo_todo"
-                android:textColor="@drawable/txt_chip_tipo"
-                android:textSize="12.5sp"
-                android:textStyle="bold" />
-
-            <TextView
-                android:id="@+id/chipTipoDepartamento"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginEnd="8dp"
-                android:background="@drawable/bg_chip_tipo"
-                android:clickable="true"
-                android:focusable="true"
-                android:paddingStart="15dp"
-                android:paddingTop="7dp"
-                android:paddingEnd="15dp"
-                android:paddingBottom="7dp"
-                android:text="Departamento"
-                android:textColor="@drawable/txt_chip_tipo"
-                android:textSize="12.5sp"
-                android:textStyle="bold" />
-
-            <TextView
-                android:id="@+id/chipTipoCasa"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginEnd="8dp"
-                android:background="@drawable/bg_chip_tipo"
-                android:clickable="true"
-                android:focusable="true"
-                android:paddingStart="15dp"
-                android:paddingTop="7dp"
-                android:paddingEnd="15dp"
-                android:paddingBottom="7dp"
-                android:text="Casa"
-                android:textColor="@drawable/txt_chip_tipo"
-                android:textSize="12.5sp"
-                android:textStyle="bold" />
-
-            <TextView
-                android:id="@+id/chipTipoHabitacion"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:background="@drawable/bg_chip_tipo"
-                android:clickable="true"
-                android:focusable="true"
-                android:paddingStart="15dp"
-                android:paddingTop="7dp"
-                android:paddingEnd="15dp"
-                android:paddingBottom="7dp"
-                android:text="Habitación"
-                android:textColor="@drawable/txt_chip_tipo"
-                android:textSize="12.5sp"
-                android:textStyle="bold" />
-        </LinearLayout>
-    </HorizontalScrollView>
-
-    <!-- 5c. Contador de resultados sobre el mapa -->
-    <TextView
-        android:id="@+id/tvContadorMapa"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="center_horizontal"
-        android:layout_marginTop="8dp"
-        android:background="@drawable/bg_contador"
-        android:elevation="4dp"
-        android:paddingStart="14dp"
-        android:paddingTop="6dp"
-        android:paddingEnd="14dp"
-        android:paddingBottom="6dp"
-        android:textColor="@color/white"
-        android:textSize="12sp"
-        android:textStyle="bold"
-        android:visibility="gone" />
+        android:clipToPadding="false" />
 
     </LinearLayout>
 
@@ -286,40 +103,12 @@
             android:layout_height="0dp"
             android:layout_weight="1">
 
-            <androidx.recyclerview.widget.RecyclerView
-                android:id="@+id/rvDepartamentos"
+            <!-- Listado de inmuebles en Compose (LazyColumn + estado vacio) -->
+            <androidx.compose.ui.platform.ComposeView
+                android:id="@+id/cvLista"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
                 android:background="@android:color/white" />
-
-            <LinearLayout
-                android:id="@+id/llSheetVacio"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_gravity="center"
-                android:gravity="center"
-                android:orientation="vertical"
-                android:padding="32dp"
-                android:visibility="gone">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/sheet_zona_vacio_titulo"
-                    android:textColor="@color/text_primary"
-                    android:textSize="18sp"
-                    android:textStyle="bold"
-                    android:gravity="center" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:text="@string/sheet_zona_vacio_mensaje"
-                    android:textColor="@color/text_secondary"
-                    android:textSize="14sp"
-                    android:gravity="center" />
-            </LinearLayout>
 
         </FrameLayout>
 

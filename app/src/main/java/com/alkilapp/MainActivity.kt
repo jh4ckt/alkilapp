@@ -3,7 +3,6 @@
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.content.res.ColorStateList
 import android.content.res.Resources
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -21,7 +20,6 @@ import android.util.Base64
 import android.view.View
 import android.view.MotionEvent
 import android.view.ViewGroup
-import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
@@ -31,19 +29,24 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.content.res.AppCompatResources
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.view.GravityCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.doOnPreDraw
-import androidx.core.widget.doAfterTextChanged
-import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.RecyclerView
+import com.alkilapp.compose.AlkilTheme
+import com.alkilapp.compose.AlkilTopStack
+import com.alkilapp.compose.ItemLista
+import com.alkilapp.compose.ListaInmuebles
 import com.alkilapp.data.Favoritos
 import com.alkilapp.data.Propiedad
 import com.alkilapp.databinding.ActivityMainBinding
 import com.alkilapp.ui.InsetsUtils
-import com.alkilapp.ui.PropiedadAdapter
+import com.alkilapp.ui.PropiedadesStore
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.ApiException
@@ -76,7 +79,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     private lateinit var binding: ActivityMainBinding
     private lateinit var mMap: GoogleMap
     private lateinit var fusedLocationClient: FusedLocationProviderClient
-    private lateinit var adapter: PropiedadAdapter
+    private lateinit var store: PropiedadesStore
 
     private val marcadores = mutableListOf<Marker>()
     private var marcadorSeleccionado: Marker? = null
@@ -98,13 +101,30 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
 
     private var filtroDepartamento: String? = null
     private var filtroDistrito: String? = null
-    private var filtroTipo: String? = null
     private var filtroHabitaciones: Int? = null
-    private var busquedaActual: String = ""
+    // filtroTipo/busquedaActual son estado Compose: los leen los chips y el
+    // campo de busqueda del top stack y deben recomponerse al cambiar.
+    private var filtroTipo: String? by mutableStateOf(null)
+    private var busquedaActual: String by mutableStateOf("")
     private var soloFavoritos = false
     private var favoritosSet: Set<String> = emptySet()
     private var zonaConfigurada = false
     private var ultimaUbicacion: LatLng? = null
+
+    // ---- Estado Compose de la pantalla principal ----
+    // Tint del boton de filtros (se actualiza SOLO en los mismos puntos de
+    // control de siempre, ver actualizarBotonFiltros).
+    private var filtroBotonActivo by mutableStateOf(false)
+    // Contador "N inmuebles encontrados" (0 = invisible).
+    private var contadorMapa by mutableStateOf(0)
+    // Alto de la fila de busqueda (topInset del mapa; antes filaTop.measuredHeight).
+    private var altoFilaTopPx by mutableStateOf(0)
+    // Lista visible para el LazyColumn (con verificado/favorito/distancia ya resueltos).
+    private var listaVisible by mutableStateOf<List<ItemLista>>(emptyList())
+    // Estado vacio de la zona en el bottom sheet.
+    private var mostrarVacio by mutableStateOf(false)
+    // Padding inferior del mapa (peek o altura expandida del sheet + 16dp).
+    private var paddingMapaAbajo = 0
 
     private val googleSignInClient by lazy {
         val builder = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
@@ -133,9 +153,11 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             auth.signInWithCredential(GoogleAuthProvider.getCredential(idToken, null))
                 .addOnCompleteListener { task ->
                     if (task.isSuccessful) {
-                        guardarUsuarioEnBase()
-                        actualizarUiSesion()
-                        Toast.makeText(this, R.string.auth_ok_google, Toast.LENGTH_SHORT).show()
+                        continuarSiCuentaActiva {
+                            guardarUsuarioEnBase()
+                            actualizarUiSesion()
+                            Toast.makeText(this, R.string.auth_ok_google, Toast.LENGTH_SHORT).show()
+                        }
                     } else {
                         Toast.makeText(
                             this,
@@ -183,7 +205,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             .findFragmentById(R.id.mapFragment) as SupportMapFragment
         mapFragment.getMapAsync(this)
 
-        setupListaDepartamentos()
+        setupListado()
         setupBotones()
         configurarMenu()
         configurarBottomSheet()
@@ -260,11 +282,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             params.bottomMargin = (108.dp + p * (alturaExpandida - 100.dp)).toInt()
             fab.layoutParams = params
 
-            if (::mMap.isInitialized) {
-                val topInset = binding.filaTop.measuredHeight + 16.dp
-                val bottomInset = (100.dp + p * (alturaExpandida - 100.dp)) + 16.dp
-                mMap.setPadding(0, topInset, 0, bottomInset.toInt())
-            }
+            paddingMapaAbajo = (100.dp + p * (alturaExpandida - 100.dp) + 16.dp).toInt()
+            aplicarPaddingMapa()
         }
 
         fun animarA(targetOffset: Float) {
@@ -321,6 +340,15 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         }
     }
 
+    /** Padding del mapa: arriba = alto de la fila de busqueda (Compose) + 16dp
+     *  para que el mapa visible quede por debajo del stack; abajo = peek o
+     *  altura expandida del sheet + 16dp. */
+    private fun aplicarPaddingMapa() {
+        if (::mMap.isInitialized) {
+            mMap.setPadding(0, altoFilaTopPx + 16.dp, 0, paddingMapaAbajo)
+        }
+    }
+
     /**
      * Insets de las barras del sistema: la fila superior (menÃº + bÃºsqueda + botÃ³n publicar)
      * queda por debajo de la barra de estado, y el bottomSheet reserva el espacio de la barra
@@ -349,9 +377,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
 
     /** BotÃ³n de menÃº en la esquina superior: abre el panel lateral. */
     private fun configurarMenu() {
-        binding.btnMenu.setOnClickListener {
-            binding.drawerLayout.openDrawer(GravityCompat.START)
-        }
+        // El boton de menu vive ahora en el top stack Compose (onMenu).
         val panel = binding.panelMenu
         panel.llNavHeader.setOnClickListener {
             binding.drawerLayout.closeDrawers()
@@ -418,8 +444,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         favoritosSet = Favoritos.locales(this)
         soloFavoritos = false
         zonaConfigurada = false
-        adapter.setFavoritos(favoritosSet)
-        adapter.setSoloFavoritos(false)
+        store.setFavoritos(favoritosSet)
+        store.setSoloFavoritos(false)
         actualizarUiSesion()
         actualizarEmptyState()
         Toast.makeText(this, R.string.auth_sesion_cerrada, Toast.LENGTH_SHORT).show()
@@ -431,12 +457,12 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         if (uid != null) {
             Favoritos.sincronizar(this, uid) { ids ->
                 favoritosSet = ids
-                if (::adapter.isInitialized) adapter.setFavoritos(ids)
+                if (::store.isInitialized) store.setFavoritos(ids)
                 actualizarBadgeFavoritos()
             }
         } else {
             favoritosSet = Favoritos.locales(this)
-            if (::adapter.isInitialized) adapter.setFavoritos(favoritosSet)
+            if (::store.isInitialized) store.setFavoritos(favoritosSet)
             actualizarBadgeFavoritos()
         }
     }
@@ -460,7 +486,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         }
         val nuevo = Favoritos.alternar(this, uid, p.id)
         favoritosSet = if (nuevo) favoritosSet + p.id else favoritosSet - p.id
-        adapter.setFavoritos(favoritosSet)
+        store.setFavoritos(favoritosSet)
         actualizarBadgeFavoritos()
     }
 
@@ -518,9 +544,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         // 1. El usuario tiene zona configurada (departamento/ciudad en Mi Perfil)
         // 2. No hay filtros explÃ­citos activos
         // 3. No hay inmuebles visibles en el listado
-        val visibles = adapter.visibles()
-        val showEmpty = zonaConfigurada && !hayFiltroExplicito && visibles.isEmpty()
-        binding.llSheetVacio.visibility = if (showEmpty) View.VISIBLE else View.GONE
+        val visibles = store.visibles()
+        mostrarVacio = zonaConfigurada && !hayFiltroExplicito && visibles.isEmpty()
     }
 
     override fun onStop() {
@@ -528,54 +553,100 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         escuchaPropiedades?.remove()
     }
 
-    private fun setupListaDepartamentos() {
-        adapter = PropiedadAdapter(
-            onClick = { propiedad -> abrirDetallePropiedad(propiedad) },
-            onAlternarFavorito = { p -> alternarFavorito(p) }
-        )
-        binding.rvDepartamentos.layoutManager = LinearLayoutManager(this)
-        binding.rvDepartamentos.adapter = adapter
-
-        // Contador "N inmuebles encontrados" + refresco de marcadores: se actualizan con
-        // cada notificacion del adapter (aplicar() usa notifyDataSetChanged). Antes los
-        // marcadores solo se dibujaban al mover la cámara: al cargar Firestore el mapa
-        // quedaba sin pines hasta el primer gesto del usuario.
-        binding.rvDepartamentos.adapter?.registerAdapterDataObserver(
-            object : RecyclerView.AdapterDataObserver() {
-                override fun onChanged() = trasCambioDatosAdapter()
-                override fun onItemRangeChanged(positionStart: Int, itemCount: Int) =
-                    trasCambioDatosAdapter()
-                override fun onItemRangeInserted(positionStart: Int, itemCount: Int) =
-                    trasCambioDatosAdapter()
-                override fun onItemRangeRemoved(positionStart: Int, itemCount: Int) =
-                    trasCambioDatosAdapter()
-            }
-        )
-        actualizarContadorMapa()
-        setupChipsTipo()
-
-        binding.etBusqueda.doAfterTextChanged { texto ->
-            busquedaActual = texto?.toString().orEmpty()
-            adapter.filter(busquedaActual)
-            actualizarRadioPorFiltros()
-            actualizarZonaMapa(false)
-            actualizarEmptyState()
+    private fun setupListado() {
+        store = PropiedadesStore().also { s ->
+            // Equivale al viejo AdapterDataObserver: contador, estado vacio,
+            // lista Compose y marcadores (debounced) se refrescan con cada
+            // aplicar() del store (submitList/filtros/favoritos/verificados).
+            s.onChange = { trasCambioDatosStore() }
         }
-        binding.btnFiltroBuscar.setOnClickListener { abrirDialogoFiltros() }
+
+        // Top stack en Compose: menu + busqueda/filtro + publicar, chips de
+        // tipo y pill de contador (antes filaTop/scrollChipsTipo/tvContadorMapa).
+        binding.cvStackTop.setViewCompositionStrategy(
+            ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed
+        )
+        binding.cvStackTop.setContent {
+            AlkilTheme {
+                AlkilTopStack(
+                    busqueda = busquedaActual,
+                    onBusquedaChanged = { alCambiarBusqueda(it) },
+                    filtroBotonActivo = filtroBotonActivo,
+                    filtroTipo = filtroTipo,
+                    onChipTipo = { seleccionarChipTipo(it) },
+                    contador = contadorMapa,
+                    onMenu = { binding.drawerLayout.openDrawer(GravityCompat.START) },
+                    onFiltros = { abrirDialogoFiltros() },
+                    onPublicar = { abrirRegistrarPropiedad() },
+                    onAltoFila = { alto ->
+                        if (alto != 0 && alto != altoFilaTopPx) {
+                            altoFilaTopPx = alto
+                            aplicarPaddingMapa()
+                        }
+                    }
+                )
+            }
+        }
+
+        // Listado en Compose: LazyColumn de PropertyCard + estado vacio
+        // (antes rvDepartamentos + llSheetVacio).
+        binding.cvLista.setViewCompositionStrategy(
+            ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed
+        )
+        binding.cvLista.setContent {
+            AlkilTheme {
+                ListaInmuebles(
+                    items = listaVisible,
+                    mostrarVacio = mostrarVacio,
+                    onItem = { abrirDetallePropiedad(it) },
+                    onFavorito = { alternarFavorito(it) }
+                )
+            }
+        }
+
+        actualizarContadorMapa()
+    }
+
+    /** Busqueda por texto (campo del top stack). Mismo flujo que el viejo
+     *  doAfterTextChanged de etBusqueda. */
+    private fun alCambiarBusqueda(texto: String) {
+        busquedaActual = texto
+        store.filter(texto)
+        actualizarRadioPorFiltros()
+        actualizarZonaMapa(false)
+        actualizarEmptyState()
+    }
+
+    /** Chip rapido de tipo: aplica el filtro y refresca zona/contador/vacio. */
+    private fun seleccionarChipTipo(clave: String?) {
+        filtroTipo = clave
+        actualizarRadioPorFiltros()
+        store.setFiltros(filtroDepartamento, filtroDistrito, filtroTipo, filtroHabitaciones)
+        actualizarBotonFiltros()
+        actualizarZonaMapa()
+        actualizarEmptyState()
     }
 
     /** Actualiza el pill con el conteo de inmuebles visibles sobre el mapa. */
     private fun actualizarContadorMapa() {
-        val n = adapter.itemCount
-        binding.tvContadorMapa.text = getString(R.string.mapa_contador, n)
-        binding.tvContadorMapa.visibility = if (n > 0) View.VISIBLE else View.GONE
+        contadorMapa = store.cantidad()
     }
 
-    /** Contador + marcadores cuando cambian los datos del adapter (debounced para
-     *  que el diff de submitList no dispare varios refrescos seguidos). */
+    /** Lista Compose + contador + vacio cuando cambian los datos del store
+     *  (marcadores debounced para que los diffs seguidos no disparen varios
+     *  refrescos seguidos). */
     private var refrescoMarcadoresPendiente = false
-    private fun trasCambioDatosAdapter() {
+    private fun trasCambioDatosStore() {
+        listaVisible = store.visibles().map { p ->
+            ItemLista(
+                propiedad = p,
+                verificado = store.verificado(p),
+                favorito = p.id in favoritosSet,
+                distanciaKm = store.distanciaKm(p)
+            )
+        }
         actualizarContadorMapa()
+        actualizarEmptyState()
         if (!::mMap.isInitialized || refrescoMarcadoresPendiente) return
         refrescoMarcadoresPendiente = true
         handlerMain.postDelayed({
@@ -584,49 +655,16 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         }, 150)
     }
 
-    /** Chips rapidos de tipo (Todo / Departamento / Casa / Habitacion) sobre el mapa. */
-    private fun setupChipsTipo() {
-        val chips = listOf(
-            binding.chipTipoTodo to null,
-            binding.chipTipoDepartamento to "departamento",
-            binding.chipTipoCasa to "casa",
-            binding.chipTipoHabitacion to "habitacion"
-        )
-        chips.forEach { (chip, clave) ->
-            chip.setOnClickListener {
-                filtroTipo = clave
-                val hayFiltroExplicito = filtroDepartamento != null || filtroDistrito != null ||
-                    filtroTipo != null || filtroHabitaciones != null || soloFavoritos ||
-                    busquedaActual.isNotBlank()
-                adapter.setIgnorarRadioPorFiltro(hayFiltroExplicito)
-                adapter.setFiltros(filtroDepartamento, filtroDistrito, filtroTipo, filtroHabitaciones)
-                refrescarChipsTipo()
-                actualizarBotonFiltros()
-                actualizarZonaMapa()
-                actualizarEmptyState()
-            }
-        }
-        refrescarChipsTipo()
-    }
-
-    /** Refleja filtroTipo en la seleccion visual de los chips. */
-    private fun refrescarChipsTipo() {
-        binding.chipTipoTodo.isSelected = filtroTipo == null
-        binding.chipTipoDepartamento.isSelected = filtroTipo == "departamento"
-        binding.chipTipoCasa.isSelected = filtroTipo == "casa"
-        binding.chipTipoHabitacion.isSelected = filtroTipo == "habitacion"
-    }
-
     /** Activa/desactiva el filtro de radio segÃºn haya filtros explÃ­citos activos. */
     private fun actualizarRadioPorFiltros() {
         val hayFiltroExplicito = filtroDepartamento != null || filtroDistrito != null ||
             filtroTipo != null || filtroHabitaciones != null || soloFavoritos ||
             busquedaActual.isNotBlank()
-        adapter.setIgnorarRadioPorFiltro(hayFiltroExplicito)
+        store.setIgnorarRadioPorFiltro(hayFiltroExplicito)
     }
 
     private fun setupBotones() {
-        binding.fabAgregar.setOnClickListener { abrirRegistrarPropiedad() }
+        // El boton de publicar vive en el top stack Compose (onPublicar).
         binding.fabMiUbicacion.setOnClickListener { irAMiUbicacion() }
     }
 
@@ -825,12 +863,11 @@ fun llenar(sp: Spinner, opciones: List<String>) {
             val hayFiltroExplicito = filtroDepartamento != null || filtroDistrito != null ||
                 filtroTipo != null || filtroHabitaciones != null || soloFavoritos ||
                 busquedaActual.isNotBlank()
-            adapter.setIgnorarRadioPorFiltro(hayFiltroExplicito)
-            adapter.setFiltros(
+            store.setIgnorarRadioPorFiltro(hayFiltroExplicito)
+            store.setFiltros(
                 filtroDepartamento, filtroDistrito, filtroTipo, filtroHabitaciones
             )
-            adapter.setSoloFavoritos(soloFavoritos)
-            refrescarChipsTipo()
+            store.setSoloFavoritos(soloFavoritos)
             actualizarBotonFiltros()
             actualizarZonaMapa()
             actualizarEmptyState()
@@ -843,11 +880,10 @@ fun llenar(sp: Spinner, opciones: List<String>) {
             filtroTipo = null
             filtroHabitaciones = null
             soloFavoritos = false
-            binding.etBusqueda.setText("")
-            adapter.setIgnorarRadioPorFiltro(false)
-            adapter.setFiltros(null, null)
-            adapter.setSoloFavoritos(false)
-            refrescarChipsTipo()
+            alCambiarBusqueda("")
+            store.setIgnorarRadioPorFiltro(false)
+            store.setFiltros(null, null)
+            store.setSoloFavoritos(false)
             actualizarBotonFiltros()
             actualizarZonaMapa()
             actualizarEmptyState()
@@ -860,12 +896,11 @@ fun llenar(sp: Spinner, opciones: List<String>) {
     }
 
     private fun actualizarBotonFiltros() {
-        val activo = (filtroDistrito ?: filtroDepartamento) != null ||
+        // El tint del icono se vuelve estado Compose; se actualiza SOLO en los
+        // mismos puntos de control de siempre (el buscador no lo dispara).
+        filtroBotonActivo = (filtroDistrito ?: filtroDepartamento) != null ||
             (filtroTipo != null) || (filtroHabitaciones != null) ||
             soloFavoritos || busquedaActual.isNotBlank()
-        binding.btnFiltroBuscar.imageTintList = ColorStateList.valueOf(
-            getColor(if (activo) R.color.alkil_primary else R.color.text_secondary)
-        )
     }
 
     /** Escucha en vivo los inmuebles guardados en Firestore (colecciÃ³n "propiedades"). */
@@ -883,7 +918,7 @@ fun llenar(sp: Spinner, opciones: List<String>) {
                 }
                 val lista = snap?.documents?.mapNotNull { Propiedad.desde(it) }
                     ?.filter { it.estado != "under_review" && it.estado != "finalizado" && it.estado != "pausada" } ?: emptyList()
-                adapter.submitList(lista)
+                store.submitList(lista)
                 actualizarBadges(lista)
                 cargarVerificacionPropietarios(lista)
                 actualizarEmptyState()
@@ -908,7 +943,7 @@ fun llenar(sp: Spinner, opciones: List<String>) {
                         mapa[uid] = badge || identidadVerificada
                     }
                     pendientes--
-                    if (pendientes <= 0) adapter.setPropietariosVerificados(mapa)
+                    if (pendientes <= 0) store.setPropietariosVerificados(mapa)
                 }
         }
     }
@@ -941,7 +976,7 @@ fun llenar(sp: Spinner, opciones: List<String>) {
             if (ultimaUbicacion != null) {
                 val zoom = mMap.cameraPosition.zoom
                 val radioKm = calcularRadioKmDesdeZoom(zoom)
-                adapter.setRadioMaximoKm(radioKm)
+                store.setRadioMaximoKm(radioKm)
             }
         }
     }
@@ -977,7 +1012,7 @@ fun llenar(sp: Spinner, opciones: List<String>) {
         if (!::mMap.isInitialized) return
         val bounds = mMap.projection.visibleRegion.latLngBounds
         val deseados = LinkedHashMap<String, Propiedad>()
-        adapter.todasParaMapa().forEach { p ->
+        store.todasParaMapa().forEach { p ->
             if (p.lat != 0.0 && p.lng != 0.0 && bounds.contains(p.ubicacion)) {
                 deseados[p.id] = p
             }
@@ -1135,9 +1170,8 @@ fun llenar(sp: Spinner, opciones: List<String>) {
         // Inicialmente el sheet estÃ¡ colapsado (peek 100dp); al deslizarlo,
         // onSlide() actualiza este padding en tiempo real.
         mMap.setOnMapLoadedCallback {
-            val topInset = binding.filaTop.measuredHeight + 16.dp
-            val bottomInset = 100.dp + 16.dp
-            mMap.setPadding(0, topInset, 0, bottomInset)
+            paddingMapaAbajo = 100.dp + 16.dp
+            aplicarPaddingMapa()
         }
 
         // InfoWindow estilo Booking con precio
@@ -1197,7 +1231,7 @@ configurarBadges()
     private fun propiedadDesdeMarcador(marker: Marker): Propiedad? {
         val id = marker.tag as? String ?: return null
         if (id.isBlank()) return null
-        return adapter.todasParaMapa().firstOrNull { it.id == id }
+        return store.todasParaMapa().firstOrNull { it.id == id }
     }
 
     /** Normaliza el tipo a 4 opciones: habitacion, departamento, casa u otros. */
@@ -1338,7 +1372,7 @@ configurarBadges()
 
         val aplicarUbicacion = { lat: Double, lng: Double ->
             ultimaUbicacion = LatLng(lat, lng)
-            adapter.setUbicacion(lat, lng)
+            store.setUbicacion(lat, lng)
             centrarEn(LatLng(lat, lng), true)
         }
 
@@ -1380,7 +1414,7 @@ configurarBadges()
             if (ultimaUbicacion != null) centrarEn(ultimaUbicacion!!, true)
             return
         }
-        val visibles = adapter.visibles().filter { it.lat != 0.0 || it.lng != 0.0 }
+        val visibles = store.visibles().filter { it.lat != 0.0 || it.lng != 0.0 }
         if (visibles.isEmpty()) {
             if (conMensaje) {
                 Toast.makeText(this, R.string.filtros_sin_resultados, Toast.LENGTH_LONG).show()
@@ -1513,9 +1547,11 @@ private fun limpiarMarcadores() {
         auth.signInWithEmailAndPassword(email, pass)
             .addOnCompleteListener { task ->
                 if (task.isSuccessful) {
-                    guardarUsuarioEnBase()
-                    actualizarUiSesion()
-                    Toast.makeText(this, R.string.auth_ok_login, Toast.LENGTH_SHORT).show()
+                    continuarSiCuentaActiva {
+                        guardarUsuarioEnBase()
+                        actualizarUiSesion()
+                        Toast.makeText(this, R.string.auth_ok_login, Toast.LENGTH_SHORT).show()
+                    }
                 } else {
                     Toast.makeText(
                         this,
@@ -1524,6 +1560,23 @@ private fun limpiarMarcadores() {
                     ).show()
                 }
             }
+    }
+
+    /**
+     * Consulta el estado de la cuenta y, si esta desactivada, cierra la sesion y
+     * avisa para que el usuario entre con otro. De lo contrario continua con
+     * [alContinuar].
+     */
+    private fun continuarSiCuentaActiva(alContinuar: () -> Unit) {
+        EstadoCuenta.consultarDesactivado { desactivado ->
+            if (!desactivado) {
+                alContinuar()
+                return@consultarDesactivado
+            }
+            EstadoCuenta.cerrarSesion()
+            actualizarUiSesion()
+            Toast.makeText(this, R.string.auth_cuenta_desactivada, Toast.LENGTH_LONG).show()
+        }
     }
 
     private fun registrarUsuario(email: String, pass: String) {
