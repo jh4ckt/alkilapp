@@ -14,6 +14,7 @@ const crypto = require('crypto');
 const { Firestore, FieldValue } = require('@google-cloud/firestore');
 const { expirarDestacados } = require('./expirar');
 const { cerrarChatsAcordados } = require('./cerrarChats');
+const metricas = require('./metricas');
 
 const PROJECT = 'gen-lang-client-0040505884';
 const DATABASE = 'alkilappdb';
@@ -69,6 +70,136 @@ const fecha = (v) => {
 };
 const mostrarCreado = (doc) => fecha(doc.createdAt || doc._creado);
 const ponerCreado = (d) => ({ id: d.id, ...d.data(), _creado: d.createTime ? d.createTime.toDate() : null });
+
+/**
+ * Dias (redondeados hacia arriba) que faltan para una fecha de caducidad.
+ * Devuelve null si no hay fecha (destacado sin vencimiento) para que el llamador
+ * pueda distinguir "sin plazo" de "0 dias restantes", que son cosas distintas:
+ * 0 dias significa que caduca hoy, null que no caduca.
+ */
+function diasRestantesDe(hasta) {
+    const d = fechaDate(hasta);
+    if (!d) return null;
+    return Math.max(0, Math.ceil((d.getTime() - Date.now()) / 86400000));
+}
+
+/** Normaliza un valor de Firestore (Timestamp, Date, string, null) a Date. */
+function fechaDate(v) {
+    if (!v) return null;
+    if (typeof v.toDate === 'function') return v.toDate();
+    const d = new Date(v);
+    return isNaN(d.getTime()) ? null : d;
+}
+
+// ---- Dimensiones de las publicaciones (KPIs y filtros) ----
+//
+// El precio se guarda como numero suelto (no como {moneda, monto}) y se mezclan
+// PEN y USD, asi que un alquiler de 300 USD caeria en el mismo tramo que uno de
+// 300 soles. Para que el ranking no mienta, el tramo se arma sobre el valor
+// normalizado a soles.
+const CAMBIOS_PEN = 3.75; // referencial, solo para agrupar: no se cobra con esto
+
+/** Precio en soles, para comparar rentedades entre monedas. */
+function precioEnSoles(p) {
+    const n = Number(p.precio);
+    if (!Number.isFinite(n)) return null;
+    return String(p.moneda || 'PEN').toUpperCase() === 'USD' ? n * CAMBIOS_PEN : n;
+}
+
+// Cortes redondos porque los alquileres se agrupan por patamar real; con tramos
+// estrechos salen vacios y el grafico queda con huecos.
+const TRAMOS_PRECIO = [
+    { id: 'economico', etiqueta: 'Hasta S/ 750', min: 0, max: 750 },
+    { id: 'medio', etiqueta: 'S/ 750 - 1,500', min: 750, max: 1500 },
+    { id: 'alto', etiqueta: 'S/ 1,500 - 3,000', min: 1500, max: 3000 },
+    { id: 'premium', etiqueta: 'S/ 3,000 a más', min: 3000, max: Infinity },
+];
+
+function tramoPrecio(p) {
+    const s = precioEnSoles(p);
+    if (s === null) return 'sin_precio';
+    const t = TRAMOS_PRECIO.find((x) => s >= x.min && s < x.max);
+    return t ? t.id : 'sin_precio';
+}
+
+// `publicado` y `activo` son alias historicos de `disponible` (ver
+// Property.estadoNormalizado en la app). Sin colapsarlos, la KPI contaria tres
+// veces lo mismo como si fueran categorias distintas.
+const ESTADO_CANONICO = {
+    publicado: 'disponible', activo: 'disponible', disponible: 'disponible',
+    under_review: 'en_revision', pendiente: 'en_revision',
+    pausada: 'pausada', finalizado: 'finalizado', rechazada: 'rechazada',
+};
+function estadoCanonico(e) {
+    return ESTADO_CANONICO[String(e || '').toLowerCase()] || 'otro';
+}
+
+const ETIQUETA_ESTADO = {
+    disponible: 'Disponible', en_revision: 'En revisión', pausada: 'Pausada',
+    finalizado: 'Finalizado', rechazada: 'Rechazada', otro: 'Otro', sin_dato: 'Sin estado',
+};
+const ETIQUETA_TRAMO = {
+    economico: TRAMOS_PRECIO[0].etiqueta, medio: TRAMOS_PRECIO[1].etiqueta,
+    alto: TRAMOS_PRECIO[2].etiqueta, premium: TRAMOS_PRECIO[3].etiqueta,
+    sin_precio: 'Sin precio',
+};
+
+/**
+ * Cuenta publicaciones por una dimension. Ordena por cantidad descendente (que
+ * es como se lee un ranking) y agrupa el valor sin dato al final en vez de
+ * descartarlo en silencio, que es lo que hacia que las KPIs no cuadraran con el
+ * total de publicaciones.
+ *
+ * Devuelve YA la etiqueta resuelta, porque tanto las KPIs como los <select> de
+ * filtro consumen esta misma lista: si cada uno|tradujera el codigo por su
+ * cuenta, el filtro y el grafico podrian acabar mostrando nombres distintos.
+ *
+ * @param {Array<object>} pubs documentos ya aplanados (con ponerCreado)
+ * @param {(p:object)=>string|null} valorDe extractor de la dimension
+ * @param {string} dim nombre de la dimension, para elegir el mapa de etiquetas
+ */
+function conteoPor(pubs, valorDe, dim) {
+    const mapa = new Map();
+    for (const p of pubs) {
+        const v = valorDe(p);
+        const clave = (v === null || v === undefined || v === '') ? 'sin_dato' : String(v);
+        mapa.set(clave, (mapa.get(clave) || 0) + 1);
+    }
+    // `valor` es un alias de `clave`: el mismo objeto se consume en el grafico
+    // de KPIs (que habla de "clave") y en los <select> de filtro (que necesitan
+    // "valor" y "etiqueta"). Emitir las dos evita que un consumidor tenga que
+    // renombrar por su cuenta y acabe leyendo undefined.
+    return [...mapa.entries()]
+        .map(([clave, total]) => ({ clave, valor: clave, etiqueta: etiquetaDe(dim, clave), total }))
+        .sort((a, b) => (b.total - a.total) || a.clave.localeCompare(b.clave, 'es'));
+}
+
+/** Todas las dimensiones de golpe, sobre el MISMO conjunto de documentos. */
+function distribuciones(pubs) {
+    return {
+        departamento: conteoPor(pubs, (p) => p.departamento, 'departamento'),
+        ciudad: conteoPor(pubs, (p) => p.ciudad, 'ciudad'),
+        distrito: conteoPor(pubs, (p) => p.distrito, 'distrito'),
+        barrio: conteoPor(pubs, (p) => p.barrio, 'barrio'),
+        tipo: conteoPor(pubs, (p) => p.tipo, 'tipo'),
+        operacion: conteoPor(pubs, (p) => p.operacion, 'operacion'),
+        estado: conteoPor(pubs, (p) => estadoCanonico(p.estado), 'estado'),
+        moneda: conteoPor(pubs, (p) => (p.moneda ? String(p.moneda).toUpperCase() : null), 'moneda'),
+        tramoPrecio: conteoPor(pubs, (p) => tramoPrecio(p), 'tramoPrecio'),
+    };
+}
+
+/**
+ * Etiqueta lista para pintar, sin que el front tenga que conocer los mapas.
+ * Las claves internas ('en_revision', 'economico') se traducen una sola vez,
+ * aqui, en vez de duplicar el diccionario en cada componente.
+ */
+function etiquetaDe(dim, clave) {
+    if (dim === 'estado') return ETIQUETA_ESTADO[clave] || clave;
+    if (dim === 'tramoPrecio') return ETIQUETA_TRAMO[clave] || clave;
+    if (clave === 'sin_dato') return 'Sin dato';
+    return clave;
+}
 
 // Color del pill segun el estado real de la publicacion:
 // en revision = amarillo, publicado/disponible = verde, finalizado = gris.
@@ -271,6 +402,11 @@ async function handleAPI(req, res, url) {
             if (ruta === '/api/usuarios') return json(res, 200, await getUsuarios(url));
             if (ruta === '/api/stats') return json(res, 200, await getStats(url));
             if (ruta === '/api/soporte') return json(res, 200, await getSoporte(url));
+            // Metricas de negocio y calidad. Va aparte de /api/resumen a proposito:
+            // este lee las subcolecciones de mensajes de los chats para medir la
+            // respuesta del dueno, y eso son N lecturas mas que no tiene sentido
+            // pagar en cada recarga del dashboard.
+            if (ruta === '/api/metricas') return json(res, 200, await getMetricas());
         }
 
         // PATCH routes
@@ -431,24 +567,196 @@ function json(res, status, data) {
 }
 
 // ---- API Logic ----
+
+/**
+ * Offset de una zona horaria, en ms, para una fecha dada.
+ * Intl devuelve la hora de pared de esa zona; si se la interpreta como UTC, la
+ * diferencia con el instante real es exactamente el offset.
+ *
+ * La fecha se trunca a segundos ANTES de restar porque Intl no entrega
+ * milisegundos: sin ese redondeo el calculo arrastra el remanente de ms de
+ * Date.now() y el resultado se va 1 segundo, que es justo lo que rompe un
+ * corte de dia (un registro de las 00:00:30 queda fuera).
+ */
+function offsetZona(timeZone, fecha) {
+    const p = new Intl.DateTimeFormat('en-CA', {
+        timeZone, year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
+    }).formatToParts(fecha);
+    const g = (t) => Number(p.find((x) => x.type === t).value);
+    const comoUtc = Date.UTC(g('year'), g('month') - 1, g('day'), g('hour'), g('minute'), g('second'));
+    return comoUtc - Math.floor(fecha.getTime() / 1000) * 1000;
+}
+
+/**
+ * Inicio del dia CALENDARICO en America/Lima, devuelto como instante UTC.
+ *
+ * No se puede usar un Date() pelado: el servidor corre en UTC, asi que
+ * "hoy 00:00" ahi es las 19:00 del dia anterior en Lima y cualquier registro
+ * de la tarde quedaria fuera del rango (el contador marcaba 0).
+ */
+function inicioHoyLima() {
+    const ahora = new Date();
+    const y = new Date(ahora.getTime() + offsetZona('America/Lima', ahora));
+    return new Date(Date.UTC(y.getUTCFullYear(), y.getUTCMonth(), y.getUTCDate()) - offsetZona('America/Lima', ahora));
+}
+
 async function getResumen() {
-    const [prop, verif, rep, usr, sop] = await Promise.all([
+    const inicioHoy = inicioHoyLima();
+    const ahora = new Date();
+    const hace7dias = new Date(ahora.getTime() - 7 * 864e5);
+    const hace24h = new Date(ahora.getTime() - 24 * 3600 * 1000);
+
+    const [prop, verif, rep, usr, sop,
+        propsHoy, usrHoy, verifHoy, repHoy, sopHoy,
+        props7d, usr7d, todasProps,
+        destacados, verificados, activas, pausada, revision, finalizada,
+        chats24h, pendVerif, pendRep, pendSop] = await Promise.all([
         db.collection('propiedades').count().get(),
         db.collection('verificaciones').count().get(),
         db.collection('reports').count().get(),
         db.collection('usuarios').count().get(),
         db.collection('soporte').count().get(),
+        // "Hoy" reutiliza documentosEnRango: el campo de fecha NO es el mismo en
+        // todas las colecciones (usuarios=fechaRegistro, propiedades=publicadoEn,
+        // verificaciones=createdAt). Buscar siempre 'createdAt' devolvia 0 en
+        // dos de las cinco, que es justo lo que se veia en el dashboard.
+        documentosEnRango('propiedades', inicioHoy),
+        documentosEnRango('usuarios', inicioHoy),
+        documentosEnRango('verificaciones', inicioHoy),
+        documentosEnRango('reports', inicioHoy),
+        documentosEnRango('soporte', inicioHoy),
+        documentosEnRango('propiedades', hace7dias),
+        documentosEnRango('usuarios', hace7dias),
+        // Un unico recorrido para TODAS las dimensiones (departamento, ciudad,
+        // tipo, operacion, estado, moneda, tramo de precio). Antes cada KPI
+        // habria ido con su propia query; ademas este set es el mismo que
+        // consulta el filtro de Publicaciones, asi que el "% del total" que se
+        // ve en el grafico siempre cuadra con lo que hay en la base.
+        db.collection('propiedades').get(),
+        db.collection('propiedades').where('isFeatured', '==', true).limit(500).get(),
+        db.collection('usuarios').where('verificationBadge', '==', true).count().get(),
+        contarPorAlias('propiedades', ['disponible', 'publicado', 'activo']),
+        contarPorAlias('propiedades', ['pausada']),
+        contarPorAlias('propiedades', ['under_review', 'pendiente']),
+        contarPorAlias('propiedades', ['finalizado']),
+        db.collection('chats').where('lastMessageAt', '>=', hace24h).count().get(),
+        db.collection('verificaciones').where('estado', '==', 'pendiente').count().get(),
+        db.collection('reports').where('estado', '==', 'pendiente').count().get(),
+        db.collection('soporte').where('estado', '==', 'pendiente').count().get(),
     ]);
-    const pendVerif = (await db.collection('verificaciones').where('estado', '==', 'pendiente').get()).size;
-    const pendPub = (await db.collection('propiedades').where('estado', '==', 'under_review').get()).size;
-    const pendRep = (await db.collection('reports').where('estado', '==', 'pendiente').get()).size;
-    const pendSop = (await db.collection('soporte').where('estado', '==', 'pendiente').get()).size;
+
+    const destacadasActivas = destacados.docs.filter((d) => {
+        const fu = d.get('featuredUntil');
+        if (!fu) return false;
+        const f = (typeof fu.toDate === 'function') ? fu.toDate() : new Date(fu);
+        return !isNaN(f) && f > ahora;
+    }).length;
+
     return {
-        propiedades: { total: prop.data().count, pendientes: pendPub },
-        verificaciones: { total: verif.data().count, pendientes: pendVerif },
-        reportes: { total: rep.data().count, pendientes: pendRep },
-        usuarios: { total: usr.data().count },
-        soporte: { total: sop.data().count, pendientes: pendSop },
+        propiedades: {
+            total: prop.data().count,
+            pendientes: revision,
+            nuevosHoy: propsHoy.length,
+            nuevosSemana: props7d.length,
+            activas,
+            destacadasActivas,
+            pausadas: pausada,
+            finalizadas: finalizada,
+        },
+        verificaciones: {
+            total: verif.data().count,
+            pendientes: pendVerif.data().count,
+            nuevosHoy: verifHoy.length,
+        },
+        reportes: {
+            total: rep.data().count,
+            pendientes: pendRep.data().count,
+            nuevosHoy: repHoy.length,
+        },
+        usuarios: {
+            total: usr.data().count,
+            nuevosHoy: usrHoy.length,
+            nuevosSemana: usr7d.length,
+            verificados: verificados.data().count,
+        },
+        soporte: {
+            total: sop.data().count,
+            pendientes: pendSop.data().count,
+            nuevosHoy: sopHoy.length,
+        },
+        // Contexto de mercado: no son "totales" pero contestan lo que el
+        // dashboard no podia (chats con movimiento en 24h).
+        chats24h: chats24h.data().count,
+        // Reparto de las publicaciones por cada dimension. Las consume el panel
+        // de KPIs del dashboard y, a la vez, los <select> de filtro de
+        // Publicaciones: se ofrecen solo los valores que existen de verdad.
+        distribuciones: distribuciones(todasProps.docs.map((d) => ({ id: d.id, ...d.data() }))),
+        // Se devuelve el corte usado para que se pueda verificar que "hoy"
+        // significa el dia de Lima y no el de UTC.
+        hoyLima: inicioHoy.toISOString(),
+    };
+}
+
+/**
+ * Métricas de negocio y calidad (backend/admin/metricas.js).
+ *
+ * Todo se deriva de documentos que ya existen. La parte cara es leer los
+ * mensajes de los chats (una lectura por chat) para medir cuánto tarda el dueño
+ * en contestar, por eso va en un endpoint aparte y no dentro de /api/resumen.
+ *
+ * Tope de 300 chats: más allá la métrica deja de ser accionable (si hay 5.000
+ * chats sin responder, el problema no es un número exacto) y el coste de leer
+ * todos los mensajes en cada carga del panel ya no se justifica.
+ */
+async function getMetricas() {
+    const [propSnap, verifSnap, repSnap, sopSnap, chatSnap, evSnap] = await Promise.all([
+        db.collection('propiedades').limit(500).get(),
+        db.collection('verificaciones').limit(500).get(),
+        db.collection('reports').limit(500).get(),
+        db.collection('soporte').limit(500).get(),
+        db.collection('chats').limit(300).get(),
+        db.collection('eventos').limit(2000).get(),
+    ]);
+
+    const props = propSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    const verifs = verifSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    const reps = repSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    const sops = sopSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    const chats = chatSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+
+    // Dueño de cada inmueble, para saber a quién hay que medirle la respuesta.
+    const duenosPorListing = new Map(props.map((p) => [p.id, p.idPropietario || null]));
+
+    // Mensajes de todos los chats, en paralelo y acotado: los chats sin
+    // mensajes no aportan nada y este paso solo gastaria una lectura.
+    const mensajesPorChat = new Map();
+    const chatsConHistorial = chats.filter((c) => Array.isArray(c.lastMessageAt) || c.lastMessageAt);
+    await Promise.all(chatsConHistorial.map(async (c) => {
+        try {
+            const ms = await db.collection('chats').doc(c.id).collection('messages').limit(200).get();
+            if (ms.size) mensajesPorChat.set(c.id, ms.docs.map((d) => d.data()));
+        } catch (e) {
+            // Un chat corrupto no puede tumbar el panel entero.
+            mensajesPorChat.set(c.id, []);
+        }
+    }));
+
+    const eventos = evSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    const ahora = Date.now();
+
+    return {
+        generadoEn: new Date().toISOString(),
+        operacion: {
+            verificaciones: metricas.resumenCola(verifs, 'createdAt', 'revisadoEn', 'pendiente', 'aprobado'),
+            reportes: metricas.resumenCola(reps, 'createdAt', 'resueltoEn', 'pendiente', 'resuelto'),
+            soporte: metricas.resumenCola(sops, 'fechaCreacion', 'fechaActualizacion', 'pendiente', 'resuelto'),
+        },
+        respuesta: metricas.resumenRespuesta(chats, mensajesPorChat, duenosPorListing),
+        ingresos: metricas.resumenIngresos(props, ahora),
+        precios: metricas.resumenPrecios(props),
+        calidad: metricas.resumenCalidad(props),
+        funnel: metricas.resumenFunnel(eventos),
     };
 }
 
@@ -477,6 +785,16 @@ async function getPublicaciones(url) {
     const q = (url.searchParams.get('q') || '').toLowerCase();
     const estado = url.searchParams.get('estado') || '';
     const destacado = url.searchParams.get('destacado') || '';
+    // Filtros por dimension. Cada uno es opcional y se compara contra el MISMO
+    // valor que usa la KPI del dashboard, para que al filtrar el conteo que
+    // muestra el grafico sea el de la tabla, y no dos cuentas distintas.
+    const departamento = url.searchParams.get('departamento') || '';
+    const ciudad = url.searchParams.get('ciudad') || '';
+    const distrito = url.searchParams.get('distrito') || '';
+    const tipo = url.searchParams.get('tipo') || '';
+    const operacion = url.searchParams.get('operacion') || '';
+    const moneda = url.searchParams.get('moneda') || '';
+    const tramo = url.searchParams.get('tramoPrecio') || '';
     const page = parseInt(url.searchParams.get('page') || '1');
     const limit = parseInt(url.searchParams.get('limit') || '20');
     const snap = await db.collection('propiedades').limit(500).get();
@@ -509,7 +827,12 @@ async function getPublicaciones(url) {
             (p.direccion && p.direccion.toLowerCase().includes(q)) ||
             (p.barrio && p.barrio.toLowerCase().includes(q)) ||
             (p.idPropietario && p.idPropietario.toLowerCase().includes(q)))
-        .filter((p) => !estado || (p.estado || 'disponible') === estado)
+        // `estado` pasa por estadoCanonico y no por comparacion cruda: la app
+        // escribe indistintamente "publicado", "disponible" o "activo" para lo
+        // mismo (Property.estadoNormalizado), asi que comparar el texto crudo
+        // dejaba registros fuera del filtro que el panel si mostra como
+        // disponibles.
+        .filter((p) => !estado || estadoCanonico(p.estado || 'disponible') === estado)
         .filter((p) => {
             if (!destacado) return true;
             const pedirSi = destacado === 'si' || destacado === 'true';
@@ -517,6 +840,18 @@ async function getPublicaciones(url) {
             if (pedirNo) return p.isFeatured !== true;
             return p.isFeatured === true;
         })
+        // Dimensiones. Cada comparacion usa el MISMO extractor que la KPI del
+        // dashboard (estadoCanonico / tramoPrecio / los campos directos), para
+        // que el conteo del grafico y el de la tabla nunca discrepen. `sin_dato`
+        // es un valor filtrable de primera clase: si no, no habria forma de
+        // encontrar las publicaciones sin departamento.
+        .filter((p) => !departamento || (p.departamento || 'sin_dato') === departamento)
+        .filter((p) => !ciudad || (p.ciudad || 'sin_dato') === ciudad)
+        .filter((p) => !distrito || (p.distrito || 'sin_dato') === distrito)
+        .filter((p) => !tipo || (p.tipo || 'sin_dato') === tipo)
+        .filter((p) => !operacion || (p.operacion || 'sin_dato') === operacion)
+        .filter((p) => !moneda || (String(p.moneda || '').toUpperCase() || 'sin_dato') === moneda)
+        .filter((p) => !tramo || tramoPrecio(p) === tramo)
         .sort((a, b) => (mostrarCreado(b) > mostrarCreado(a) ? 1 : -1));
     
     const total = docs.length;
@@ -525,6 +860,16 @@ async function getPublicaciones(url) {
     return { data: docs.map(p => {
         const ownerName = p.idPropietario ? propietariosMap.get(p.idPropietario) || 'Propietario sin nombre' : 'Sin propietario';
         const destacadoTipo = p.isFeatured && p.destacadoDias ? `destacado_${p.destacadoDias}d` : null;
+        // Dias que quedan de un destacado, calculados AHORA desde featuredUntil.
+        //
+        // Antes se mostraba el campo `destacadoDiasRestantes`, que es una copia
+        // desnormalizada que solo escribe el cron diario (backend/admin/expirar.js).
+        // Como corre una vez al dia, la columna se quedaba congelada: el contador
+        // no bajaba hasta que pasaba el cron, y se veía "20 dias restantes" con 19
+        // reales. featuredUntil es la unica fuente de verdad (tampoco depende del
+        // cron para nada). Math.ceil y no floor para que un destacado de 30 dias
+        // muestre 30 el primer dia y 1 el ultimo, sin llegar a 0 antes de tiempo.
+        const restante = p.isFeatured ? diasRestantesDe(p.featuredUntil) : null;
         // Las fotos NO viajan en el listado: son base64 de ~100KB cada una y
         // con 5 filas la respuesta pasaba de 1MB. Solo se manda cuantos hay,
         // para que la fila pueda avisar "3 fotos" y la vista previa las pida
@@ -538,15 +883,31 @@ async function getPublicaciones(url) {
             tipoInmueble: p.tipo || 'departamento',
             estado: p.estado || 'disponible',
             pill: pillEstado(p.estado),
+            // `estado` va tal cual esta en Firestore (la app lo escribe de
+            // varias formas: "publicado", "disponible", "activo"...) y
+            // `estadoCanonico` es el valor ya colapsado con el que se filtra y
+            // se cuentan las KPIs. El <select> de la fila necesita el crudo para
+            // poder guardar el cambio; el filtro, el canonico.
+            estadoCanonico: estadoCanonico(p.estado || 'disponible'),
             creado: mostrarCreado(p),
             totalFotos: (Array.isArray(fotos) ? fotos.length : 0) || (Array.isArray(imagenUrl) ? imagenUrl.length : 0),
             destacadoInfo: p.isFeatured ? {
-                dias: p.destacadoDiasRestantes,
+                // `dias` es el plazo que se compro (30), no lo que queda: la
+                // fila los muestra como dos datos distintos.
+                dias: p.destacadoDias || null,
                 vence: fecha(p.featuredUntil),
                 tipo: destacadoTipo,
+                diasRestantes: restante,
+                vencido: restante !== null && restante <= 0,
             } : null,
         };
-    }), total, page, limit, totalPages: Math.ceil(total / limit) };
+    }), total, page, limit, totalPages: Math.ceil(total / limit),
+        // Valores disponibles para cada filtro, calculados sobre TODAS las
+        // publicaciones y no sobre el subconjunto ya filtrado: si se calcularan
+        // sobre el resultado, al elegir un valor las demas opciones
+        // desaparecerian y no habria forma de volver atras sin pulsar Limpiar.
+        opciones: distribuciones(propiedadesRaw),
+    };
 }
 
 // Detalle completo de una publicacion, incluidas las fotos, para la vista
@@ -619,7 +980,8 @@ async function getPublicacionDetalle(id) {
             pill: pillEstado(p.estado),
             isFeatured: p.isFeatured === true,
             destacadoDias: p.destacadoDias ?? null,
-            destacadoDiasRestantes: p.destacadoDiasRestantes ?? null,
+            // Calculado en vivo, no el campo almacenado (ver diasRestantesDe).
+            destacadoDiasRestantes: p.isFeatured ? diasRestantesDe(p.featuredUntil) : null,
             publicadoEn: fecha(p.publicadoEn),
             creado: mostrarCreado(p),
             estadoCambiadoAdmin: p.estadoCambiadoAdmin === true,
@@ -793,9 +1155,16 @@ function seriePorTramos(docs, campos, tramos) {
 // Campo de fecha de cada coleccion. No es el mismo en todas: los usuarios se
 // registran con 'fechaRegistro' y las publicaciones con 'publicadoEn'; solo
 // verificaciones usan 'createdAt'. Se listan en orden de preferencia.
+//
+// reports y soporte los escriben distintos puntos de la app (el ticket de
+// soporte desde el movil, la denuncia desde la ficha del inmueble), asi que se
+// prueban los dos nombres en vez de asumir uno.
 const CAMPOS_FECHA = {
     usuarios: ['fechaRegistro', 'createdAt'],
     propiedades: ['publicadoEn', 'createdAt'],
+    verificaciones: ['createdAt'],
+    reports: ['createdAt', 'fechaRegistro', 'reportadoEn'],
+    soporte: ['createdAt', 'fechaCreacion', 'fechaRegistro'],
 };
 
 // Documentos "creados" dentro del rango. Firestore no tiene OR entre campos, asi

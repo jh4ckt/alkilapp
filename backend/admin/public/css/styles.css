@@ -63,11 +63,121 @@
   --z-modal: 500;
   --z-toast: 600;
   --z-tooltip: 700;
+
+  /* Alias de compatibilidad ---------------------------------------------------
+     El JS estiliza con estos nombres, que NO son los de arriba: --card-bg en
+     vez de --card, --border-color en vez de --border, --text-color en vez de
+     --text... Todos se escriben como var(--alias, valor-fijo), asi que mientras
+     el alias no existia el navegador usaba el valor fijo y el tema no llegaba a
+     aplicarse (217 usos). Se definen aqui, en :root, con los MISMOS valores que
+     el JS ya usaba para que la vista clara no cambie ni un pixel. El tema
+     oscuro los sobreescribe en html[data-theme="dark"].
+
+     Estan en :root (y no solo dentro de los selectores data-theme) para que
+     existan siempre: si JS todavia no ha fijado data-theme, el token sigue
+     definido y no se cae al valor fijo. */
+  --primary-color: #0B2447;
+  --bg-color: #F8FAFC;
+  --bg-surface-secondary: #F1F5F9;
+  --card-bg: #FFFFFF;
+  --text-color: #0F172A;
+  --text-soft: #64748B;
+  --border-color: #E2E8F0;
+  --border-strong-color: #CBD5E1;
+  --table-header-bg: #F8FAFC;
+
+  /* Tintes de estado: fondo / borde / color de texto. */
+  --success-bg: #ECFDF5;   --success-border: #A7F3D0;   --success-strong: #047857;
+  --warning-bg: #FFFBEB;   --warning-border: #FDE68A;   --warning-strong: #B45309;
+  --danger-bg: #FEE2E2;    --danger-border: #FECACA;    --danger-strong: #DC2626;
+  --info-bg: #F0F9FF;      --info-border: #BAE6FD;      --info-strong: #0369A1;
+  --gold-bg: #FBF1D6;      --gold-border: #D4A017;
+  --overlay: rgba(15, 23, 42, .45);
 }
 
-/* Dark mode */
+/* =========================================================================
+   TEMA CLARO / OSCURO
+   =========================================================================
+   POR QUE ESTA ESCRITO ASI
+   Los valores oscuros viven en `html[data-theme="dark"]` y NO dentro de un
+   `@media (prefers-color-scheme: dark)`. Antes estaban en el media query y los
+   selectores data-theme estaban vacios, con lo que el boton de tema (que ya
+   existed y funcionaba) no cambiaba NADA: pulsar "oscuro" con el sistema en
+   claro no aplicaba ningun valor, y pulsar "claro" con el sistema en oscuro
+   se quedaba oscuro. El toggle era un no-op.
+
+   Ademas, los componentes usan nombres de token que no existian
+   (--card-bg, --border-color, --text-color...), todos ellos escritos como
+   var(--token, valor-fijo). Como el token no existia, el navegador usaba
+   siempre el valor fijo y el sistema de diseno no llegaba a aplicarse: 217
+   usos. Los alias de abajo son esos tokens que faltaban; sus valores claros
+   son EXACTAMENTE los que el codigo ya usaba, asi que la vista clara no cambia
+   ni un pixel, y en oscuro ahora si funciona.
+
+   La preferencia del sistema se aplica solo cuando JS no ha dicho nada todavia
+   (data-theme ausente), para el primer pintado sin parpadeo. */
+html[data-theme="dark"] {
+  --primary: #F1F5F9;
+  --primary-dark: #F8FAFC;
+  --primary-light: #E2E8F0;
+  --accent: #FF6B5E;
+  --accent-hover: #FF8A80;
+  --accent-light: #3D1A18;
+  --gold: #FBBF24;
+  --gold-light: #3D2D08;
+  --success: #4ADE80;
+  --success-light: #062E1C;
+  --warning: #FBBF24;
+  --warning-light: #3D2D08;
+  --danger: #F87171;
+  --danger-light: #3D1A18;
+  --bg: #0B2447;
+  --bg-secondary: #16233D;
+  --card: #24334C;
+  --card-hover: #2C3D59;
+  --border: #3A4A66;
+  --border-strong: #4C5F80;
+  --text: #F1F5F9;
+  --text-secondary: #CBD5E1;
+  --text-muted: #94A3B8;
+  --text-inverse: #0B2447;
+
+  /* Alias que los componentes ya usaban (valores identical a los claros) */
+  --primary-color: #F1F5F9;
+  --bg-color: #0B2447;
+  --bg-surface-secondary: #16233D;
+  --card-bg: #24334C;
+  --text-color: #F1F5F9;
+  --text-soft: #94A3B8;
+  --border-color: #334155;
+  --border-strong-color: #475569;
+  --table-header-bg: #16233D;
+
+  /* Tintes de estado: en oscuro los fondos son oscuros y el texto claro, para
+     no tener texto claro sobre un fondo casi blanco. */
+  --success-bg: #062E1C;   --success-border: #14532D;   --success-strong: #4ADE80;
+  --warning-bg: #3D2D08;   --warning-border: #78350F;   --warning-strong: #FBBF24;
+  --danger-bg: #3D1A18;    --danger-border: #7F1D1D;    --danger-strong: #F87171;
+  --info-bg: #0C2A47;      --info-border: #1E3A5F;      --info-strong: #7DD3FC;
+  --gold-bg: #3D2D08;      --gold-border: #78350F;
+
+  /* Bordes y superficies que en claro son casi blancos: en oscuro bajan un
+     punto para que la tarjeta se separe del fondo sin una linea dura. */
+  --overlay: rgba(11, 36, 71, .72);
+  --shadow-xs: 0 1px 2px rgba(0,0,0,.3);
+  --shadow-sm: 0 1px 3px rgba(0,0,0,.35);
+  --shadow-md: 0 4px 12px rgba(0,0,0,.4);
+  --shadow-lg: 0 10px 32px rgba(0,0,0,.45);
+  --shadow-xl: 0 20px 48px rgba(0,0,0,.5);
+
+  color-scheme: dark;
+}
+
+/* Preferencia del sistema SOLO mientras JS no haya fijado un tema: asi el
+   primer pintado ya sale en oscuro sin destello. Si el usuario elige, manda
+   data-theme. */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme]) {
     --primary: #F1F5F9;
     --primary-dark: #F8FAFC;
     --primary-light: #E2E8F0;
@@ -84,20 +194,81 @@
     --danger-light: #3D1A18;
     --bg: #0B2447;
     --bg-secondary: #1E293B;
-    --card: #1E293B;
-    --card-hover: #25334A;
-    --border: #334155;
-    --border-strong: #475569;
+    --card: #24334C;
+    --card-hover: #2C3D59;
+    --border: #3A4A66;
+    --border-strong: #4C5F80;
     --text: #F1F5F9;
     --text-secondary: #CBD5E1;
     --text-muted: #94A3B8;
     --text-inverse: #0B2447;
+    --primary-color: #F1F5F9;
+    --bg-color: #0B2447;
+    --bg-surface-secondary: #16233D;
+    --card-bg: #24334C;
+    --text-color: #F1F5F9;
+    --text-soft: #94A3B8;
+    --border-color: #334155;
+    --border-strong-color: #475569;
+    --table-header-bg: #16233D;
+    --success-bg: #062E1C;   --success-border: #14532D;   --success-strong: #4ADE80;
+    --warning-bg: #3D2D08;   --warning-border: #78350F;   --warning-strong: #FBBF24;
+    --danger-bg: #3D1A18;    --danger-border: #7F1D1D;    --danger-strong: #F87171;
+    --info-bg: #0C2A47;      --info-border: #1E3A5F;      --info-strong: #7DD3FC;
+    --gold-bg: #3D2D08;      --gold-border: #78350F;
+    --overlay: rgba(11, 36, 71, .72);
+    color-scheme: dark;
   }
 }
 
-/* Theme override via class */
-html[data-theme="light"] { /* light mode defaults */ }
-html[data-theme="dark"] { /* dark mode - same as prefers-color-scheme dark */ }
+/* Modo claro explicito: fija los mismos alias para que el toggle sea
+   reversible sin depender de lo que el sistema tenga puesto. */
+html[data-theme="light"] {
+  --primary: #0B2447;
+  --primary-dark: #081A36;
+  --primary-light: #1E3A5F;
+  --accent: #FF6B5E;
+  --accent-hover: #E85D4D;
+  --accent-light: #FFF3F2;
+  --gold: #D4A017;
+  --gold-light: #FBF1D6;
+  --success: #3AA37B;
+  --success-light: #DCFCE7;
+  --warning: #F59E0B;
+  --warning-light: #FEF3C7;
+  --danger: #DC2626;
+  --danger-light: #FEE2E2;
+  --bg: #F8FAFC;
+  --bg-secondary: #F1F5F9;
+  --card: #FFFFFF;
+  --card-hover: #FAFBFC;
+  --border: #E2E8F0;
+  --border-strong: #CBD5E1;
+  --text: #0F172A;
+  --text-secondary: #475569;
+  --text-muted: #94A3B8;
+  --text-inverse: #FFFFFF;
+
+  --primary-color: #0B2447;
+  --bg-color: #F8FAFC;
+  --bg-surface-secondary: #F1F5F9;
+  --card-bg: #FFFFFF;
+  --text-color: #0F172A;
+  --text-soft: #64748B;
+  --border-color: #E2E8F0;
+  --border-strong-color: #CBD5E1;
+  --table-header-bg: #F8FAFC;
+
+  /* Tintes de estado: los mismos que venia usando el JS a mano, para no cambiar
+     ni un color de la vista clara. */
+  --success-bg: #ECFDF5;   --success-border: #A7F3D0;   --success-strong: #047857;
+  --warning-bg: #FFFBEB;   --warning-border: #FDE68A;   --warning-strong: #B45309;
+  --danger-bg: #FEE2E2;    --danger-border: #FECACA;    --danger-strong: #DC2626;
+  --info-bg: #F0F9FF;      --info-border: #BAE6FD;      --info-strong: #0369A1;
+  --gold-bg: #FBF1D6;      --gold-border: #D4A017;
+  --overlay: rgba(15, 23, 42, .45);
+  color-scheme: light;
+}
 
 /* ==========================================================================
    Reset & Base
@@ -428,3 +599,99 @@ html[data-theme="dark"] .icon-btn .icon-moon { display: block; }
    onmouseover/onmouseout inline, que la CSP (`script-src 'self'`) bloquea. */
 .table-row-hover { transition: background-color 0.15s ease; }
 .table-row-hover:hover { background-color: var(--bg-secondary); }
+/* ==========================================================================
+   CAPA DE PULIDO
+   ==========================================================================
+   Anadida al final a proposito: estas reglas ganan a las anteriores cuando
+   empatan en especificidad, y asi se leen juntas. Todo lo de aqui es
+   presentacion: no cambia datos ni comportamiento.
+
+   Foco visible: sin esto, quien navega con teclado no sabe donde esta. Se usa
+   :focus-visible (y no :focus) para que el anillo NO aparezca al hacer clic con
+   el raton.
+   ========================================================================== */
+:where(a, button, input, select, textarea, [tabindex]:not([tabindex="-1"])):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-xs);
+}
+
+/* Si la persona pidio menos movimiento, no se anima nada. Respetar esto es la
+   diferencia entre un panel comodo y uno que marea. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Barra de filtros: con la busqueda mas seis filtros por dimension, en una
+   sola fila se sale de la pantalla. A media anchura pasa a rejilla. */
+@media (max-width: 1280px) {
+  .filters-bar {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 0.875rem !important;
+    align-items: end !important;
+  }
+  .filters-bar .filter-group { min-width: 0 !important; }
+  .filters-bar .filter-actions {
+    grid-column: 1 / -1;
+    display: flex;
+    justify-content: flex-end;
+  }
+}
+
+@media (max-width: 860px) {
+  .filters-bar { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)) !important; }
+  .filters-bar .filter-group:first-child { grid-column: 1 / -1; }
+  .page-header { flex-direction: column; align-items: flex-start !important; }
+  .page-actions { width: 100%; }
+  .page-actions .btn { width: 100%; justify-content: center; }
+  .page-content { padding: 1rem !important; }
+}
+
+/* Rejilla de metricas: con 240px de minimo, en tablet se salia de la pantalla. */
+@media (max-width: 1100px) {
+  .stats-grid { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)) !important; }
+}
+
+@media (max-width: 640px) {
+  .stats-grid { grid-template-columns: 1fr 1fr !important; gap: 0.75rem !important; }
+  .stat-card { flex-direction: column; align-items: flex-start !important; gap: 0.75rem !important; }
+  .card-header, .card-body { padding: 1rem !important; }
+  .modal-body { padding: 1rem !important; }
+}
+
+/* Tablas: la cabecera se queda fija al hacer scroll vertical y la tabla no
+   arrastra la pagina entera en horizontal, solo su propio contenedor. */
+.table-responsive {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+}
+.table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--table-header-bg);
+}
+
+/* Cifras en columna: dinero y contadores se leen mucho mejor alineados que
+   centrados o pegados a la izquierda. */
+.table .num, .table td[style*="tabular-nums"] { font-variant-numeric: tabular-nums; }
+
+/* En oscuro las sombras casi no se ven, asi que se compensa con un borde mas
+   presente para que las tarjetas no se fundan con el fondo. */
+html[data-theme="dark"] .card { box-shadow: var(--shadow-sm); }
+html[data-theme="dark"] .table-row-hover:hover { background: var(--card-hover); }
+html[data-theme="dark"] .topbar { background: rgba(22, 35, 61, .88); }
+html[data-theme="dark"] .sidebar { background: #081A36; }
+
+/* Scrollbar discreta: visible pero sin robar protagonismo. */
+* { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 999px; border: 3px solid var(--bg); }
+::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }

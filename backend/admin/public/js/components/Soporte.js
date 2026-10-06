@@ -65,7 +65,7 @@ export default class Soporte {
           <label class="filter-label" style="display: block; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted, #64748b); margin-bottom: 0.375rem;">Buscar ticket</label>
           <div style="position: relative;">
             <input type="search" id="searchInput" class="form-input" placeholder="Asunto, mensaje, correo, usuario..." value="${this.filters.q}" style="width: 100%; padding: 0.5rem 0.75rem 0.5rem 2.25rem; border: 1px solid var(--border-color, #cbd5e1); border-radius: 0.5rem; font-size: 0.875rem; outline: none;">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="position: absolute; left: 0.75rem; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; color: #94a3b8;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="position: absolute; left: 0.75rem; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; color: var(--text-muted);">
               <circle cx="11" cy="11" r="8"></circle>
               <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
             </svg>
@@ -104,7 +104,7 @@ export default class Soporte {
               <tr>
                 <td colspan="5" style="padding: 3rem; text-align: center; color: var(--text-muted, #64748b);">
                   <div style="display: flex; flex-direction: column; align-items: center; gap: 0.5rem;">
-                    <div class="spinner" style="width: 24px; height: 24px; border: 2px solid #cbd5e1; border-top-color: #3b82f6; border-radius: 50%; animation: spin 0.8s linear infinite;"></div>
+                    <div class="spinner" style="width: 24px; height: 24px; border: 2px solid var(--border-strong-color); border-top-color: #3b82f6; border-radius: 50%; animation: spin 0.8s linear infinite;"></div>
                     <span>Cargando tickets...</span>
                   </div>
                 </td>
@@ -195,7 +195,7 @@ export default class Soporte {
         <tr>
           <td colspan="5" style="padding: 3.5rem 1rem; text-align: center; color: var(--text-muted, #64748b);">
             <div style="display: flex; flex-direction: column; align-items: center; gap: 0.75rem;">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width: 42px; height: 42px; color: #94a3b8;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width: 42px; height: 42px; color: var(--text-muted);">
                 <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
                 <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
               </svg>
@@ -225,7 +225,7 @@ export default class Soporte {
           <!-- Contacto -->
           <td style="padding: 0.875rem 1rem; font-size: 0.8rem; color: var(--text-muted, #475569);">
             <div style="font-weight: 500; color: var(--text-color, #0f172a);">${this.escape(t.emailContacto || '-')}</div>
-            <code style="background: #f1f5f9; padding: 0.1rem 0.3rem; border-radius: 0.25rem; font-size: 0.7rem; color: #334155;">${this.escape((t.usuarioId || '-').slice(0, 14))}</code>
+            <code style="background: var(--bg-surface-secondary); padding: 0.1rem 0.3rem; border-radius: 0.25rem; font-size: 0.7rem; color: #334155;">${this.escape((t.usuarioId || '-').slice(0, 14))}</code>
           </td>
 
           <!-- Fecha -->
@@ -262,13 +262,13 @@ export default class Soporte {
     switch (estado) {
       case 'resuelto':
       case 'cerrado':
-        return 'background-color: #ecfdf5; color: #047857; border: 1px solid #a7f3d0;';
+        return 'background-color: var(--success-bg); color: var(--success-strong); border: 1px solid var(--success-border);';
       case 'en_proceso':
       case 'atendido':
         return 'background-color: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe;';
       case 'pendiente':
       default:
-        return 'background-color: #fffbeb; color: #b45309; border: 1px solid #fde68a;';
+        return 'background-color: var(--warning-bg); color: var(--warning-strong); border: 1px solid var(--warning-border);';
     }
   }
 

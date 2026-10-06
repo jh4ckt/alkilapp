@@ -58,7 +58,7 @@ export default class Reportes {
           <label class="filter-label" style="display: block; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted, #64748b); margin-bottom: 0.375rem;">Buscar denuncia</label>
           <div style="position: relative;">
             <input type="search" id="searchInput" class="form-input" placeholder="Motivo, inmueble, denunciante..." value="${this.filters.q}" style="width: 100%; padding: 0.5rem 0.75rem 0.5rem 2.25rem; border: 1px solid var(--border-color, #cbd5e1); border-radius: 0.5rem; font-size: 0.875rem; outline: none;">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="position: absolute; left: 0.75rem; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; color: #94a3b8;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="position: absolute; left: 0.75rem; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; color: var(--text-muted);">
               <circle cx="11" cy="11" r="8"></circle>
               <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
             </svg>
@@ -99,7 +99,7 @@ export default class Reportes {
               <tr>
                 <td colspan="6" style="padding: 3rem; text-align: center; color: var(--text-muted, #64748b);">
                   <div style="display: flex; flex-direction: column; align-items: center; gap: 0.5rem;">
-                    <div class="spinner" style="width: 24px; height: 24px; border: 2px solid #cbd5e1; border-top-color: #3b82f6; border-radius: 50%; animation: spin 0.8s linear infinite;"></div>
+                    <div class="spinner" style="width: 24px; height: 24px; border: 2px solid var(--border-strong-color); border-top-color: #3b82f6; border-radius: 50%; animation: spin 0.8s linear infinite;"></div>
                     <span>Cargando reportes...</span>
                   </div>
                 </td>
@@ -200,7 +200,7 @@ export default class Reportes {
         <tr>
           <td colspan="6" style="padding: 3.5rem 1rem; text-align: center; color: var(--text-muted, #64748b);">
             <div style="display: flex; flex-direction: column; align-items: center; gap: 0.75rem;">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width: 42px; height: 42px; color: #94a3b8;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width: 42px; height: 42px; color: var(--text-muted);">
                 <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
               </svg>
               <span style="font-weight: 500; font-size: 0.95rem;">No se encontraron denuncias registradas.</span>
@@ -227,7 +227,7 @@ export default class Reportes {
 
           <!-- Inmueble -->
           <td style="padding: 0.875rem 1rem; white-space: nowrap;">
-            <code style="background: #f1f5f9; padding: 0.2rem 0.4rem; border-radius: 0.25rem; font-size: 0.8rem; color: #334155;">${this.escape(r.listingId || r.inmuebleId || '-')}</code>
+            <code style="background: var(--bg-surface-secondary); padding: 0.2rem 0.4rem; border-radius: 0.25rem; font-size: 0.8rem; color: #334155;">${this.escape(r.listingId || r.inmuebleId || '-')}</code>
           </td>
 
           <!-- Denunciante -->
@@ -255,7 +255,7 @@ export default class Reportes {
                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
                    Resolver
                  </button>` 
-              : `<span style="font-size: 0.775rem; color: #10b981; font-weight: 500; display: inline-flex; align-items: center; gap: 0.25rem;">
+              : `<span style="font-size: 0.775rem; color: var(--success); font-weight: 500; display: inline-flex; align-items: center; gap: 0.25rem;">
                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Finalizado
                  </span>`
             }
@@ -269,10 +269,10 @@ export default class Reportes {
   getBadgeStyle(estado) {
     switch (estado) {
       case 'resuelto':
-        return 'background-color: #ecfdf5; color: #047857; border: 1px solid #a7f3d0;';
+        return 'background-color: var(--success-bg); color: var(--success-strong); border: 1px solid var(--success-border);';
       case 'pendiente':
       default:
-        return 'background-color: #fffbeb; color: #b45309; border: 1px solid #fde68a;';
+        return 'background-color: var(--warning-bg); color: var(--warning-strong); border: 1px solid var(--warning-border);';
     }
   }
 

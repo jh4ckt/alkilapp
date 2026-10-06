@@ -99,7 +99,7 @@ export default class Stats {
         <div class="card" style="background: var(--card-bg, #ffffff); border: 1px solid var(--border-color, #e2e8f0); border-radius: 0.875rem; padding: 1.25rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04); transition: transform 0.2s, box-shadow 0.2s;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
             <span style="color: var(--text-muted, #64748b); font-size: 0.8125rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Publicaciones Creadas</span>
-            <div style="width: 38px; height: 38px; border-radius: 0.5rem; background-color: rgba(16, 185, 129, 0.1); color: #10b981; display: flex; align-items: center; justify-content: center;">
+            <div style="width: 38px; height: 38px; border-radius: 0.5rem; background-color: rgba(16, 185, 129, 0.1); color: var(--success); display: flex; align-items: center; justify-content: center;">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
             </div>
           </div>
@@ -111,7 +111,7 @@ export default class Stats {
         <div class="card" style="background: var(--card-bg, #ffffff); border: 1px solid var(--border-color, #e2e8f0); border-radius: 0.875rem; padding: 1.25rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04); transition: transform 0.2s, box-shadow 0.2s;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
             <span style="color: var(--text-muted, #64748b); font-size: 0.8125rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Verificaciones</span>
-            <div style="width: 38px; height: 38px; border-radius: 0.5rem; background-color: rgba(245, 158, 11, 0.1); color: #f59e0b; display: flex; align-items: center; justify-content: center;">
+            <div style="width: 38px; height: 38px; border-radius: 0.5rem; background-color: rgba(245, 158, 11, 0.1); color: var(--warning); display: flex; align-items: center; justify-content: center;">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>
             </div>
           </div>
@@ -123,7 +123,7 @@ export default class Stats {
         <div class="card" style="background: var(--card-bg, #ffffff); border: 1px solid var(--border-color, #e2e8f0); border-radius: 0.875rem; padding: 1.25rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04); transition: transform 0.2s, box-shadow 0.2s;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
             <span style="color: var(--text-muted, #64748b); font-size: 0.8125rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Denuncias / Reportes</span>
-            <div style="width: 38px; height: 38px; border-radius: 0.5rem; background-color: rgba(239, 68, 68, 0.1); color: #ef4444; display: flex; align-items: center; justify-content: center;">
+            <div style="width: 38px; height: 38px; border-radius: 0.5rem; background-color: rgba(239, 68, 68, 0.1); color: var(--danger); display: flex; align-items: center; justify-content: center;">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
             </div>
           </div>
@@ -140,7 +140,7 @@ export default class Stats {
         <div class="card" style="background: var(--card-bg, #ffffff); border: 1px solid var(--border-color, #e2e8f0); border-radius: 0.875rem; padding: 1.25rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
             <h3 style="font-size: 1rem; font-weight: 600; color: var(--text-color, #0f172a); margin: 0;">Crecimiento de Usuarios</h3>
-            <span style="font-size: 0.75rem; color: var(--text-muted, #64748b); background: #f1f5f9; padding: 0.2rem 0.5rem; border-radius: 0.375rem; font-weight: 500;">Tendencia</span>
+            <span style="font-size: 0.75rem; color: var(--text-muted, #64748b); background: var(--bg-surface-secondary); padding: 0.2rem 0.5rem; border-radius: 0.375rem; font-weight: 500;">Tendencia</span>
           </div>
           <div style="position: relative; height: 280px; width: 100%;">
             <canvas id="chartUsers"></canvas>
@@ -151,7 +151,7 @@ export default class Stats {
         <div class="card" style="background: var(--card-bg, #ffffff); border: 1px solid var(--border-color, #e2e8f0); border-radius: 0.875rem; padding: 1.25rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
             <h3 style="font-size: 1rem; font-weight: 600; color: var(--text-color, #0f172a); margin: 0;">Distribución de Publicaciones</h3>
-            <span style="font-size: 0.75rem; color: var(--text-muted, #64748b); background: #f1f5f9; padding: 0.2rem 0.5rem; border-radius: 0.375rem; font-weight: 500;">Estado</span>
+            <span style="font-size: 0.75rem; color: var(--text-muted, #64748b); background: var(--bg-surface-secondary); padding: 0.2rem 0.5rem; border-radius: 0.375rem; font-weight: 500;">Estado</span>
           </div>
           <div style="position: relative; height: 280px; width: 100%;">
             <canvas id="chartProperties"></canvas>
@@ -162,7 +162,7 @@ export default class Stats {
         <div class="card" style="background: var(--card-bg, #ffffff); border: 1px solid var(--border-color, #e2e8f0); border-radius: 0.875rem; padding: 1.25rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
             <h3 style="font-size: 1rem; font-weight: 600; color: var(--text-color, #0f172a); margin: 0;">Altas por Período</h3>
-            <span style="font-size: 0.75rem; color: var(--text-muted, #64748b); background: #f1f5f9; padding: 0.2rem 0.5rem; border-radius: 0.375rem; font-weight: 500;">Publicaciones / Usuarios</span>
+            <span style="font-size: 0.75rem; color: var(--text-muted, #64748b); background: var(--bg-surface-secondary); padding: 0.2rem 0.5rem; border-radius: 0.375rem; font-weight: 500;">Publicaciones / Usuarios</span>
           </div>
           <div style="position: relative; height: 280px; width: 100%;">
             <canvas id="chartActivity"></canvas>
@@ -173,7 +173,7 @@ export default class Stats {
         <div class="card" style="background: var(--card-bg, #ffffff); border: 1px solid var(--border-color, #e2e8f0); border-radius: 0.875rem; padding: 1.25rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
             <h3 style="font-size: 1rem; font-weight: 600; color: var(--text-color, #0f172a); margin: 0;">Estatus de Verificaciones DNI/CE</h3>
-            <span style="font-size: 0.75rem; color: var(--text-muted, #64748b); background: #f1f5f9; padding: 0.2rem 0.5rem; border-radius: 0.375rem; font-weight: 500;">Identidad</span>
+            <span style="font-size: 0.75rem; color: var(--text-muted, #64748b); background: var(--bg-surface-secondary); padding: 0.2rem 0.5rem; border-radius: 0.375rem; font-weight: 500;">Identidad</span>
           </div>
           <div style="position: relative; height: 280px; width: 100%;">
             <canvas id="chartVerifications"></canvas>
@@ -292,11 +292,11 @@ export default class Stats {
             y: { 
               beginAtZero: true, 
               grid: { color: 'rgba(226, 232, 240, 0.6)' },
-              ticks: { font: { size: 11 }, color: '#64748b' }
+              ticks: { font: { size: 11 }, color: 'var(--text-soft)' }
             },
             x: { 
               grid: { display: false },
-              ticks: { font: { size: 11 }, color: '#64748b' }
+              ticks: { font: { size: 11 }, color: 'var(--text-soft)' }
             }
           }
         }
@@ -316,7 +316,7 @@ export default class Stats {
           labels: ['Disponibles', 'En revisión', 'Pausadas', 'Finalizadas'],
           datasets: [{
             data: [d.disponible || 0, d.revision || 0, d.pausada || 0, d.finalizado || 0],
-            backgroundColor: ['#10b981', '#f59e0b', '#ef4444', '#64748b'],
+            backgroundColor: ['var(--success)', 'var(--warning)', 'var(--danger)', 'var(--text-soft)'],
             borderWidth: 2,
             borderColor: '#ffffff',
             hoverOffset: 4
@@ -357,7 +357,7 @@ export default class Stats {
             {
               label: 'Usuarios nuevos',
               data: userTrendAlt.values,
-              backgroundColor: '#10b981',
+              backgroundColor: 'var(--success)',
               borderRadius: 6,
               maxBarThickness: 18
             }
@@ -370,11 +370,11 @@ export default class Stats {
             y: { 
               beginAtZero: true, 
               grid: { color: 'rgba(226, 232, 240, 0.6)' },
-              ticks: { font: { size: 11 }, color: '#64748b' }
+              ticks: { font: { size: 11 }, color: 'var(--text-soft)' }
             },
             x: { 
               grid: { display: false },
-              ticks: { font: { size: 11 }, color: '#64748b' }
+              ticks: { font: { size: 11 }, color: 'var(--text-soft)' }
             }
           }
         }
@@ -392,7 +392,7 @@ export default class Stats {
           labels: ['Aprobadas', 'Pendientes', 'Rechazadas'],
           datasets: [{
             data: [verifData.aprobadas || 0, verifData.pendientes || 0, verifData.rechazadas || 0],
-            backgroundColor: ['#10b981', '#f59e0b', '#64748b'],
+            backgroundColor: ['var(--success)', 'var(--warning)', 'var(--text-soft)'],
             borderWidth: 2,
             borderColor: '#ffffff',
             hoverOffset: 4

@@ -3,6 +3,25 @@
 // ==========================================================================
 import { formatCurrency, formatDate, showToast, debounce, openModal } from '../utils/helpers.js';
 
+// "Dias restantes" de un destacado. El backend lo calcula en vivo desde
+// featuredUntil (no desde el campo almacenado, que solo refresca el cron
+// diario y por eso se quedaba congelado), asi que aqui solo hay que pintar el
+// numero. `null` = destacado sin fecha de caducidad, que NO es lo mismo que
+// 0 dias: 0 significa que caduca hoy.
+function celdaRestantes(pub) {
+  const info = pub.destacadoInfo || {};
+  const n = info.diasRestantes !== undefined ? info.diasRestantes : pub.destacadoDiasRestantes;
+  const Wrap = 'span';
+  if (n === null || n === undefined) {
+    return `<${Wrap} style="font-size: 0.7rem; color: var(--text-muted, #64748b);">Sin caducidad</${Wrap}>`;
+  }
+  // 3 dias o menos en rojo, y "caduca hoy" dicho con palabras para que no haya
+  // que interpretar un 0.
+  const color = n <= 0 ? 'var(--danger)' : (n <= 3 ? 'var(--warning)' : 'var(--text-muted, #64748b)');
+  const texto = n <= 0 ? 'Caduca hoy' : `${n} días restantes`;
+  return `<${Wrap} style="font-size: 0.7rem; color: ${color}; font-weight: ${n <= 3 ? 600 : 400};">${texto}</${Wrap}>`;
+}
+
 // Estados REALES que usa la app Android y la colección `propiedades`.
 // Si esta lista no coincide con lo que hay en Firestore, el <select> no puede
 // mostrar el estado actual y el botón Guardar nunca se habilita (bug corregido:
@@ -16,13 +35,51 @@ export const ESTADOS = [
   { valor: 'finalizado', etiqueta: 'Finalizado' },
 ];
 
+// Estados AGRUPADOS, solo para FILTRAR y para las KPIs.
+//
+// `ESTADOS` (arriba) es la lista de valores que se ESCRIBEN al cambiar el
+// estado de una fila, y por eso va con los nombres crudos que la app espera.
+// El filtro necesita otra cosa: la app escribe indistintamente "publicado",
+// "disponible" o "activo" para lo mismo, asi que un filtro por "publicado"
+// dejaba fuera registros que el panel muestra como disponibles. Estas etiquetas
+// son las canonicas con las que el backend agrupa (estadoCanonico).
+const ESTADOS_FILTRO = [
+  { valor: 'disponible', etiqueta: 'Disponible' },
+  { valor: 'en_revision', etiqueta: 'En revisión' },
+  { valor: 'pausada', etiqueta: 'Pausada' },
+  { valor: 'finalizado', etiqueta: 'Finalizado' },
+  { valor: 'rechazada', etiqueta: 'Rechazada' },
+  { valor: 'sin_dato', etiqueta: 'Sin estado' },
+];
+
+// Filtros por dimension que se llenan con los valores que EXISTEN en la base
+// (los manda el backend en `opciones`), no con una lista teorica: ofrecer los 25
+// departamentos cuando 3 estan en uso daria 22 opciones que devuelven cero
+// resultados. El texto del <select> va con el numero entre parentesis para que
+// se vea de entrada cuantos hay de cada uno.
+const DIMENSIONES_FILTRO = [
+  { campo: 'departamento', etiqueta: 'Departamento' },
+  { campo: 'ciudad', etiqueta: 'Ciudad' },
+  { campo: 'tipo', etiqueta: 'Tipo' },
+  { campo: 'operacion', etiqueta: 'Operación' },
+  { campo: 'moneda', etiqueta: 'Moneda' },
+  { campo: 'tramoPrecio', etiqueta: 'Rango de precio' },
+];
+
+// Los filtros por dimension empiezan vacios; sus valores posibles los rellena
+// el backend en cada respuesta (`opciones`), porque dependen de lo que hay
+// cargado en Firestore y no de una lista fija.
+const FILTROS_INICIALES = { q: '', estado: '', destacado: '' };
+
 export default class Publicaciones {
   constructor(api) {
     this.api = api;
     this.currentPage = 1;
     this.limit = 15;
     this.total = 0;
-    this.filters = { q: '', estado: '', destacado: '' };
+    this.filters = { ...FILTROS_INICIALES };
+    // Valores disponibles por dimension, rellenados desde la respuesta.
+    this.opciones = null;
     this.publicaciones = [];
   }
 
@@ -31,6 +88,11 @@ export default class Publicaciones {
     this.container.innerHTML = this.getTemplate();
     this.bindEvents();
     await this.loadData();
+  }
+
+  /** Hay algun filtro activo? Decide si se muestra el boton "Limpiar Filtros". */
+  hayFiltros() {
+    return Object.values(this.filters).some(Boolean);
   }
 
   getTemplate() {
@@ -57,7 +119,7 @@ export default class Publicaciones {
           <label class="filter-label" style="display: block; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted, #64748b); margin-bottom: 0.375rem;">Buscar publicación</label>
           <div style="position: relative;">
             <input type="search" id="searchInput" class="form-input" placeholder="Título, dirección, propietario..." value="${this.filters.q}" style="width: 100%; padding: 0.5rem 0.75rem 0.5rem 2.25rem; border: 1px solid var(--border-color, #cbd5e1); border-radius: 0.5rem; font-size: 0.875rem; outline: none;">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="position: absolute; left: 0.75rem; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; color: #94a3b8;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="position: absolute; left: 0.75rem; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; color: var(--text-muted);">
               <circle cx="11" cy="11" r="8"></circle>
               <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
             </svg>
@@ -68,7 +130,7 @@ export default class Publicaciones {
           <label class="filter-label" style="display: block; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted, #64748b); margin-bottom: 0.375rem;">Estado</label>
           <select id="estadoFilter" class="form-select" style="width: 100%; padding: 0.5rem 0.75rem; border: 1px solid var(--border-color, #cbd5e1); border-radius: 0.5rem; font-size: 0.875rem; background-color: var(--card-bg, #fff);">
             <option value="">Todos los estados</option>
-            ${ESTADOS.map(e => `<option value="${e.valor}" ${this.filters.estado === e.valor ? 'selected' : ''}>${e.etiqueta}</option>`).join('')}
+            ${ESTADOS_FILTRO.map(e => `<option value="${e.valor}" ${this.filters.estado === e.valor ? 'selected' : ''}>${e.etiqueta}</option>`).join('')}
           </select>
         </div>
 
@@ -81,8 +143,24 @@ export default class Publicaciones {
           </select>
         </div>
 
+        <!-- Filtros por dimension: se rellenan con los valores que existen de
+             verdad en la base (this.opciones, que manda el backend). Antes de la
+             primera carga se muestran solo "Todos", sin opciones inventadas. -->
+        ${DIMENSIONES_FILTRO.map(d => `
+          <div class="filter-group" style="flex: 1; min-width: 150px;">
+            <label class="filter-label" style="display: block; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted, #64748b); margin-bottom: 0.375rem;">${d.etiqueta}</label>
+            <select id="dim_${d.campo}" data-campo="${d.campo}" class="form-select dim-filter" style="width: 100%; padding: 0.5rem 0.75rem; border: 1px solid var(--border-color, #cbd5e1); border-radius: 0.5rem; font-size: 0.875rem; background-color: var(--card-bg, #fff);">
+              <option value="">Todos</option>
+              ${(this.opciones?.[d.campo] || []).map(o => {
+                const sel = this.filters[d.campo] === o.valor ? ' selected' : '';
+                return `<option value="${o.valor}"${sel}>${o.etiqueta} (${o.total})</option>`;
+              }).join('')}
+            </select>
+          </div>
+        `).join('')}
+
         <div class="filter-actions">
-          <button class="btn btn-secondary" id="clearFiltersBtn" style="display: ${this.filters.q || this.filters.estado || this.filters.destacado ? 'inline-flex' : 'none'}; align-items: center; gap: 0.375rem; padding: 0.5rem 0.875rem; border-radius: 0.5rem; font-size: 0.875rem; cursor: pointer;">
+          <button class="btn btn-secondary" id="clearFiltersBtn" style="display: ${this.hayFiltros() ? 'inline-flex' : 'none'}; align-items: center; gap: 0.375rem; padding: 0.5rem 0.875rem; border-radius: 0.5rem; font-size: 0.875rem; cursor: pointer;">
             Limpiar Filtros
           </button>
         </div>
@@ -110,7 +188,7 @@ export default class Publicaciones {
               <tr>
                 <td colspan="10" style="padding: 3rem; text-align: center; color: var(--text-muted, #64748b);">
                   <div style="display: flex; flex-direction: column; align-items: center; gap: 0.5rem;">
-                    <div class="spinner" style="width: 24px; height: 24px; border: 2px solid #cbd5e1; border-top-color: #3b82f6; border-radius: 50%; animation: spin 0.8s linear infinite;"></div>
+                    <div class="spinner" style="width: 24px; height: 24px; border: 2px solid var(--border-strong-color); border-top-color: #3b82f6; border-radius: 50%; animation: spin 0.8s linear infinite;"></div>
                     <span>Cargando publicaciones...</span>
                   </div>
                 </td>
@@ -151,8 +229,20 @@ export default class Publicaciones {
       this.loadData();
     });
 
+    // Los filtros por dimension comparten un unico delegado: todos los <select>
+// llevan la clase `dim-filter` y su campo en data-campo, asi que añadir una
+// dimension nueva es una entrada mas en DIMENSIONES_FILTRO y nada mas.
+    this.container.querySelectorAll('.dim-filter').forEach((sel) => {
+      sel.addEventListener('change', (e) => {
+        const campo = e.target.dataset.campo;
+        this.filters[campo] = e.target.value;
+        this.currentPage = 1;
+        this.loadData();
+      });
+    });
+
     this.container.querySelector('#clearFiltersBtn')?.addEventListener('click', () => {
-      this.filters = { q: '', estado: '', destacado: '' };
+      this.filters = { ...FILTROS_INICIALES };
       this.currentPage = 1;
       this.render(this.container);
     });
@@ -256,18 +346,36 @@ export default class Publicaciones {
 
   async loadData() {
     try {
+      // Se mandan TODOS los filtros con valor. Los de dimension (departamento,
+      // ciudad, tipo, operacion, moneda, tramoPrecio) salen del mismo objeto
+      // this.filters, asi que no hay que añadir una linea aqui por cada
+      // dimension nueva.
       const queryParams = new URLSearchParams({
         page: this.currentPage,
         limit: this.limit,
-        ...(this.filters.q && { q: this.filters.q }),
-        ...(this.filters.estado && { estado: this.filters.estado }),
-        ...(this.filters.destacado && { destacado: this.filters.destacado })
+        ...this.filters,
       }).toString();
 
       const response = await this.api.get(`/publicaciones?${queryParams}`);
-      
+
       this.publicaciones = response.items || response.data || response || [];
       this.total = response.total || this.publicaciones.length;
+
+      // Valores disponibles por dimension. Vienen recalculados sobre TODAS las
+      // publicaciones en cada respuesta, no sobre el resultado filtrado: asi
+      // los <select> no se vacian al elegir un valor y siempre se puede volver
+      // atras sin pulsar Limpiar. Solo hay que repintarlos si cambiaron.
+      const opcionesPrevias = JSON.stringify(this.opciones);
+      this.opciones = response.opciones || this.opciones;
+      if (JSON.stringify(this.opciones) !== opcionesPrevias) {
+        this.renderDimensionFilters();
+      }
+      // El boton Limpiar depende de TODOS los filtros, incluido el texto de
+      // busqueda, asi que se refresca siempre. Antes solo se actualizaba al
+      // recargar la vista entera, asi que escribir en el buscador no lo hacia
+      // aparecer.
+      const clearBtn = this.container.querySelector('#clearFiltersBtn');
+      if (clearBtn) clearBtn.style.display = this.hayFiltros() ? 'inline-flex' : 'none';
 
       this.renderTable();
       this.updatePagination();
@@ -275,6 +383,25 @@ export default class Publicaciones {
       console.error('Error al cargar publicaciones:', err);
       showToast('Error al cargar la lista de publicaciones', 'error');
     }
+  }
+
+  /**
+   * Repinta solo los <select> de dimension, sin recargar la tabla ni perder la
+   * seleccion actual. Se hace aparte de getTemplate() a proposito: regenerar
+   * toda la vista en cada respuesta cerraria los desplegables que el usuario
+   * tiene abiertos y lo devolveria al inicio de la lista.
+   */
+  renderDimensionFilters() {
+    for (const d of DIMENSIONES_FILTRO) {
+      const sel = this.container.querySelector(`#dim_${d.campo}`);
+      if (!sel) continue;
+      sel.innerHTML = `<option value="">Todos</option>` + (this.opciones?.[d.campo] || []).map(o => {
+        const marcado = this.filters[d.campo] === o.valor ? ' selected' : '';
+        return `<option value="${o.valor}"${marcado}>${o.etiqueta} (${o.total})</option>`;
+      }).join('');
+    }
+    const clearBtn = this.container.querySelector('#clearFiltersBtn');
+    if (clearBtn) clearBtn.style.display = this.hayFiltros() ? 'inline-flex' : 'none';
   }
 
   renderTable() {
@@ -286,7 +413,7 @@ export default class Publicaciones {
         <tr>
           <td colspan="10" style="padding: 3.5rem 1rem; text-align: center; color: var(--text-muted, #64748b);">
             <div style="display: flex; flex-direction: column; align-items: center; gap: 0.75rem;">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width: 42px; height: 42px; color: #94a3b8;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width: 42px; height: 42px; color: var(--text-muted);">
                 <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
                 <polyline points="9 22 9 12 15 12 15 22"/>
               </svg>
@@ -345,6 +472,11 @@ export default class Publicaciones {
       const escTitulo = e(pub.titulo || 'Sin título');
       const escCiudad = e(pub.ciudad || 'Sin ciudad');
       const escDistrito = e(pub.distrito);
+      // El departamento se muestra aparte porque `ciudad` guarda, en los datos
+      // que hay hoy, el nombre del departamento (ver backfill-departamento.js).
+      // Sin esto el admin no puede leer de un vistazo si el filtro por
+      // departamento esta marcando la zona correcta.
+      const escDepartamento = e(pub.departamento);
       const escDuenio = e(propietarioNombre);
       const escTelefono = e(propietarioTel);
       const escOperacion = e(pub.operacion || 'alquiler');
@@ -363,8 +495,8 @@ export default class Publicaciones {
           <td style="padding: 0.875rem 1rem;">
             <div style="display: flex; align-items: center; gap: 0.875rem;">
               <div style="position: relative; flex-shrink: 0;">
-                <img src="/assets/placeholder-house.svg" alt="Portada" style="width: 48px; height: 48px; border-radius: 8px; object-fit: cover; background: #e2e8f0; border: 1px solid #e2e8f0; display: block;">
-                ${totalFotos > 0 ? `<span title="${totalFotos} foto(s) en la publicación" style="position: absolute; right: -4px; bottom: -4px; display: inline-flex; align-items: center; gap: 2px; background: #0f172a; color: #fff; font-size: 0.625rem; font-weight: 600; line-height: 1; padding: 3px 5px; border-radius: 999px; border: 1.5px solid var(--card-bg, #fff);">
+                <img src="/assets/placeholder-house.svg" alt="Portada" style="width: 48px; height: 48px; border-radius: 8px; object-fit: cover; background: var(--border-color); border: 1px solid var(--border-color); display: block;">
+                ${totalFotos > 0 ? `<span title="${totalFotos} foto(s) en la publicación" style="position: absolute; right: -4px; bottom: -4px; display: inline-flex; align-items: center; gap: 2px; background: var(--text-color); color: #fff; font-size: 0.625rem; font-weight: 600; line-height: 1; padding: 3px 5px; border-radius: 999px; border: 1.5px solid var(--card-bg, #fff);">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:9px;height:9px;"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>${totalFotos}
                 </span>` : ''}
               </div>
@@ -373,7 +505,7 @@ export default class Publicaciones {
                   ${escTitulo}
                 </button>
                 <small style="color: var(--text-muted, #64748b); font-size: 0.775rem; display: block; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">
-                  ${escCiudad} ${escDistrito ? '📍 ' + escDistrito : ''}
+                  ${escDepartamento ? escDepartamento + ' · ' : ''}${escCiudad} ${escDistrito ? '📍 ' + escDistrito : ''}
                 </small>
               </div>
             </div>
@@ -415,11 +547,11 @@ export default class Publicaciones {
 <!-- Destacado -->
             <td style="padding: 0.875rem 1rem; white-space: nowrap;">
               ${pub.destacadoInfo && pub.destacadoInfo.tipo 
-                ? `<span style="background: #fef3c7; color: #b45309; border: 1px solid #fde68a; padding: 0.25rem 0.5rem; border-radius: 0.375rem; font-weight: 600; font-size: 0.725rem; display: inline-flex; align-items: center; gap: 0.25rem;">
+                ? `<span style="background: var(--warning-light); color: var(--warning-strong); border: 1px solid var(--warning-border); padding: 0.25rem 0.5rem; border-radius: 0.375rem; font-weight: 600; font-size: 0.725rem; display: inline-flex; align-items: center; gap: 0.25rem;">
                     <svg viewBox="0 0 24 24" fill="currentColor" style="width:12px;height:12px;"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg> ${escDestacadoTipo}
                   </span>`
                 : (esDestacado 
-                  ? `<span style="background: #fef3c7; color: #b45309; border: 1px solid #fde68a; padding: 0.25rem 0.5rem; border-radius: 0.375rem; font-weight: 600; font-size: 0.725rem; display: inline-flex; align-items: center; gap: 0.25rem;">
+                  ? `<span style="background: var(--warning-light); color: var(--warning-strong); border: 1px solid var(--warning-border); padding: 0.25rem 0.5rem; border-radius: 0.375rem; font-weight: 600; font-size: 0.725rem; display: inline-flex; align-items: center; gap: 0.25rem;">
                       <svg viewBox="0 0 24 24" fill="currentColor" style="width:12px;height:12px;"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg> DESTACADO
                     </span>` 
                   : `<span style="color: var(--text-muted, #94a3b8); font-size: 0.8rem; font-weight: 400;">Estándar</span>`)
@@ -432,9 +564,7 @@ export default class Publicaciones {
                 ? `<div style="display: flex; flex-direction: column; gap: 2px; line-height: 1.2;">
                     <span style="font-weight: 600; color: var(--text-color, #0f172a);">${pub.destacadoInfo.dias || pub.destacadoDias || 0} días</span>
                     <span style="font-size: 0.7rem; color: var(--text-muted, #64748b);">Vence: ${pub.destacadoInfo.vence ? formatDate(pub.destacadoInfo.vence) : (pub.featuredUntil ? formatDate(pub.featuredUntil) : '—')}</span>
-                    <span style="font-size: 0.7rem; color: ${pub.destacadoInfo.diasRestantes <= 3 ? '#dc2626' : 'var(--text-muted, #64748b)'};">
-                      ${pub.destacadoInfo.diasRestantes !== undefined ? `${pub.destacadoInfo.diasRestantes} días restantes` : (pub.destacadoDiasRestantes !== undefined ? `${pub.destacadoDiasRestantes} días restantes` : '—')}
-                    </span>
+                    ${celdaRestantes(pub)}
                   </div>`
                 : `<span style="color: var(--text-muted, #94a3b8); font-size: 0.8rem;">—</span>`
               }
@@ -565,17 +695,17 @@ export default class Publicaciones {
       case 'disponible':
         return 'background-color: #DCFCE7; color: #15803D; border: 1px solid #86EFAC;';
       case 'under_review':
-        return 'background-color: #FEF3C7; color: #B45309; border: 1px solid #FCD34D;';
+        return 'background-color: var(--warning-light); color: var(--warning-strong); border: 1px solid #FCD34D;';
       case 'finalizado':
-        return 'background-color: #E2E8F0; color: #475569; border: 1px solid #CBD5E1;';
+        return 'background-color: var(--border-color); color: var(--text-secondary); border: 1px solid var(--border-strong-color);';
       case 'pendiente':
         return 'background-color: #FFEDD5; color: #C2410C; border: 1px solid #FDBA74;';
       case 'pausada':
-        return 'background-color: #E0F2FE; color: #0369A1; border: 1px solid #7DD3FC;';
+        return 'background-color: #E0F2FE; color: var(--info-strong); border: 1px solid #7DD3FC;';
       case 'rechazada':
-        return 'background-color: #FEE2E2; color: #B91C1C; border: 1px solid #FCA5A5;';
+        return 'background-color: var(--danger-bg); color: #B91C1C; border: 1px solid #FCA5A5;';
       default:
-        return 'background-color: #F1F5F9; color: #334155; border: 1px solid #CBD5E1;';
+        return 'background-color: var(--bg-surface-secondary); color: #334155; border: 1px solid var(--border-strong-color);';
     }
   }
 
@@ -635,8 +765,8 @@ export default class Publicaciones {
     const superficie = pub.superficieM2 ? `${pub.superficieM2} m²` : '-';
     const ubicacion = [pub.distrito, pub.barrio, pub.ciudad].filter(Boolean).join(' · ') || '-';
     const mapa = (pub.lat != null && pub.lng != null)
-      ? `<a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(pub.lat)},${encodeURIComponent(pub.lng)}" target="_blank" rel="noopener noreferrer" style="font-size: 0.8rem; color: #0369a1; text-decoration: underline;">Ver ubicación en Google Maps ↗</a>`
-      : '<span style="font-size: 0.8rem; color: #b45309;">Sin coordenadas registradas</span>';
+      ? `<a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(pub.lat)},${encodeURIComponent(pub.lng)}" target="_blank" rel="noopener noreferrer" style="font-size: 0.8rem; color: var(--info-strong); text-decoration: underline;">Ver ubicación en Google Maps ↗</a>`
+      : '<span style="font-size: 0.8rem; color: var(--warning-strong);">Sin coordenadas registradas</span>';
 
     const prop = pub.propietario;
     const propHtml = prop ? `
@@ -650,18 +780,18 @@ export default class Publicaciones {
           </div>
           <div style="font-size: 0.8rem; margin-top: 3px;">
             ${prop.verificado
-              ? '<span style="color: #047857; font-weight: 600;">✓ Identidad verificada</span>'
-              : '<span style="color: #b45309; font-weight: 600;">⚠ Identidad sin verificar</span>'}
+              ? '<span style="color: var(--success-strong); font-weight: 600;">✓ Identidad verificada</span>'
+              : '<span style="color: var(--warning-strong); font-weight: 600;">⚠ Identidad sin verificar</span>'}
           </div>
         </div>
-      </div>` : '<div style="font-size: 0.85rem; color: #b45309; font-weight: 600;">⚠ Sin ficha de propietario (id borrado o sin registro)</div>';
+      </div>` : '<div style="font-size: 0.85rem; color: var(--warning-strong); font-weight: 600;">⚠ Sin ficha de propietario (id borrado o sin registro)</div>';
 
     const galeria = fotos.length ? `
       <div style="margin-bottom: 16px;">
         <div class="vp-galeria" style="display: flex; gap: 8px; overflow-x: auto; padding-bottom: 6px;">
           ${fotos.map((f, i) => `
             <img class="vp-foto" data-src="${e(f)}" src="${e(f)}" alt="Foto ${i + 1} del inmueble"
-                 style="width: 108px; height: 82px; border-radius: 8px; object-fit: cover; border: 1px solid var(--border-color, #e2e8f0); background: #e2e8f0; cursor: zoom-in; flex-shrink: 0; display: block;">`).join('')}
+                 style="width: 108px; height: 82px; border-radius: 8px; object-fit: cover; border: 1px solid var(--border-color, #e2e8f0); background: var(--border-color); cursor: zoom-in; flex-shrink: 0; display: block;">`).join('')}
         </div>
         <div style="font-size: 0.75rem; color: var(--text-muted, #64748b); margin-top: 4px;">${pub.totalFotos > fotos.length ? `Mostrando ${fotos.length} de ${pub.totalFotos} fotos · ` : `${fotos.length} foto(s) · `}pincha cualquiera para ampliarla</div>
       </div>`
@@ -683,7 +813,7 @@ export default class Publicaciones {
       <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 14px; flex-wrap: wrap;">
         <span class="pill" style="${pill}">${e(this.etiquetaEstado(pub.estado))}</span>
         <span style="font-size: 0.8rem; color: var(--text-muted, #64748b);">${e(pub.tipo)}</span>
-        ${pub.isFeatured ? '<span style="font-size: 0.8rem; color: #b45309; font-weight: 600;">★ Destacado</span>' : ''}
+        ${pub.isFeatured ? '<span style="font-size: 0.8rem; color: var(--warning-strong); font-weight: 600;">★ Destacado</span>' : ''}
         ${pub.estadoCambiadoAdmin ? '<span style="font-size: 0.8rem; color: var(--text-muted, #64748b);">editado por admin</span>' : ''}
       </div>
 
@@ -744,7 +874,7 @@ export default class Publicaciones {
         const grande = document.createElement('img');
         grande.src = img.dataset.src;
         grande.alt = 'Foto ampliada';
-        grande.style.cssText = 'max-width: 92vw; max-height: 88vh; border-radius: 10px; box-shadow: 0 20px 50px rgba(0,0,0,0.5); background: #0f172a;';
+        grande.style.cssText = 'max-width: 92vw; max-height: 88vh; border-radius: 10px; box-shadow: 0 20px 50px rgba(0,0,0,0.5); background: var(--text-color);';
         const quitar = () => box.remove();
         box.addEventListener('click', quitar);
         document.addEventListener('keydown', function esc(ev2) {

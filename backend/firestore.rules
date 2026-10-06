@@ -415,6 +415,53 @@ service cloud.firestore {
         && resource.data.usuarioId == request.auth.uid;
     }
 
+    // EVENTOS (analitica): los escribe la app para que el panel pueda medir el
+    // funnel real (vistas -> chat -> alquiler) y el uso por zona.
+    //
+    // Modelo de seguridad deliberadamente mas cerrado que el resto:
+    //   - NADIE lee desde el cliente. La analitica es agregada y el unico que
+    //     tiene que verla es el panel admin, que usa la service account y omite
+    //     estas reglas. Dejar "read: if true" publicaria el comportamiento de
+    //     cada usuario (a que inmueble mira, cuando esta activo).
+    //   - Solo CREATE, y solo de eventos PROPIOS (authorId == uid). Asi no se
+    //     puede atribuir actividad a otro usuario.
+    //   - Inmutables (no update/delete): un evento, si se equivoca, se descarta
+    //     en el agregado, nunca se reescribe. Es lo mismo que se hace con los
+    //     mensajes del chat, y por el mismo motivo: no se borra historia.
+    //   - "tipo" es una lista CERRADA. Si la app inventase tipos nuevos, el
+    //     funnel contaria fases que no existen.
+    //   - "meta" no puede llevar datos personales (email, telefono): la
+    //     analitica no necesita PII y no debe poder guardarlos.
+    //
+    // OJO: "ts" NO se valida con "is timestamp" porque el cliente escribe
+    // FieldValue.serverTimestamp() y las reglas ven ese valor como un
+    // centinela, no como un timestamp, asi que la comprobacion seria false y
+    // rechazaria todos los eventos. Ver el mismo caso en messages/readAt.
+    match /eventos/{evento} {
+      function tipoValido() {
+        return request.resource.data.get('tipo', '') in [
+          'listing_created', 'listing_viewed', 'listing_favorited', 'listing_shared',
+          'listing_finalized', 'search_performed', 'filter_applied',
+          'map_marker_tapped', 'chat_opened', 'chat_message_sent',
+          'verification_submitted', 'support_opened'
+        ];
+      }
+      function metaSinPii() {
+        let m = request.resource.data.get('meta', {});
+        return m is map
+          && !m.keys().hasAny(['email', 'telefono', 'password', 'token', 'nombre', 'foto']);
+      }
+      allow read: if false;
+      allow create: if request.auth != null
+        && request.resource.data.get('authorId', '') == request.auth.uid
+        && tipoValido()
+        && request.resource.data.get('sessionId', '') is string
+        && request.resource.data.get('sessionId', '').size() > 0
+        && request.resource.data.get('sessionId', '').size() <= 64
+        && metaSinPii();
+      allow update, delete: if false;
+    }
+
     // Resto: sin acceso
     match /{document=**} {
       allow read, write: if false;

@@ -288,7 +288,7 @@ const userId = this.getUserId(u);
           <!-- Usuario -->
           <td style="padding: 0.75rem 1rem;">
             <div style="display: flex; align-items: center; gap: 0.75rem;">
-              <img src="${this.escape(avatarUrl)}" data-fallback="/assets/avatar-placeholder.svg" alt="Avatar" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover; background: #e2e8f0;">
+              <img src="${this.escape(avatarUrl)}" data-fallback="/assets/avatar-placeholder.svg" alt="Avatar" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover; background: var(--border-color);">
               <div>
                 <strong style="display: block; font-size: 0.875rem; color: var(--text-color, #0f172a);">${this.escape(u.nombre || 'Sin nombre')}</strong>
                 <small style="color: var(--text-muted, #64748b); font-size: 0.75rem;">ID: ${userId}</small>
@@ -310,15 +310,15 @@ const userId = this.getUserId(u);
           <!-- Email Verificado -->
           <td style="padding: 0.75rem 1rem;">
             ${emailVerificado 
-              ? `<span class="pill ok" style="font-size: 0.75rem; padding: 0.2rem 0.5rem; border-radius: 1rem; background: rgba(16,185,129,0.1); color: #10b981; font-weight: 600;">✓ Email verificado</span>` 
-              : `<span class="pill pend" style="font-size: 0.75rem; padding: 0.2rem 0.5rem; border-radius: 1rem; background: rgba(245,158,11,0.1); color: #f59e0b; font-weight: 600;">Email pendiente</span>`}
+              ? `<span class="pill ok" style="font-size: 0.75rem; padding: 0.2rem 0.5rem; border-radius: 1rem; background: rgba(16,185,129,0.1); color: var(--success); font-weight: 600;">✓ Email verificado</span>` 
+              : `<span class="pill pend" style="font-size: 0.75rem; padding: 0.2rem 0.5rem; border-radius: 1rem; background: rgba(245,158,11,0.1); color: var(--warning); font-weight: 600;">Email pendiente</span>`}
           </td>
 
           <!-- Identidad Verificada (DNI) -->
           <td style="padding: 0.75rem 1rem;">
             ${identidadVerificada 
-              ? `<span class="pill ok" style="font-size: 0.75rem; padding: 0.2rem 0.5rem; border-radius: 1rem; background: rgba(16,185,129,0.1); color: #10b981; font-weight: 600;">✓ DNI verificado</span>` 
-              : `<span class="pill pend" style="font-size: 0.75rem; padding: 0.2rem 0.5rem; border-radius: 1rem; background: rgba(245,158,11,0.1); color: #f59e0b; font-weight: 600;">DNI pendiente</span>`}
+              ? `<span class="pill ok" style="font-size: 0.75rem; padding: 0.2rem 0.5rem; border-radius: 1rem; background: rgba(16,185,129,0.1); color: var(--success); font-weight: 600;">✓ DNI verificado</span>` 
+              : `<span class="pill pend" style="font-size: 0.75rem; padding: 0.2rem 0.5rem; border-radius: 1rem; background: rgba(245,158,11,0.1); color: var(--warning); font-weight: 600;">DNI pendiente</span>`}
           </td>
 
           <!-- Estado Badge -->
