@@ -83,6 +83,10 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     private var idMarcadorSeleccionado: String? = null
     // Cache de iconos de marcador (normal/activo -> BitmapDescriptor)
     private val iconosMarcador = HashMap<Boolean, BitmapDescriptor>()
+    // Popup pendiente de mostrar hasta que la cámara se asiente tras centrar un pin
+    private var pendienteMostrarPopup = false
+    // Cache de thumbs del InfoWindow (decodificar base64 en cada muestra causaba tirones)
+    private val cacheThumbsInfo = HashMap<String, Bitmap?>()
 
     private val auth by lazy { FirebaseAuth.getInstance() }
     private val db by lazy { FirebaseFirestore.getInstance("alkilappdb") }
@@ -928,6 +932,11 @@ fun llenar(sp: Spinner, opciones: List<String>) {
         mMap.setOnCameraIdleListener {
             posicionarBadges()
             actualizarMarcadoresEnZonaVisible()
+            // Popup que quedó pendiente tras centrar un pin seleccionado
+            if (pendienteMostrarPopup) {
+                pendienteMostrarPopup = false
+                marcadorSeleccionado?.showInfoWindow()
+            }
             // Actualizar radio de bÃºsqueda segÃºn zoom (centro = ubicaciÃ³n usuario)
             if (ultimaUbicacion != null) {
                 val zoom = mMap.cameraPosition.zoom
@@ -958,55 +967,64 @@ fun llenar(sp: Spinner, opciones: List<String>) {
         return BitmapDescriptorFactory.fromBitmap(bmp)
     }
 
-    /** AÃ±ade/actualiza marcadores solo para inmuebles dentro de la vista actual del mapa.
-     * Usa todas las propiedades que pasan los filtros de texto/tipo/zona (SIN radio de distancia),
-     * para que los marcadores sigan visibles al acercarse aunque estÃ©n fuera del radio actual. */
+    /** Sincroniza los marcadores con la vista actual SIN recrear los que no cambiaron:
+     *  antes se limpiaba todo en cada idle de cámara, lo que destruía el popup abierto y
+     *  lo reaparecía en un marcador nuevo (el "tilteo"). Ahora es un diff: elimina los
+     *  que salieron, agrega los faltantes y solo toca el popup si el marcador
+     *  seleccionado fue realmente recreado. Usa las propiedades que pasan los filtros
+     *  de texto/tipo/zona (SIN radio de distancia) dentro de la vista visible. */
     private fun actualizarMarcadoresEnZonaVisible() {
         if (!::mMap.isInitialized) return
         val bounds = mMap.projection.visibleRegion.latLngBounds
-        limpiarMarcadores()
-        val visibles = adapter.todasParaMapa().filter { p ->
-            p.lat != 0.0 && p.lng != 0.0 && bounds.contains(p.ubicacion)
-        }
-        visibles.forEach { p ->
-            val marker = mMap.addMarker(
-                MarkerOptions()
-                    .position(p.ubicacion)
-                    .title(p.titulo)
-                    .snippet(p.precioFormateado)
-                    .icon(markerIcono(false))
-                    .anchor(0.5f, 1.0f)
-            )
-            if (marker != null) {
-                marker.tag = p.id
-                marcadores.add(marker)
+        val deseados = LinkedHashMap<String, Propiedad>()
+        adapter.todasParaMapa().forEach { p ->
+            if (p.lat != 0.0 && p.lng != 0.0 && bounds.contains(p.ubicacion)) {
+                deseados[p.id] = p
             }
         }
-        // Reaplicar la selecciÃ³n previa si el marcador sigue en la zona visible
-        if (idMarcadorSeleccionado != null && marcadorSeleccionado == null) {
-            val markerSel = marcadores.firstOrNull { it.tag == idMarcadorSeleccionado }
-            if (markerSel != null) {
-                markerSel.setIcon(markerIcono(true))
-                markerSel.showInfoWindow()
-                marcadorSeleccionado = markerSel
-            } else {
+        // Eliminar los que salieron de la vista o de los filtros
+        val it = marcadores.iterator()
+        while (it.hasNext()) {
+            val m = it.next()
+            val id = m.tag as? String
+            if (id == null || id !in deseados) {
+                m.remove()
+                it.remove()
+            }
+        }
+        // Agregar solo los que faltan
+        val existentes = marcadores.mapNotNull { it.tag as? String }.toHashSet()
+        deseados.values.forEach { p ->
+            if (p.id !in existentes) {
+                val m = mMap.addMarker(
+                    MarkerOptions()
+                        .position(p.ubicacion)
+                        .title(p.titulo)
+                        .snippet(p.precioFormateado)
+                        .icon(markerIcono(p.id == idMarcadorSeleccionado))
+                        .anchor(0.5f, 1.0f)
+                )
+                if (m != null) {
+                    m.tag = p.id
+                    marcadores.add(m)
+                }
+            }
+        }
+        // Selección: si el marcador sobrevivió sin cambios NO se toca el popup (evita
+        // el parpadeo); si fue recreado, se restaura; si salió de la vista, se limpia.
+        val idSel = idMarcadorSeleccionado
+        if (idSel == null) {
+            marcadorSeleccionado = null
+        } else {
+            val m = marcadores.firstOrNull { it.tag == idSel }
+            if (m == null) {
+                marcadorSeleccionado = null
                 idMarcadorSeleccionado = null
+            } else if (m !== marcadorSeleccionado) {
+                m.setIcon(markerIcono(true))
+                m.showInfoWindow()
+                marcadorSeleccionado = m
             }
-        }
-        mMap.setOnMarkerClickListener { marker ->
-            // Resetear el anterior
-            marcadorSeleccionado?.let {
-                it.setIcon(markerIcono(false))
-            }
-            // Seleccionar el nuevo
-            marker.setIcon(markerIcono(true))
-            marcadorSeleccionado = marker
-            idMarcadorSeleccionado = marker.tag as? String
-            // Centrar el mapa en el punto seleccionado (manteniendo el zoom)
-            mMap.animateCamera(CameraUpdateFactory.newLatLng(marker.position))
-            // Mostrar info window y mantenerla abierta
-            marker.showInfoWindow()
-            true // consumimos el click
         }
     }
 
@@ -1134,6 +1152,41 @@ fun llenar(sp: Spinner, opciones: List<String>) {
         mMap.setOnInfoWindowClickListener { marker ->
             propiedadDesdeMarcador(marker)?.let { abrirDetallePropiedad(it) }
         }
+
+        // Tap en un punto distinto del mapa → minimizar la mini-card (no se vuelve a
+        // mostrar hasta que se seleccione el marcador de nuevo; los taps sobre
+        // marcadores/info window no disparan este listener)
+        mMap.setOnMapClickListener {
+            if (marcadorSeleccionado != null || idMarcadorSeleccionado != null) {
+                marcadorSeleccionado?.setIcon(markerIcono(false))
+                marcadorSeleccionado?.hideInfoWindow()
+                marcadorSeleccionado = null
+                idMarcadorSeleccionado = null
+            }
+        }
+
+        // Selección de marcador: pin activo + mini-card. La cámara SOLO se mueve si el
+        // pin quedó fuera de la zona segura (si no, el deslizamiento + el re-anclaje de
+        // la mini-card al terminar la animación producían un tilteo leve al seleccionar)
+        mMap.setOnMarkerClickListener { marker ->
+            marcadorSeleccionado?.takeIf { it !== marker }?.setIcon(markerIcono(false))
+            marker.setIcon(markerIcono(true))
+            marcadorSeleccionado = marker
+            idMarcadorSeleccionado = marker.tag as? String
+            val dm = resources.displayMetrics
+            val pos = mMap.projection.toScreenLocation(marker.position)
+            val dentroSeguro =
+                pos.x in (dm.widthPixels * 0.2).toInt()..(dm.widthPixels * 0.8).toInt() &&
+                pos.y in (dm.heightPixels * 0.32).toInt()..(dm.heightPixels * 0.68).toInt()
+            if (dentroSeguro) {
+                marker.showInfoWindow()
+            } else {
+                // Mover primero, mostrar el popup cuando la cámara se asiente (onCameraIdle)
+                pendienteMostrarPopup = true
+                mMap.animateCamera(CameraUpdateFactory.newLatLng(marker.position))
+            }
+            true // consumimos el click
+        }
 configurarBadges()
         verificarPermisosUbicacion()
     }
@@ -1155,22 +1208,24 @@ configurarBadges()
         else -> "Otros"
     }
 
-    /** Construye el InfoWindow estilo mini-card: foto + tipo/zona + titulo + precio navy + boton Ver. */
+    /** Construye el InfoWindow mini-card compacto: foto pequeña + tipo/zona + titulo
+     *  (1 linea) + precio navy. Sin boton: el tap sobre la card abre el detalle via
+     *  OnInfoWindowClickListener. */
     private fun construirInfoWindow(p: Propiedad): View {
         val card = com.google.android.material.card.MaterialCardView(this).apply {
-            radius = (16.dp).toFloat()
-            cardElevation = (6.dp).toFloat()
+            radius = (12.dp).toFloat()
+            cardElevation = (4.dp).toFloat()
             setCardBackgroundColor(getColor(R.color.white))
         }
         val fila = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = android.view.Gravity.CENTER_VERTICAL
-            setPadding(10.dp, 10.dp, 10.dp, 10.dp)
+            setPadding(8.dp, 8.dp, 8.dp, 8.dp)
         }
 
         // Miniatura de la foto (marco redondeado con fondo suave si no hay foto)
         val marcoFoto = com.google.android.material.card.MaterialCardView(this).apply {
-            radius = (12.dp).toFloat()
+            radius = (10.dp).toFloat()
             cardElevation = 0f
             setCardBackgroundColor(getColor(R.color.brand_primary_soft))
         }
@@ -1183,63 +1238,52 @@ configurarBadges()
         }
         thumbInfoWindow(p)?.let { foto.setImageBitmap(it) }
         marcoFoto.addView(foto)
-        marcoFoto.layoutParams = LinearLayout.LayoutParams(96.dp, 80.dp)
+        marcoFoto.layoutParams = LinearLayout.LayoutParams(64.dp, 56.dp)
 
         // Columna de textos
         val columna = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-            (layoutParams as LinearLayout.LayoutParams).marginStart = 10.dp
+            (layoutParams as LinearLayout.LayoutParams).marginStart = 8.dp
         }
         val zona = p.barrio.ifEmpty { p.ciudad }
         val lineaTipo = if (zona.isBlank()) tipoMostrable(p.tipo)
             else "${tipoMostrable(p.tipo)} · $zona"
         columna.addView(TextView(this).apply {
             text = lineaTipo
-            textSize = 11f
+            textSize = 10f
+            maxLines = 1
+            ellipsize = android.text.TextUtils.TruncateAt.END
             setTextColor(getColor(R.color.text_muted))
         })
         columna.addView(TextView(this).apply {
             text = p.titulo
-            textSize = 14f
+            textSize = 12f
             setTypeface(null, Typeface.BOLD)
-            maxLines = 2
+            maxLines = 1
             ellipsize = android.text.TextUtils.TruncateAt.END
             setTextColor(getColor(R.color.text_primary))
         })
         columna.addView(TextView(this).apply {
             text = p.precioFormateado
-            textSize = 17f
+            textSize = 14f
             setTypeface(null, Typeface.BOLD)
             setTextColor(getColor(R.color.precio_navy))
         })
 
-        // Boton "Ver" (visual: el click en la info window abre el detalle via
-        // OnInfoWindowClickListener, las info windows de Android no reparten clicks internos)
-        val botonVer = MaterialButton(this).apply {
-            text = "Ver"
-            textSize = 12f
-            insetTop = 0.dp
-            insetBottom = 0.dp
-            backgroundTintList = ColorStateList.valueOf(getColor(R.color.brand_accent))
-            setTextColor(getColor(R.color.white))
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                36.dp
-            ).apply { marginStart = 8.dp }
-        }
-
         fila.addView(marcoFoto)
         fila.addView(columna)
-        fila.addView(botonVer)
         card.addView(fila)
         return card
     }
 
-    /** Decodifica la primera foto de la propiedad a un tamano apto para el mini-thumb del InfoWindow. */
+    /** Decodifica la primera foto de la propiedad a un tamano apto para el mini-thumb
+     *  del InfoWindow. Cacheada por id: Google invoca el adapter hasta 2 veces por
+     *  apertura del popup y decodificar base64 en cada muestra causaba tirones. */
     private fun thumbInfoWindow(p: Propiedad): Bitmap? {
-        val foto = p.fotos.firstOrNull() ?: return null
-        return try {
+        if (cacheThumbsInfo.containsKey(p.id)) return cacheThumbsInfo[p.id]
+        val foto = p.fotos.firstOrNull()
+        val bmp = if (foto == null) null else try {
             val bytes = Base64.decode(foto, Base64.NO_WRAP)
             val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
             BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
@@ -1250,6 +1294,8 @@ configurarBadges()
         } catch (_: Exception) {
             null
         }
+        cacheThumbsInfo[p.id] = bmp
+        return bmp
     }
 
     /** Mayor potencia de 2 que deja la imagen decodificada >= `objetivo` px. */
