@@ -185,7 +185,13 @@ class RegistrarPropiedadActivity : AppCompatActivity() {
         )
 
         private fun normalizarDepto(departamento: String): String {
-            return Normalizer.normalize(departamento, Normalizer.Form.NFD)
+            return Normalizer.normalize(departamento.trim(), Normalizer.Form.NFD)
+                .replace("[\\p{InCombiningDiacriticalMarks}]".toRegex(), "")
+                .lowercase(Locale.ROOT)
+        }
+
+        private fun normalizarTexto(texto: String): String {
+            return Normalizer.normalize(texto.trim(), Normalizer.Form.NFD)
                 .replace("[\\p{InCombiningDiacriticalMarks}]".toRegex(), "")
                 .lowercase(Locale.ROOT)
         }
@@ -239,13 +245,7 @@ class RegistrarPropiedadActivity : AppCompatActivity() {
         val distritosGenerico = listOf(getString(R.string.prop_distrito_sin), "Otro")
         val distritosPublicar = listOf(getString(R.string.prop_distrito_sin)) + distritosLima
 
-        spinnerTipo.adapter = crearAdapterSpinner(tipos.toList())
-        spinnerOperacion.adapter = crearAdapterSpinner(operaciones.toList())
-        spinnerMoneda.adapter = crearAdapterSpinner(monedas.toList())
-        spinnerDepartamento.adapter = crearAdapterSpinner(departamentos)
-spinnerDistrito.adapter = crearAdapterSpinner(distritosPublicar)
-
-        spinnerTipo.adapter = crearAdapterSpinner(tipos.toList())
+spinnerTipo.adapter = crearAdapterSpinner(tipos.toList())
         spinnerOperacion.adapter = crearAdapterSpinner(operaciones.toList())
         spinnerMoneda.adapter = crearAdapterSpinner(monedas.toList())
         spinnerDepartamento.adapter = crearAdapterSpinner(departamentos)
@@ -928,7 +928,8 @@ val depArr = resources.getStringArray(R.array.departamentos_peru)
                 spinnerTipo.setSelection(tiposArr.indexOfFirst { it == tipo }.coerceAtLeast(0))
                 spinnerOperacion.setSelection(operArr.indexOfFirst { it == operacion }.coerceAtLeast(0))
                 spinnerMoneda.setSelection(monArr.indexOfFirst { it.contains(moneda, ignoreCase = true) }.coerceAtLeast(0))
-                spinnerDepartamento.setSelection(depArr.indexOfFirst { it == departamentoSel }.coerceAtLeast(0))
+                // Usar comparación normalizada para el departamento (maneja espacios, acentos, mayúsculas)
+                spinnerDepartamento.setSelection(depArr.indexOfFirst { normalizarTexto(it) == normalizarTexto(departamentoSel) }.coerceAtLeast(0))
 
 // Actualizar distritos según departamento antes de setear
                 val ciudades = obtenerCiudades(departamentoSel)
@@ -941,9 +942,9 @@ val depArr = resources.getStringArray(R.array.departamentos_peru)
 
                 // Usar post para asegurar que el adapter esté listo antes de setear la selección
                 binding.spPropDistrito.post {
-                    // Normalizar el distrito guardado para comparar sin distinción de mayúsculas/minúsculas ni espacios
-                    val distritoNormalizado = distritoSel.trim().lowercase()
-                    val indiceDistrito = nuevosDistritos.indexOfFirst { item: String -> item.trim().lowercase() == distritoNormalizado }
+                    // Normalizar el distrito guardado para comparar sin distinción de mayúsculas/minúsculas, acentos ni espacios
+                    val distritoNormalizado = normalizarTexto(distritoSel)
+                    val indiceDistrito = nuevosDistritos.indexOfFirst { item: String -> normalizarTexto(item) == distritoNormalizado }
                     spinnerDistrito.setSelection(indiceDistrito.coerceAtLeast(0))
                 }
 
@@ -964,11 +965,12 @@ val depArr = resources.getStringArray(R.array.departamentos_peru)
 
                 latAgregar = n("lat")
                 lngAgregar = n("lng")
+
+                // Marcar fin de carga inicial DESPUÉS de que el post del distrito esté encolado
+                cargandoInicial = false
             }
             .addOnFailureListener { e ->
                 Toast.makeText(this, "Error cargando datos: ${e.message}", Toast.LENGTH_SHORT).show()
-            }
-            .addOnSuccessListener {
                 cargandoInicial = false
             }
     }
