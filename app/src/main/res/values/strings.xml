@@ -53,6 +53,7 @@
 <string name="auth_telefono_9_digitos">El celular debe tener exactamente 9 dígitos (ej: 987654321)</string>
 <string name="auth_error">Error: %1$s</string>
     <string name="auth_ok_login">¡Bienvenido de nuevo!</string>
+    <string name="auth_cuenta_desactivada">Tu cuenta está desactivada. Inicia sesión con otro usuario.</string>
     <string name="auth_ok_registro">¡Cuenta creada! Bienvenido</string>
     <string name="auth_usuario_guardado_error">No se pudo guardar el usuario: %1$s</string>
     <string name="auth_requerido_para_agregar">Necesitás iniciar sesión para publicar un inmueble</string>

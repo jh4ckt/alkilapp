@@ -61,8 +61,10 @@ class AuthActivity : AppCompatActivity(), CoroutineScope {
             auth.signInWithCredential(GoogleAuthProvider.getCredential(idToken, null))
                 .addOnCompleteListener { task ->
                     if (task.isSuccessful) {
-                        guardarUsuarioEnBase { finish() }
-                        Toast.makeText(this, R.string.auth_ok_google, Toast.LENGTH_SHORT).show()
+                        continuarSiCuentaActiva {
+                            guardarUsuarioEnBase { finish() }
+                            Toast.makeText(this, R.string.auth_ok_google, Toast.LENGTH_SHORT).show()
+                        }
                     } else {
                         mostrarErrorFirebase(task.exception)
                     }
@@ -227,8 +229,10 @@ class AuthActivity : AppCompatActivity(), CoroutineScope {
             .addOnCompleteListener { task ->
                 bloquear(false)
                 if (task.isSuccessful) {
-                    guardarUsuarioEnBase { finish() }
-                    Toast.makeText(this, R.string.auth_ok_login, Toast.LENGTH_SHORT).show()
+                    continuarSiCuentaActiva {
+                        guardarUsuarioEnBase { finish() }
+                        Toast.makeText(this, R.string.auth_ok_login, Toast.LENGTH_SHORT).show()
+                    }
                 } else {
                     mostrarErrorFirebase(task.exception)
                 }
@@ -298,6 +302,23 @@ private fun crearCuenta(
             return
         }
         googleLauncher.launch(googleSignInClient.signInIntent)
+    }
+
+    /**
+     * Tras autenticarse, consulta el estado de la cuenta en Firestore. Si el
+     * admin la deactivated, cierra la sesion, deja el mensaje en pantalla y NO
+     * entra a la app.
+     */
+    private fun continuarSiCuentaActiva(alContinuar: () -> Unit) {
+        EstadoCuenta.consultarDesactivado { desactivado ->
+            if (!desactivado) {
+                alContinuar()
+                return@consultarDesactivado
+            }
+            EstadoCuenta.cerrarSesion()
+            binding.etAuthPassword.setText("")
+            mostrarError(getString(R.string.auth_cuenta_desactivada))
+        }
     }
 
     /** Crea/actualiza el documento del usuario sin pisar datos ya existentes. */
