@@ -20,8 +20,12 @@
             android:id="@+id/tvBurbuja"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:maxWidth="260dp"
-            android:padding="12dp"
+            android:maxWidth="280dp"
+            android:lineSpacingExtra="2dp"
+            android:paddingStart="14dp"
+            android:paddingTop="10dp"
+            android:paddingEnd="14dp"
+            android:paddingBottom="10dp"
             android:textColor="@color/text_primary"
             android:textSize="14sp" />
 

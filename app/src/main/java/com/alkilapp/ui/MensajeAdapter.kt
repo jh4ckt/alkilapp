@@ -1,7 +1,6 @@
 package com.alkilapp.ui
 
 import android.content.Context
-import android.content.res.ColorStateList
 import android.graphics.Typeface
 import android.text.SpannableString
 import android.text.Spanned
@@ -13,7 +12,6 @@ import android.view.ViewGroup
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
-import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.RecyclerView
 import com.alkilapp.R
 import com.alkilapp.data.Mensaje
@@ -59,7 +57,9 @@ class MensajeAdapter(
 
     fun submitList(nueva: List<Mensaje>) {
         mensajes.clear()
-        mensajes.addAll(nueva.sortedBy { it.sentAt })
+        mensajes.addAll(
+            nueva.sortedWith(compareBy { if (it.sentAt > 0) it.sentAt else Long.MAX_VALUE })
+        )
         reconstruirItems()
         notifyDataSetChanged()
     }
@@ -165,10 +165,6 @@ class MensajeAdapter(
         val marginal = if (esMio) Gravity.END else Gravity.START
         tvBurbuja.layoutParams = (tvBurbuja.layoutParams as LinearLayout.LayoutParams).apply { gravity = marginal }
         tvTiempo.layoutParams = (tvTiempo.layoutParams as LinearLayout.LayoutParams).apply { gravity = marginal }
-        tvBurbuja.backgroundTintList = null
-        if (esMio) {
-            tvBurbuja.backgroundTintList = ColorStateList.valueOf(ContextCompat.getColor(ctx, R.color.alkil_coral))
-        }
 
         if (m.sentAt > 0) {
             tvTiempo.text = textoTiempo(ctx, m, esMio)

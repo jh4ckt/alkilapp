@@ -60,6 +60,7 @@ private var chatId: String = ""
     private val historialEnviado = ArrayList<Pair<Long, String>>()
     private var bloqueoSpamHasta: Long = 0
     private var chatCerradoPorInmueble: Boolean = false
+    private var forzarScrollFondo: Boolean = false
     private val handlerUI = Handler(Looper.getMainLooper())
     private val MAX_RECEIPTOS = 400
 
@@ -219,13 +220,15 @@ private var chatId: String = ""
                 // "leyendo" nunca era true y el readAt no se marcaba nunca.
                 val enElFondo = lm.itemCount == 0 ||
                     lm.findLastVisibleItemPosition() >= adapter.itemCount - 1
+                val irAlFondo = enElFondo || forzarScrollFondo
+                forzarScrollFondo = false
                 adapter.submitList(lista)
-                if (enElFondo && adapter.itemCount > 0) {
+                if (irAlFondo && adapter.itemCount > 0) {
                     binding.rvMensajes.post {
                         binding.rvMensajes.scrollToPosition(adapter.itemCount - 1)
                     }
                 }
-                marcarRecibos(lista, enElFondo)
+                marcarRecibos(lista, irAlFondo)
             }
     }
 
@@ -310,6 +313,7 @@ private var chatId: String = ""
 
         ultimoMensajeEnviado = texto
         ultimoMensajeTimestamp = ahora
+        forzarScrollFondo = true
 
         val ref = db.collection("chats").document(chatId)
             .collection("messages").document()
@@ -437,6 +441,7 @@ private var chatId: String = ""
         val miUid = auth.currentUser?.uid ?: return
         if (chatId.isBlank()) return
 
+        forzarScrollFondo = true
         val ref = db.collection("chats").document(chatId)
             .collection("messages").document()
 
@@ -547,6 +552,7 @@ private var chatId: String = ""
         val miUid = auth.currentUser?.uid ?: return
         if (chatId.isBlank()) return
 
+        forzarScrollFondo = true
         val ref = db.collection("chats").document(chatId)
             .collection("messages").document()
 
