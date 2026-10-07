@@ -25,8 +25,8 @@ android {
         applicationId = "com.alkilapp"
         minSdk = 24
         targetSdk = 36
-        versionCode = 44
-        versionName = "1.64.0"
+        versionCode = 45
+        versionName = "1.64.1"
         manifestPlaceholders["MAPS_API_KEY"] = mapsApiKey
     }
 
@@ -66,6 +66,11 @@ android {
             isShrinkResources = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             signingConfig = signingConfigs.getByName("release")
+            // Subir símbolos nativos (libs de Google Maps/Play Services) para que Play
+            // Console pueda simbolizar fallas/ANR de código nativo.
+            ndk {
+                debugSymbolLevel = "FULL"
+            }
         }
     }
 
