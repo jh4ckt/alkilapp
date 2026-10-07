@@ -14,6 +14,8 @@ import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.ApiException
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
+import com.google.firebase.auth.FirebaseAuthInvalidUserException
 import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
@@ -355,7 +357,15 @@ private fun crearCuenta(
                     datos["fechaRegistro"] = FieldValue.serverTimestamp()
                 }
                 ref.set(datos, SetOptions.merge())
-                    .addOnCompleteListener { alTerminar?.invoke() }
+                    .addOnSuccessListener { alTerminar?.invoke() }
+                    .addOnFailureListener { e ->
+                        Toast.makeText(
+                            this,
+                            getString(R.string.auth_usuario_guardado_error, e.localizedMessage ?: "?"),
+                            Toast.LENGTH_LONG
+                        ).show()
+                        alTerminar?.invoke()
+                    }
             }
             .addOnFailureListener { e ->
                 Toast.makeText(
@@ -378,6 +388,7 @@ private fun crearCuenta(
             e.message?.contains("WRONG_PASSWORD") == true -> getString(R.string.auth_password_incorrecta)
             e.message?.contains("TOO_MANY_REQUESTS") == true -> getString(R.string.auth_demasiados_intentos)
             e.message?.contains("NETWORK_ERROR") == true -> getString(R.string.auth_error_red)
+            e is FirebaseAuthInvalidCredentialsException || e is FirebaseAuthInvalidUserException -> getString(R.string.auth_credenciales_incorrectas)
             else -> getString(R.string.auth_error, e.localizedMessage ?: "?")
         }
         mostrarError(msg)

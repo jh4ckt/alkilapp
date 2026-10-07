@@ -47,6 +47,7 @@
 <string name="auth_email_duplicado">Este correo ya está registrado. Usa otro o inicia sesión.</string>
 <string name="auth_password_incorrecta">Contraseña incorrecta. Intenta de nuevo.</string>
 <string name="auth_usuario_no_encontrado">No existe una cuenta con este correo</string>
+<string name="auth_credenciales_incorrectas">Los datos ingresados son incorrectos.</string>
 <string name="auth_demasiados_intentos">Demasiados intentos. Espera un momento e intenta de nuevo.</string>
 <string name="auth_error_red">Sin conexión a internet. Verifica tu red e intenta de nuevo.</string>
 <string name="auth_error_desconocido">Error inesperado. Intenta de nuevo.</string>

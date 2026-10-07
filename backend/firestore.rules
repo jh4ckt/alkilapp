@@ -63,7 +63,22 @@ service cloud.firestore {
       }
       // "verification" escrito por el cliente es solo un ENVIO: estado "pendiente" y
       // sin "identityVerified"/"motivo" (los pone el admin al aprobar o rechazar).
-      function verificationPermitida() {
+      // OJO CREATE: no hay "resource" (resource.data es null), y llamar a
+      // map.diff(null) o .get() sobre resource.data en un create HACE FALLAR la
+      // funcion entera y con ella todo el allow (los usuarios nuevos no podian
+      // crearse). Por eso la version de create usa keys()/get() directos.
+      function verificationCreate() {
+        return !request.resource.data.keys().hasAny(['verification'])
+          || (request.resource.data.verification is map
+            && !('identityVerified' in request.resource.data.verification)
+            && !('motivo' in request.resource.data.verification)
+            && request.resource.data.verification.get('status', '') == 'pendiente'
+            && request.resource.data.verification.get('documentoPendiente', false) == true
+            && request.resource.data.verification.keys().hasOnly(
+                 ['status', 'documentoPendiente', 'tipoDocumento',
+                  'numeroDocumento', 'enviadoEn']));
+      }
+      function verificationUpdate() {
         // Solo validar si el cliente MODIFICA el campo 'verification'.
         // Si 'verification' NO está en affectedKeys, el cliente no lo tocó → permitir.
         // Cliente MODIFICÓ verification: validar que sea un envío pendiente válido.
@@ -84,11 +99,11 @@ service cloud.firestore {
         && request.auth.uid == usuario
         // En create no hay "resource", asi que se listan las claves directas.
         && request.resource.data.keys().hasOnly(camposPerfil())
-        && verificationPermitida();
+        && verificationCreate();
       allow update: if request.auth != null && (
         (request.auth.uid == usuario
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(camposPerfil())
-          && verificationPermitida())
+          && verificationUpdate())
         || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['rating', 'totalRatings'])
             && exists(/databases/$(database)/documents/usuarios/$(usuario)/reviews/$(request.auth.uid)))
       );

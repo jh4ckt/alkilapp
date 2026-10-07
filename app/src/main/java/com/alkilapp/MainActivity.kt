@@ -1617,6 +1617,13 @@ private fun limpiarMarcadores() {
                     datos["fechaRegistro"] = FieldValue.serverTimestamp()
                 }
                 ref.set(datos, SetOptions.merge())
+                    .addOnFailureListener { e ->
+                        Toast.makeText(
+                            this,
+                            getString(R.string.auth_usuario_guardado_error, e.localizedMessage ?: "?"),
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
             }
             .addOnFailureListener { e ->
                 Toast.makeText(
