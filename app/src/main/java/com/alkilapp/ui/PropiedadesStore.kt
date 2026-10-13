@@ -158,8 +158,8 @@ class PropiedadesStore {
                 distanciaKm(p) == null || distanciaKm(p)!! <= radioMaximoKm
             coincideSinRadio(p) && distanciaOk
         }
-        // Orden: destacados > verificados > sin verificar; dentro de cada
-        // grupo, primero los mas cercanos a la ubicacion del usuario.
+        // Orden: primero los destacados (del mas cercano al mas lejano) y
+        // despues el resto (tambien del mas cercano al mas lejano).
         val orden = compareBy<Propiedad> { tier(it) }
         items = if (latUsuario == null || lngUsuario == null) {
             filtradas.sortedWith(orden)
@@ -169,12 +169,8 @@ class PropiedadesStore {
         onChange?.invoke()
     }
 
-    /** 0 = destacado, 1 = propietario verificado, 2 = sin verificar. */
-    private fun tier(p: Propiedad): Int = when {
-        p.esDestacado -> 0
-        verificado(p) -> 1
-        else -> 2
-    }
+    /** 0 = destacado, 1 = resto (sin destacar). */
+    private fun tier(p: Propiedad): Int = if (p.esDestacado) 0 else 1
 }
 
 /** Normaliza el tipo a las 4 claves del filtro (igual que tipoMostrable del MainActivity). */
