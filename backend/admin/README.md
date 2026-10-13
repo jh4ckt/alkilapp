@@ -23,6 +23,7 @@ Variables:
 | `ADMIN_SECRET` | Opcional. Firma la cookie de sesion (usa algo aleatorio en produccion). |
 | `PORT` | Puerto (Cloud Run lo inyecta). |
 | `GOOGLE_APPLICATION_CREDENTIALS` | Ruta al JSON de la service account. Si no existe, usa las credenciales por defecto del entorno (ADC). |
+| `METRICAS_CACHE_TTL_S` | Opcional. Segundos que se guarda en memoria la respuesta de `/api/metricas`. Por defecto `60`. Con `0` se desactiva la cache. Ese endpoint hace una consulta por cada chat para leer su historial, asi que sin cache cada carga del panel paga ~2,4 s (con 32 chats). |
 
 ## Que hace
 
