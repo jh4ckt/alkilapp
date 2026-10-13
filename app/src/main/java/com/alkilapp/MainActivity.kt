@@ -1197,6 +1197,14 @@ fun llenar(sp: Spinner, opciones: List<String>) {
         mMap.uiSettings.isZoomControlsEnabled = true
         mMap.uiSettings.isMyLocationButtonEnabled = false
 
+        // AlkilApp opera solo en Peru: la camara arranca mostrando el pais, no el
+        // (0.0, 0.0) por defecto del SDK (que cae en el oceano frente a Africa).
+        // Luego obtenerUbicacionActual() acerca a la ubicacion del usuario.
+        mMap.setLatLngBoundsForCameraTarget(PeruLimites.BOUNDS)
+        mMap.moveCamera(
+            CameraUpdateFactory.newLatLngZoom(PeruLimites.CENTRO, PeruLimites.ZOOM_INICIAL)
+        )
+
         // Padding para que el mapa visible quede arriba del bottom sheet.
         // Inicialmente el sheet estÃ¡ colapsado (peek 100dp); al deslizarlo,
         // onSlide() actualiza este padding en tiempo real.

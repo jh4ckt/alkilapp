@@ -18,6 +18,12 @@ object PeruLimites {
         LatLng(-0.05, -68.66)
     )
 
+    /** Centro geográfico aproximado de Perú, para arrancar la cámara mostrando el país. */
+    val CENTRO = LatLng(-9.19, -75.02)
+
+    /** Zoom de vista de país (cubre todo Perú sin mostrar continentes vecinos). */
+    const val ZOOM_INICIAL = 5f
+
     /** Contorno de Perú (Natural Earth 110m): 74 vértices en orden circular, desde la costa (Chile) subiendo por el Pacífico. */
     val POLIGONO: List<LatLng> = listOf(
         LatLng(-18.347975, -70.372572),
