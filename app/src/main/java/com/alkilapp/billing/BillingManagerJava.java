@@ -49,6 +49,10 @@ public class BillingManagerJava {
                         for (Purchase purchase : purchases) {
                             handlePurchase(purchase);
                         }
+                    } else {
+                        // Compra cancelada, error o producto no encontrado:
+                        // limpiar solicitud pendiente para que el botón vuelva a decir "Destacar"
+                        purchaseCallback.onError("Compra no completada");
                     }
                 })
                 .build();

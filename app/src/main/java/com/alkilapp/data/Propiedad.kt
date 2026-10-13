@@ -26,7 +26,8 @@ data class Propiedad(
     val fotos: List<String> = emptyList(),
     val photosUrl: List<String> = emptyList(),
     val isFeatured: Boolean = false,
-    val featuredUntil: Long = 0L
+    val featuredUntil: Long = 0L,
+    val solicitudDestacar: Boolean = false
 ) {
     val ubicacion: LatLng
         get() = LatLng(lat, lng)
@@ -34,7 +35,6 @@ data class Propiedad(
     /** Destacado solo si la flag es true y la fecha de expiración aún no pasó. */
     val esDestacado: Boolean
         get() = isFeatured && (featuredUntil == 0L || featuredUntil > System.currentTimeMillis())
-
     /**
      * Estado canónico para la UI. El panel/web puede guardar "publicado" o
      * dejarlo vacío; la app usa "disponible" para todo lo que está activo
@@ -117,6 +117,7 @@ data class Propiedad(
                 fotos = fotos,
                 photosUrl = photosUrl,
                 isFeatured = (d["isFeatured"] as? Boolean) ?: false,
+                solicitudDestacar = (d["solicitudDestacar"] as? Boolean) ?: false,
                 featuredUntil = featuredUntil
             )
         }

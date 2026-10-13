@@ -476,7 +476,11 @@ private fun MisPubCard(
                 if (permiteDestacar) {
                     BotonAccion(
                         texto = stringResource(
-                            if (p.esDestacado) R.string.mis_pub_destacada else R.string.mis_pub_destacar
+                            when {
+                                p.esDestacado -> R.string.mis_pub_destacada
+                                p.solicitudDestacar -> R.string.mis_pub_pendiente
+                                else -> R.string.mis_pub_destacar
+                            }
                         ),
                         fondo = Brush.horizontalGradient(listOf(Color(0xFF9A6B00), Color(0xFFC9992E))),
                         icono = R.drawable.ic_star,
