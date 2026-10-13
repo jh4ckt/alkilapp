@@ -5,6 +5,12 @@
  *   Se dispara cuando se crea un documento en la colección "soporte" de Firestore
  *   (evento onCreate) y envía un email HTML de notificación a alkilapp2026@gmail.com.
  *
+ * notificarNuevoInmueblePorAprobar:
+ *   Se dispara cuando se crea un documento en "propiedades" y nace en estado
+ *   "under_review" (que es como la app guarda una publicación nueva). Avisa para
+ *   que el anuncio se apruebe en el panel antes de verse en la app. Editar un
+ *   anuncio NO lo devuelve a "under_review", asi que no hay que volver a avisar.
+ *
  * Proveedor de correo (en orden de preferencia, se elige el que tenga credenciales):
  *
  *   1) Resend (RECOMENDADO) - API HTTP, sin app password ni dominio propio:
@@ -22,9 +28,19 @@
  *   Destinatario configurable con SOPORTE_DESTINO (por defecto alkilapp2026@gmail.com).
  */
 const functions = require('firebase-functions/v1');
-const { getApps, initializeApp } = require('firebase-admin/app');
+const { getApps, initializeApp, getApp } = require('firebase-admin/app');
+// getFirestore vive en firebase-admin/firestore, NO en firebase-admin/app.
+const { getFirestore } = require('firebase-admin/firestore');
 
 if (!getApps().length) initializeApp();
+
+// OJO IMPORTANTE: hay que abrir la base CON NOMBRE "alkilappdb".
+//   - Un getFirestore() a secas abre "(default)", que en este proyecto NO existe:
+//     todos los datos de AlkilApp viven en la base con nombre.
+//   - initializeFirestore(app, { databaseId }) NO sirve: en firebase-admin 12.7.0
+//     se IGNORA en silencio y acaba apuntando a "(default)".
+// La forma que funciona en todas las versiones es pasar el id como 2º argumento.
+const db = getFirestore(getApp(), process.env.FIRESTORE_DB_ID || 'alkilappdb');
 
 // Destinatario de las notificaciones de soporte
 const DESTINO = process.env.SOPORTE_DESTINO || 'alkilapp2026@gmail.com';
@@ -53,7 +69,7 @@ function getTransporter() {
 }
 
 // Envío vía Resend (API REST, sin dependencias: fetch global de Node 18+)
-async function enviarConResend({ replyTo, subject, html }) {
+async function enviarConResend({ replyTo, subject, html, to }) {
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
@@ -62,7 +78,7 @@ async function enviarConResend({ replyTo, subject, html }) {
     },
     body: JSON.stringify({
       from: RESEND_FROM,
-      to: [DESTINO],
+      to: [to || DESTINO],
       subject,
       html,
       ...(replyTo ? { reply_to: replyTo } : {}),
@@ -210,6 +226,192 @@ exports.notificarNuevoTicketSoporte = functions.firestore
       // No lanzamos el error: un fallo de correo no debe romper el trigger ni
       // reintentar infinitamente (el ticket sigue vivo en la colección).
       console.error(`[Soporte] Error enviando email del ticket ${ticketId}:`, error.message);
+    }
+    return null;
+  });
+
+// ===========================================================================
+// Avisos de inmueble pendiente de aprobar
+// ===========================================================================
+
+// Destinatario de los avisos de inmueble pendiente de aprobar. Por defecto el
+// mismo correo de soporte.
+const DESTINO_INMUEBLES = process.env.INMUEBLES_DESTINO || DESTINO;
+
+// Panel admin, para el boton del correo. El panel no admite deep-link a una
+// ficha concreta (no lee parametros de URL), asi que el enlace lleva a la lista
+// de publicaciones y no a una URL inventada que daria 404.
+const PANEL_URL = process.env.PANEL_URL
+  || 'https://alkilapp-admin-288429280561.us-central1.run.app';
+
+// La app escribe "under_review" al crear una publicación
+// (RegistrarPropiedadActivity: datosNueva["estado"] = "under_review").
+const ESTADOS_PENDIENTES = ['under_review', 'pendiente'];
+
+function precioLegible(p) {
+  const n = Number(p.precio);
+  if (!Number.isFinite(n) || n <= 0) return 'Sin precio';
+  const moneda = String(p.moneda || 'PEN').toUpperCase() === 'USD' ? 'US$' : 'S/';
+  return `${moneda} ${n.toLocaleString('es-PE', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+}
+
+function construirHtmlInmueble({ id, titulo, tipo, operacion, precio, ubicacion, ambientes, superficie, propietario, publicadoEn }) {
+  const fila = (etiqueta, valor) => `
+            <tr>
+              <td style="padding:10px 14px;font-size:12px;font-weight:bold;color:#64748b;text-transform:uppercase;border-top:1px solid #e2e8f0;width:170px;">${etiqueta}</td>
+              <td style="padding:10px 14px;font-size:13px;color:#0f172a;border-top:1px solid #e2e8f0;">${valor}</td>
+            </tr>`;
+
+  return `<!DOCTYPE html>
+<html lang="es">
+<head><meta charset="utf-8"></head>
+<body style="margin:0;padding:0;background:#f1f5f9;font-family:Arial,Helvetica,sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f1f5f9;padding:24px 0;">
+    <tr><td align="center">
+      <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e2e8f0;">
+        <tr>
+          <td style="background:#0B2447;padding:20px 24px;">
+            <h1 style="margin:0;color:#ffffff;font-size:20px;">Nuevo inmueble por aprobar</h1>
+          </td>
+        </tr>
+        <tr><td style="padding:24px;">
+          <p style="margin:0 0 16px 0;color:#334155;font-size:14px;">
+            Se ha publicado un inmueble y espera aprobaci&oacute;n en el panel antes de verse en la app.
+          </p>
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e2e8f0;border-radius:8px;">
+            <tr style="background:#f8fafc;">
+              <td style="padding:10px 14px;font-size:12px;font-weight:bold;color:#64748b;text-transform:uppercase;width:170px;">Inmueble</td>
+              <td style="padding:10px 14px;font-size:13px;color:#0f172a;">${esc(titulo)}</td>
+            </tr>
+            ${fila('ID', esc(id))}
+            ${fila('Propietario', esc(propietario))}
+            ${fila('Tipo', esc(tipo))}
+            ${fila('Operaci&oacute;n', esc(operacion))}
+            ${fila('Precio', esc(precio))}
+            ${fila('Ubicaci&oacute;n', esc(ubicacion))}
+            ${fila('Ambientes / Superficie', esc(ambientes))}
+            ${fila('Publicado', esc(formatFecha(publicadoEn)))}
+          </table>
+          <table role="presentation" cellpadding="0" cellspacing="0" style="margin:22px 0 0 0;">
+            <tr><td align="center" style="border-radius:8px;background:#FF6B5E;">
+              <a href="${PANEL_URL}/publicaciones" style="display:inline-block;padding:13px 26px;font-size:15px;font-weight:bold;color:#ffffff;text-decoration:none;">Revisar y aprobar en el panel</a>
+            </td></tr>
+          </table>
+          <p style="margin:18px 0 0 0;font-size:12px;color:#94a3b8;line-height:1.5;">
+            El anuncio no aparece en la app hasta que se apruebe desde el panel de administraci&oacute;n.
+          </p>
+        </td></tr>
+        <tr>
+          <td style="background:#f1f5f9;padding:14px 24px;font-size:12px;color:#94a3b8;text-align:center;">
+            AlkilApp - Aviso autom&aacute;tico de publicaci&oacute;n &bull; ${esc(id)}
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+}
+
+/**
+ * Trigger: propiedades/{propiedadId} onCreate -> email cuando nace en
+ * "under_review", que es como la app guarda una publicación nueva.
+ *
+ * SOLO onCreate, a proposito:
+ *   - Editar un anuncio NO lo devuelve a "under_review" (la app mantiene el
+ *     estado actual), asi que no habria que reavisar.
+ *   - Y aunque lo hiciera, avisar en cada update seria ruido: basta con saber
+ *     que hay algo nuevo esperando.
+ *
+ * Un fallo de correo NO se propaga: el inmueble ya esta en Firestore y se ve en
+ * el panel, asi que reintentar en bucle no aportaria nada.
+ */
+exports.notificarNuevoInmueblePorAprobar = functions.firestore
+  .document('propiedades/{propiedadId}')
+  .onCreate(async (snap, context) => {
+    const id = context.params.propiedadId;
+    const data = snap.data() || {};
+
+    // Filtro explicito aunque el trigger sea onCreate: si alguien crea el
+    // documento ya publicado (por ejemplo una importacion), no hay nada que
+    // aprobar y el correo seria falso.
+    const estado = String(data.estado || '').toLowerCase();
+    if (!ESTADOS_PENDIENTES.includes(estado)) {
+      console.log(`[Inmueble] ${id} creado con estado "${data.estado || '(vacio)'}": no requiere aprobacion, sin aviso.`);
+      return null;
+    }
+
+    // El nombre del propietario no viene en el documento: hay que leerlo.
+    let propietario = 'Desconocido';
+    let emailPropietario;
+    if (data.idPropietario) {
+      try {
+        const u = await db.doc(`usuarios/${data.idPropietario}`).get();
+        if (u.exists) {
+          const ud = u.data() || {};
+          propietario = ud.nombre || ud.email || data.idPropietario;
+          emailPropietario = ud.email || undefined;
+        }
+      } catch (e) {
+        console.warn(`[Inmueble] No se pudo leer el propietario ${data.idPropietario}: ${e.message}`);
+      }
+    }
+
+    const ubicacion = [data.departamento, data.ciudad, data.barrio, data.distrito]
+      .filter(Boolean)
+      // .filter(Boolean) deja duplicados: la app guarda el departamento en
+      // "ciudad", asi que sin esto el mismo nombre salia dos veces.
+      .filter((v, i, a) => a.indexOf(v) === i)
+      .join(' · ') || 'Sin ubicaci&oacute;n';
+
+    const ambientes = [
+      Number(data.ambientes) > 0 ? `${data.ambientes} ambientes` : null,
+      Number(data.superficieM2) > 0 ? `${data.superficieM2} m²` : null,
+    ].filter(Boolean).join(' · ') || 'Sin datos';
+
+    const correo = {
+      to: DESTINO_INMUEBLES,
+      replyTo: emailPropietario,
+      subject: `[AlkilApp] Nuevo inmueble por aprobar: ${(data.titulo || '(sin título)').slice(0, 60)}`,
+      html: construirHtmlInmueble({
+        id,
+        titulo: data.titulo || '(sin título)',
+        tipo: data.tipo || 'departamento',
+        operacion: data.operacion || 'alquiler',
+        precio: precioLegible(data),
+        ubicacion,
+        ambientes,
+        superficie: data.superficieM2,
+        propietario,
+        publicadoEn: data.publicadoEn || snap.createTime,
+      }),
+    };
+
+    if (!RESEND_API_KEY && !GMAIL_PASS) {
+      console.error(
+        `[Inmueble] Email NO enviado para ${id}: falta RESEND_API_KEY` +
+        ' (o GMAIL_APP_PASSWORD). El inmueble sigue visible en el panel admin.'
+      );
+      return null;
+    }
+
+    try {
+      if (RESEND_API_KEY) {
+        const r = await enviarConResend(correo);
+        console.log(`[Inmueble] Email enviado (Resend) para ${id} -> id=${(r && r.id) || 'n/a'}`);
+      } else {
+        const t = getTransporter();
+        await t.sendMail({
+          from: `"AlkilApp Avisos" <${GMAIL_USER}>`,
+          to: correo.to,
+          replyTo: correo.replyTo,
+          subject: correo.subject,
+          html: correo.html,
+        });
+        console.log(`[Inmueble] Email enviado (Gmail) para ${id}`);
+      }
+    } catch (error) {
+      console.error(`[Inmueble] Error enviando email del inmueble ${id}:`, error.message);
     }
     return null;
   });
