@@ -41,10 +41,7 @@ data class Propiedad(
      * (es lo que habilita el chat con el propietario y el seguimiento).
      */
     val estadoNormalizado: String
-        get() = when (estado.trim().lowercase()) {
-            "", "publicado", "activo" -> "disponible"
-            else -> estado.trim().lowercase()
-        }
+        get() = normalizarEstado(estado)
 
     /**
      * "¿Es una publicación en venta?" Robusto a como venga el dato: el panel
@@ -70,6 +67,14 @@ data class Propiedad(
         /** Normaliza el dato crudo de "operacion" ("Venta", " venta ", ""...) a "venta"/"alquiler". */
         fun normalizarOperacion(valor: String?): String =
             (valor ?: "").trim().lowercase().ifEmpty { "alquiler" }
+
+        /** Normaliza el estado crudo a su forma canonica: ""/publicado/activo -> "disponible".
+         *  Igual que [Propiedad.estadoNormalizado] pero usable sobre un dato suelto. */
+        fun normalizarEstado(valor: String?): String =
+            when ((valor ?: "").trim().lowercase()) {
+                "", "publicado", "activo" -> "disponible"
+                else -> (valor ?: "").trim().lowercase()
+            }
 
         fun desde(doc: DocumentSnapshot): Propiedad? {
             val d = doc.data ?: return null

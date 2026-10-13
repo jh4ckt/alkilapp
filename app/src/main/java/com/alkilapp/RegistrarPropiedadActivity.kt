@@ -29,6 +29,7 @@ import androidx.annotation.StringRes
 import androidx.core.content.ContextCompat
 import androidx.core.widget.doAfterTextChanged
 import com.alkilapp.databinding.ActivityRegistrarPropiedadBinding
+import com.alkilapp.data.Propiedad
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
@@ -1298,6 +1299,8 @@ val depArr = resources.getStringArray(R.array.departamentos_peru)
      * Verifica si el usuario puede crear una nueva publicación.
      * Usuarios no verificados: máximo 1 publicación activa.
      * Usuarios verificados: máximo 5 publicaciones activas simultáneas.
+     * "Activa" = cualquier publicación NO finalizada (publicada, disponible,
+     * pausada o en revisión); solo finalizar/alquilar libera un cupo.
      * Llama al callback con true si puede publicar, false si alcanzó el límite (muestra toast).
      */
     private fun verificarLimitePublicaciones(uid: String, callback: (Boolean) -> Unit) {
@@ -1311,10 +1314,15 @@ val depArr = resources.getStringArray(R.array.departamentos_peru)
 
                 db.collection("propiedades")
                     .whereEqualTo("idPropietario", uid)
-                    .whereEqualTo("estado", "disponible")
                     .get()
                     .addOnSuccessListener { snap ->
-                        val activas = snap.size()
+                        // Activa = cualquier publicacion NO finalizada (incluye
+                        // "publicado"/""/disponible, pausadas y en revision). El
+                        // estado crudo varia ("publicado", ""), por eso se
+                        // normaliza en vez de filtrar por igualdad exacta.
+                        val activas = snap.documents.count {
+                            Propiedad.normalizarEstado(it.getString("estado")) != "finalizado"
+                        }
                         if (activas >= maxPermitido) {
                             val msg = if (verificado) {
                                 getString(R.string.prop_limite_verificado, maxPermitido)

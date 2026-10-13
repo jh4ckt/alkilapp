@@ -127,7 +127,7 @@
     <string name="prop_ok_guardado">¡Inmueble enviado! Un administrador lo revisará antes de publicarse.</string>
     <string name="prop_error_guardado">No se pudo publicar: %1$s</string>
     <string name="prop_limite_no_verificado">Para publicar más inmuebles debes verificar tu identidad. Los usuarios no verificados solo pueden tener 1 publicación activa.</string>
-    <string name="prop_limite_verificado">Has alcanzado el límite de %1$d publicaciones activas. Para publicar más, pausa o finaliza una de tus publicaciones actuales.</string>
+    <string name="prop_limite_verificado">Has alcanzado el límite de %1$d publicaciones activas. Para publicar más, finaliza una de tus publicaciones actuales (márcala como alquilada).</string>
     <string name="prop_error_limite">Error al verificar límite: %1$s</string>
     <string name="prop_error_cargar">No se pudieron cargar los inmuebles: %1$s</string>
 
