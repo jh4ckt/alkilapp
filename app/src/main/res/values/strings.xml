@@ -577,6 +577,7 @@
     <string name="ubicacion_sin_coordenadas">Este inmueble no tiene ubicación registrada</string>
     <string name="ubicacion_navegacion_error">No se pudo abrir el mapa de navegación</string>
     <string name="detalle_chat_error">No se pudo abrir el chat: %1$s</string>
+    <string name="detalle_chat_error_datos">No se pudo identificar al propietario de este inmueble.</string>
     <string name="detalle_amb">%1$d hab.</string>
     <string name="detalle_superficie">%1$s m²</string>
     <string name="detalle_comodidades">Comodidades: %1$s</string>

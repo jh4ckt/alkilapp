@@ -334,7 +334,38 @@ class PropiedadDetalleActivity : AppCompatActivity() {
             startActivity(Intent(this, VerificacionEmailActivity::class.java))
             return
         }
-        if (idPropietario.isBlank() || propId.isBlank()) return
+        if (propId.isBlank()) {
+            Toast.makeText(this, R.string.detalle_chat_error_datos, Toast.LENGTH_LONG).show()
+            return
+        }
+
+        // Algunas publicaciones antiguas pueden abrirse sin idPropietario en el Intent.
+        // Recargarlo evita que el CTA falle silenciosamente en ese caso.
+        if (idPropietario.isBlank()) {
+            db.collection("propiedades").document(propId).get()
+                .addOnSuccessListener { doc ->
+                    idPropietario = doc.getString("idPropietario").orEmpty()
+                    if (idPropietario.isBlank()) {
+                        Toast.makeText(this, R.string.detalle_chat_error_datos, Toast.LENGTH_LONG).show()
+                    } else {
+                        crearChatPropietario(miUid)
+                    }
+                }
+                .addOnFailureListener { e ->
+                    Toast.makeText(
+                        this,
+                        getString(R.string.detalle_chat_error, e.localizedMessage ?: "?"),
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+            return
+        }
+
+        crearChatPropietario(miUid)
+    }
+
+    private fun crearChatPropietario(miUid: String) {
+        Log.d("AlkilApp", "crearChatPropietario listing=$propId owner=$idPropietario user=$miUid")
 
         // Chat determinístico por inmueble Y usuario: cada usuario tiene su propio chat con el propietario.
         // Se crea con SET MERGE (no leemos antes: en un doc inexistente el get daba
