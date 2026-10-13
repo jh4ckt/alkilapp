@@ -2,40 +2,46 @@ package com.alkilapp
 
 import android.content.Intent
 import android.os.Bundle
-import android.widget.TextView
+import android.widget.Toast
+import androidx.activity.compose.setContent
 import androidx.appcompat.app.AppCompatActivity
-import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import com.alkilapp.compose.AlkilTheme
+import com.alkilapp.compose.ElemChat
+import com.alkilapp.compose.PantallaChatList
 import com.alkilapp.data.ChatAlkil
 import com.alkilapp.data.PerfilUsuario
-import com.alkilapp.databinding.ActivityChatListBinding
-import com.alkilapp.ui.ChatListAdapter
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
 
 class ChatListActivity : AppCompatActivity() {
 
-    private lateinit var binding: ActivityChatListBinding
     private val auth by lazy { FirebaseAuth.getInstance() }
     private val db by lazy { FirebaseFirestore.getInstance("alkilappdb") }
     private var escuchaChats: ListenerRegistration? = null
     private val uidsCargados = mutableSetOf<String>()
 
-    private val adapter by lazy {
-        ChatListAdapter(
-            onClick = { chat -> abrirChat(chat) },
-            miUid = auth.currentUser?.uid ?: ""
-        )
-    }
+    private var elementos by mutableStateOf<List<ElemChat>>(emptyList())
+    private var perfiles by mutableStateOf<Map<String, PerfilUsuario>>(emptyMap())
+    private var miUid = ""
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        binding = ActivityChatListBinding.inflate(layoutInflater)
-        setContentView(binding.root)
-
-        binding.rvChats.layoutManager = LinearLayoutManager(this)
-        binding.rvChats.adapter = adapter
-        binding.btnChatBack.setOnClickListener { finish() }
+        miUid = auth.currentUser?.uid ?: ""
+        setContent {
+            AlkilTheme {
+                PantallaChatList(
+                    elementos = elementos,
+                    perfiles = perfiles,
+                    miUid = miUid,
+                    onChat = { chat -> abrirChat(chat) },
+                    onAtras = { finish() }
+                )
+            }
+        }
     }
 
     override fun onStart() {
@@ -52,19 +58,19 @@ class ChatListActivity : AppCompatActivity() {
 
     private fun escucharChats() {
         escuchaChats?.remove()
-        val miUid = auth.currentUser?.uid ?: run {
+        val uid = auth.currentUser?.uid ?: run {
             finish()
             return
         }
 
         // Solo los chats donde yo participo Y no los he "eliminado" (soft delete).
         escuchaChats = db.collection("chats")
-            .whereArrayContains("participants", miUid)
+            .whereArrayContains("participants", uid)
             .addSnapshotListener { snap, error ->
                 if (error != null) return@addSnapshotListener
 
-                val chats = snap?.documents?.mapNotNull { ChatAlkil.desde(it, miUid) }
-                    ?.filter { chat -> !chat.deletedForUsers.contains(miUid) }
+                val chats = snap?.documents?.mapNotNull { ChatAlkil.desde(it, uid) }
+                    ?.filter { chat -> !chat.deletedForUsers.contains(uid) }
                     ?.sortedByDescending { it.lastMessageAt }
                     ?: emptyList()
 
@@ -75,22 +81,27 @@ class ChatListActivity : AppCompatActivity() {
                     }
                     .toSortedMap()
 
-                adapter.submitGrupos(grupos)
-                mostrarVacio(chats.isEmpty())
+                // Aplanar a encabezado + filas para el LazyColumn
+                val lista = mutableListOf<ElemChat>()
+                for ((_, chatsDelGrupo) in grupos) {
+                    chatsDelGrupo.firstOrNull()?.let {
+                        lista.add(ElemChat.Encabezado(it.listingTitle))
+                    }
+                    chatsDelGrupo.forEach { lista.add(ElemChat.Fila(it)) }
+                }
+                elementos = lista
 
                 // Carga perfiles de la otra persona (una vez por uid por sesión).
-                for (uid in chats.flatMap { it.otrosParticipantes }) {
-                    if (uidsCargados.add(uid)) {
-                        PerfilUsuario.buscar(db, uid) { perfil ->
-                            adapter.setPerfil(uid, perfil)
+                for (uidOtro in chats.flatMap { it.otrosParticipantes }) {
+                    if (uidsCargados.add(uidOtro)) {
+                        PerfilUsuario.buscar(db, uidOtro) { perfil ->
+                            if (perfil != null) {
+                                perfiles = perfiles + (uidOtro to perfil)
+                            }
                         }
                     }
                 }
             }
-    }
-
-    private fun mostrarVacio(vacio: Boolean) {
-        binding.tvChatVacio.visibility = if (vacio) TextView.VISIBLE else TextView.GONE
     }
 
     private fun abrirChat(chat: ChatAlkil) {

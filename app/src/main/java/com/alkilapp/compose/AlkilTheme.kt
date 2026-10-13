@@ -30,6 +30,13 @@ object AlkilColores {
     val Dorado = Color(0xFFD4A017)        // brand_gold
     val GrisSuave = Color(0xFFF2EFE9)     // alkil_gray_soft (pills de specs)
     val Calido = Color(0xFFF4EFE5)        // surface_warm
+    val DoradoTexto = Color(0xFF8A6A00)   // gold_text
+    val DoradoSuave = Color(0xFFFBF1D6)   // alkil_gold_soft
+    val CoralSuave = Color(0xFFFFE4E1)    // alkil_coral_soft
+    val CoralTexto = Color(0xFFC0392B)    // coral_text
+    val PrimarioDark = Color(0xFF0F172A)  // brand_primary_dark (gradiente del header del drawer)
+    val OnDarkSuave = Color(0xFFCBD5E1)   // on_dark_soft
+    val Rojo = Color(0xFFDC2626)          // alkil_rojo
 }
 
 @Composable

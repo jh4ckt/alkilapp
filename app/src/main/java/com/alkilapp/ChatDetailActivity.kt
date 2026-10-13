@@ -1,21 +1,25 @@
 package com.alkilapp
 
-import android.content.res.ColorStateList
+import android.content.Intent
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
-import android.view.MenuItem
-import android.view.View
-import android.view.inputmethod.EditorInfo
-import android.widget.PopupMenu
 import android.widget.Toast
+import androidx.activity.compose.setContent
 import androidx.appcompat.app.AppCompatActivity
-import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.lifecycle.lifecycleScope
+import com.alkilapp.compose.AlkilTheme
+import com.alkilapp.compose.ChatItemUi
+import com.alkilapp.compose.ChatUiState
+import com.alkilapp.compose.PantallaChatDetail
+import com.alkilapp.compose.colorAvatarChat
 import com.alkilapp.data.Mensaje
 import com.alkilapp.data.PerfilUsuario
 import com.alkilapp.data.TipoMensaje
-import com.alkilapp.databinding.ActivityChatDetailBinding
-import com.alkilapp.ui.MensajeAdapter
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.datepicker.MaterialDatePicker
 import com.google.android.material.textfield.TextInputEditText
@@ -28,29 +32,22 @@ import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.WriteBatch
 import java.util.Locale
 import java.util.concurrent.atomic.AtomicBoolean
+import kotlinx.coroutines.launch
 
 class ChatDetailActivity : AppCompatActivity() {
 
-    private lateinit var binding: ActivityChatDetailBinding
     private val auth by lazy { FirebaseAuth.getInstance() }
     private val db by lazy { FirebaseFirestore.getInstance("alkilappdb") }
     private var escuchaMensajes: ListenerRegistration? = null
     private var escuchaChat: ListenerRegistration? = null
     private var escuchaInmueble: ListenerRegistration? = null
 
-    private val coloresAvatar = intArrayOf(
-        R.color.avatar_1, R.color.avatar_2, R.color.avatar_3, R.color.avatar_4, R.color.avatar_5
-    )
-
-private var chatId: String = ""
+    private var chatId: String = ""
     private var otroUid: String = ""
     private var listingId: String = ""
     private var idPropietarioDelInmueble: String = ""
 
     // --- Anti-spam -------------------------------------------------------
-    // 1) El MISMO texto no se puede reenviar dentro de 30 s (evita el doble tap).
-    // 2) Si una palabra se repite mas de MAX_REPETICIONES veces seguidas, el chat
-    //    queda bloqueado durante BLOQUEO_SPAM_MS (5 min) para cortar el spam.
     private var ultimoMensajeEnviado: String = ""
     private var ultimoMensajeTimestamp: Long = 0
     private val DEBOUNCE_MS = 30_000L
@@ -64,52 +61,55 @@ private var chatId: String = ""
     private val handlerUI = Handler(Looper.getMainLooper())
     private val MAX_RECEIPTOS = 400
 
-    private val adapter by lazy { MensajeAdapter(
-        miUid = auth.currentUser?.uid ?: "",
-        onAceptar = { m -> aceptarCita(m) },
-        onRechazar = { m -> rechazarCita(m) }
-    ) }
+    private val listaState = LazyListState()
+    private var ui by mutableStateOf(ChatUiState())
+    private var items by mutableStateOf<List<ChatItemUi>>(emptyList())
+    private var textoEntrada by mutableStateOf("")
+    private val listaMensajes = ArrayList<Mensaje>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        binding = ActivityChatDetailBinding.inflate(layoutInflater)
-        setContentView(binding.root)
 
         chatId = intent.getStringExtra(ChatListActivity.EXTRA_CHAT_ID).orEmpty()
         otroUid = intent.getStringExtra(ChatListActivity.EXTRA_OTRO_UID).orEmpty()
         listingId = intent.getStringExtra(ChatListActivity.EXTRA_LISTING_ID).orEmpty()
             .ifBlank { chatId.removePrefix("inm-") }
-        binding.tvChatListing.text = intent.getStringExtra(ChatListActivity.EXTRA_LISTING)
+        val listing = intent.getStringExtra(ChatListActivity.EXTRA_LISTING).orEmpty()
 
-        binding.btnChatDetailBack.setOnClickListener { finish() }
-        binding.btnChatMenu.setOnClickListener { mostrarMenuOpciones() }
-        binding.btnSolicitarCita.setOnClickListener { mostrarDialogoCita() }
-        binding.btnEnviar.setOnClickListener { enviarMensaje() }
-        binding.etEntrada.setOnEditorActionListener { _, actionId, _ ->
-            if (actionId == EditorInfo.IME_ACTION_SEND || actionId == EditorInfo.IME_ACTION_DONE) {
-                enviarMensaje()
-                true
-            } else false
+        ui = ui.copy(listingTitulo = listing)
+
+        setContent {
+            AlkilTheme {
+                PantallaChatDetail(
+                    ui = ui,
+                    items = items,
+                    miUid = auth.currentUser?.uid ?: "",
+                    listaState = listaState,
+                    textoEntrada = textoEntrada,
+                    onTextoEntrada = { textoEntrada = it },
+                    onEnviar = { enviarMensaje() },
+                    onCita = { mostrarDialogoCita() },
+                    onAtras = { finish() },
+                    onCerrarChat = { confirmarCerrarChat() },
+                    onEliminarChat = { confirmarEliminarChat() },
+                    onAceptar = { m -> aceptarCita(m) },
+                    onRechazar = { m -> rechazarCita(m) }
+                )
+            }
         }
-
-        binding.rvMensajes.layoutManager = LinearLayoutManager(this)
-        binding.rvMensajes.adapter = adapter
 
         if (otroUid.isNotBlank()) cargarPerfil(otroUid)
 
-        // Obtener idPropietario del inmueble para controlar visibilidad del botón "Solicitar alquiler"
         if (listingId.isNotBlank()) {
             db.collection("propiedades").document(listingId).get()
                 .addOnSuccessListener { doc ->
                     if (doc.exists()) {
                         idPropietarioDelInmueble = doc.getString("idPropietario") ?: ""
-                        // Obtener precio y moneda para mostrar en encabezado
                         val precio = (doc.getDouble("precio") ?: 0.0)
                         val moneda = (doc.getString("moneda") ?: "PEN")
                         val op = (doc.getString("operacion") ?: "alquiler")
                         val precioFormateado = formatearPrecioChat(precio, moneda, op)
-                        binding.tvChatPrecio.text = precioFormateado
-                        binding.tvChatPrecio.visibility = View.VISIBLE
+                        ui = ui.copy(precio = precioFormateado)
                         actualizarBotonPropuesta()
                     }
                 }
@@ -117,14 +117,7 @@ private var chatId: String = ""
         }
     }
 
-    /**
-     * Si la publicacion queda finalizada/alquilada (estado "finalizado"),
-     * el chat se cierra para el solicitante: se muestra el aviso y se
-     * deshabilita la barra de escritura para no permitir mas comunicacion.
-     */
     private fun vigilarEstadoInmueble() {
-        // Se guarda la suscripcion: sin remove() en onStop el listener seguia
-        // vivo con la pantalla fuera y el usuario dentro del chat.
         escuchaInmueble?.remove()
         escuchaInmueble = db.collection("propiedades").document(listingId)
             .addSnapshotListener { snap, _ ->
@@ -132,23 +125,18 @@ private var chatId: String = ""
                     val estado = (snap.data?.get("estado") as? String)?.trim()?.lowercase().orEmpty()
                     val cerrado = estado == "finalizado"
                     chatCerradoPorInmueble = cerrado
-                    binding.cardChatCerrado.visibility = if (cerrado) View.VISIBLE else View.GONE
                     actualizarEntrada()
                     actualizarBotonPropuesta()
                 }
             }
     }
 
-    /** Controla visibilidad del botón "Solicitar alquiler":
-     * - Solo visible si NO soy el propietario del inmueble
-     * - Chat estado == "abierto" (no "cerrado" ni "acuerdo_cerrado")
-     * - Propiedad no está "finalizado"
-     */
     private fun actualizarBotonPropuesta() {
-        val miUid = auth.currentUser?.uid ?: run { binding.btnSolicitarCita.visibility = View.GONE; return }
+        val miUid = auth.currentUser?.uid ?: run {
+            ui = ui.copy(mostrarBotonCita = false); return
+        }
         val esPropietario = miUid == idPropietarioDelInmueble
 
-        // Obtener estado del chat y de la propiedad
         db.collection("chats").document(chatId).get().addOnSuccessListener { chatSnap ->
             val chatEstado = (chatSnap.data?.get("estado") as? String)?.orEmpty() ?: "abierto"
             val chatAbierto = chatEstado == "abierto"
@@ -158,7 +146,7 @@ private var chatId: String = ""
                 val propDisponible = propEstado != "finalizado"
 
                 val mostrar = !esPropietario && chatAbierto && propDisponible && listingId.isNotBlank()
-                binding.btnSolicitarCita.visibility = if (mostrar) View.VISIBLE else View.GONE
+                ui = ui.copy(mostrarBotonCita = mostrar)
             }
         }
     }
@@ -185,24 +173,72 @@ private var chatId: String = ""
         handlerUI.removeCallbacksAndMessages(null)
     }
 
-    /** Carga el avatar/nombre/verificado/rating del interlocutor. */
     private fun cargarPerfil(uid: String) {
         PerfilUsuario.buscar(db, uid) { perfil ->
             if (perfil == null) return@buscar
-            binding.tvChatNombre.text = perfil.nombre
-            binding.tvChatAvatar.text = perfil.inicial.toString()
-            binding.tvChatAvatar.backgroundTintList = ColorStateList.valueOf(
-                coloresAvatar[Math.floorMod(uid.hashCode(), coloresAvatar.size)]
+            ui = ui.copy(
+                nombre = perfil.nombre,
+                inicial = perfil.inicial.toString(),
+                colorAvatar = colorAvatarChat(uid),
+                verificado = perfil.verificado,
+                ratingTexto = if (perfil.rating > 0) String.format(Locale.US, "%.1f", perfil.rating) else null
             )
-            binding.ivChatVerificado.visibility = if (perfil.verificado) View.VISIBLE else View.GONE
-            binding.tvChatVerificadoLinea.visibility = if (perfil.verificado) View.VISIBLE else View.GONE
-            if (perfil.rating > 0) {
-                binding.tvChatRating.text = String.format(Locale.US, "%.1f", perfil.rating)
-                binding.tvChatRating.visibility = View.VISIBLE
-            } else {
-                binding.tvChatRating.visibility = View.GONE
-            }
         }
+    }
+
+    // ---- Items aplanados (dia header + mensajes) -------------------------
+
+    private fun diaClave(millis: Long): Long {
+        val c = java.util.Calendar.getInstance().apply { timeInMillis = millis }
+        return c.get(java.util.Calendar.YEAR) * 1000L + c.get(java.util.Calendar.DAY_OF_YEAR)
+    }
+
+    private fun esHoy(millis: Long): Boolean {
+        val c1 = java.util.Calendar.getInstance().apply { timeInMillis = millis }
+        val c2 = java.util.Calendar.getInstance()
+        return c1.get(java.util.Calendar.YEAR) == c2.get(java.util.Calendar.YEAR) &&
+                c1.get(java.util.Calendar.DAY_OF_YEAR) == c2.get(java.util.Calendar.DAY_OF_YEAR)
+    }
+
+    private fun formatearDia(millis: Long): String {
+        val fecha = java.util.Date(millis)
+        val cal = java.util.Calendar.getInstance().apply { timeInMillis = millis }
+        val hoy = java.util.Calendar.getInstance()
+        val diffDias = hoy.get(java.util.Calendar.DAY_OF_YEAR) - cal.get(java.util.Calendar.DAY_OF_YEAR)
+        val diffAnios = hoy.get(java.util.Calendar.YEAR) - cal.get(java.util.Calendar.YEAR)
+        val diaFormato = java.text.SimpleDateFormat("dd MMM", Locale("es", "PE"))
+        val diaNombreFormato = java.text.SimpleDateFormat("EEEE", Locale("es", "PE"))
+
+        return when {
+            esHoy(millis) -> "Hoy"
+            diffAnios == 0 && diffDias == 1 -> "Ayer"
+            diffAnios == 0 && diffDias <= 3 -> diaNombreFormato.format(fecha)
+                .replaceFirstChar { it.uppercase(Locale("es", "PE")) }
+            else -> diaFormato.format(fecha)
+        }
+    }
+
+    private fun construirItems(mensajes: List<Mensaje>): List<ChatItemUi> {
+        val out = ArrayList<ChatItemUi>()
+        var ultimoDiaClave: Long? = null
+        for (m in mensajes) {
+            if (m.sentAt > 0) {
+                val clave = diaClave(m.sentAt)
+                if (clave != ultimoDiaClave) {
+                    ultimoDiaClave = clave
+                    out.add(ChatItemUi.Dia(formatearDia(m.sentAt).uppercase(Locale("es", "PE"))))
+                }
+            }
+            out.add(ChatItemUi.Msg(m))
+        }
+        return out
+    }
+
+    /** true si el ultimo item esta visible (usuario en el fondo de la conversacion). */
+    private fun enElFondo(): Boolean {
+        val layout = listaState.layoutInfo
+        val ultimoVisible = layout.visibleItemsInfo.lastOrNull()?.index ?: -1
+        return layout.totalItemsCount == 0 || ultimoVisible >= items.size - 1
     }
 
     private fun escucharMensajes() {
@@ -213,31 +249,20 @@ private var chatId: String = ""
             .addSnapshotListener { snap, _ ->
                 if (snap == null) return@addSnapshotListener
                 val lista = snap.documents.mapNotNull { Mensaje.desde(it) }
-                val lm = binding.rvMensajes.layoutManager as LinearLayoutManager
-                // OJO: findLastVisibleItemPosition (no "Completely"): la ultima
-                // burbuja casi siempre queda CLIPADA por la barra de escritura,
-                // asi que con findLastCompletelyVisibleItemPosition() el flag
-                // "leyendo" nunca era true y el readAt no se marcaba nunca.
-                val enElFondo = lm.itemCount == 0 ||
-                    lm.findLastVisibleItemPosition() >= adapter.itemCount - 1
-                val irAlFondo = enElFondo || forzarScrollFondo
+                listaMensajes.clear()
+                listaMensajes.addAll(lista)
+                val irAlFondo = enElFondo() || forzarScrollFondo
                 forzarScrollFondo = false
-                adapter.submitList(lista)
-                if (irAlFondo && adapter.itemCount > 0) {
-                    binding.rvMensajes.post {
-                        binding.rvMensajes.scrollToPosition(adapter.itemCount - 1)
-                    }
+                val ordenados = lista.sortedWith(compareBy { if (it.sentAt > 0) it.sentAt else Long.MAX_VALUE })
+                items = construirItems(ordenados)
+                if (irAlFondo && items.isNotEmpty()) {
+                    val destino = items.size - 1
+                    lifecycleScope.launch { listaState.scrollToItem(destino) }
                 }
                 marcarRecibos(lista, irAlFondo)
             }
     }
 
-    /**
-     * Checks estilo WhatsApp: el RECEPTOR marca "deliveredAt" en cuanto el
-     * mensaje entra con el chat en pantalla, y "readAt" cuando ademas esta
-     * viendo el final de la conversacion. Solo se escribe lo que falta, y las
-     * reglas de Firestore impiden que el autor se marque sus propios mensajes.
-     */
     private fun marcarRecibos(lista: List<Mensaje>, leyendo: Boolean) {
         val miUid = auth.currentUser?.uid ?: return
         if (ChatVista.actual != chatId) return
@@ -265,42 +290,38 @@ private var chatId: String = ""
         batch?.commit()
     }
 
-    /** Mantiene el encabezado sincronizado con el título del inmueble y actualiza botón propuesta. */
     private fun escucharChat() {
         escuchaChat?.remove()
         escuchaChat = db.collection("chats").document(chatId)
             .addSnapshotListener { snap, _ ->
                 if (snap?.exists() == true) {
                     val titulo = snap.data?.get("listingTitle") as? String
-                    if (!titulo.isNullOrBlank()) binding.tvChatListing.text = titulo
+                    if (!titulo.isNullOrBlank()) ui = ui.copy(listingTitulo = titulo)
                     actualizarBotonPropuesta()
                 }
             }
     }
 
     private fun enviarMensaje() {
-        if (!binding.etEntrada.isEnabled) return
-        val texto = binding.etEntrada.text.toString().trim()
+        if (!ui.entradaActiva) return
+        val texto = textoEntrada.trim()
         val miUid = auth.currentUser?.uid ?: return
         if (texto.isEmpty() || chatId.isBlank()) return
 
         val ahora = System.currentTimeMillis()
 
-        // 1) Bloqueo por spam todavia vigente.
         if (ahora < bloqueoSpamHasta) {
             val mins = ((bloqueoSpamHasta - ahora + 59_999L) / 60_000L).toInt()
             Toast.makeText(this, getString(R.string.chat_spam_bloqueo_activo, mins), Toast.LENGTH_LONG).show()
             return
         }
 
-        // 2) Reenvio del mismo texto dentro de la ventana de 30 s.
         if (texto == ultimoMensajeEnviado && (ahora - ultimoMensajeTimestamp) < DEBOUNCE_MS) {
             val seg = ((DEBOUNCE_MS - (ahora - ultimoMensajeTimestamp) + 999L) / 1000L).toInt()
             Toast.makeText(this, getString(R.string.chat_msj_duplicado, seg), Toast.LENGTH_SHORT).show()
             return
         }
 
-        // 3) Palabra repetida mas de 5 veces seguidas -> bloqueo de 5 min.
         historialEnviado.add(ahora to texto)
         while (historialEnviado.size > VENTANA_ANTISPAM) historialEnviado.removeAt(0)
         val palabras = historialEnviado.flatMap { palabrasDe(it.second) }
@@ -337,16 +358,14 @@ private var chatId: String = ""
                 if (otroUid.isNotBlank()) updates["unreadCount.$otroUid"] = FieldValue.increment(1)
                 db.collection("chats").document(chatId).update(updates)
             }
-        binding.etEntrada.text?.clear()
+        textoEntrada = ""
     }
 
-    /** Palabras "significativas" de un mensaje (ignora relleno de 1-2 letras). */
     private fun palabrasDe(texto: String): List<String> =
         texto.lowercase(Locale("es", "PE"))
-            .split(Regex("[^a-z0-9\u00e1\u00e9\u00ed\u00f3\u00fa\u00f1\u00fc]+"))
+            .split(Regex("[^a-z0-9áéíóúñü]+"))
             .filter { it.length >= 3 }
 
-    /** Bloquea la escritura 5 minutos y avisa al usuario. */
     private fun activarBloqueoSpam() {
         bloqueoSpamHasta = System.currentTimeMillis() + BLOQUEO_SPAM_MS
         historialEnviado.clear()
@@ -362,18 +381,11 @@ private var chatId: String = ""
         }, BLOQUEO_SPAM_MS)
     }
 
-    /**
-     * Unica fuente de verdad de la barra de escritura: se deshabilita si el
-     * inmueble esta alquilado/vendido, si el chat se cerro o si hay bloqueo
-     * anti-spam vigente.
-     */
     private fun actualizarEntrada() {
         val activa = !chatCerradoPorInmueble && System.currentTimeMillis() >= bloqueoSpamHasta
-        binding.etEntrada.isEnabled = activa
-        binding.btnEnviar.isEnabled = activa
+        ui = ui.copy(entradaActiva = activa, cerrado = chatCerradoPorInmueble)
     }
 
-    /** Muestra diálogo para crear y enviar una cita de visita. */
     private fun mostrarDialogoCita() {
         if (auth.currentUser == null) return
 
@@ -393,8 +405,6 @@ private var chatId: String = ""
         }
 
         etHora.setOnClickListener {
-            // OJO: el listener de MaterialTimePicker recibe un View, por eso se lee
-            // la hora del propio picker.
             val picker = MaterialTimePicker.Builder()
                 .setTimeFormat(TimeFormat.CLOCK_24H)
                 .setTitleText(getString(R.string.cita_hora))
@@ -428,15 +438,12 @@ private var chatId: String = ""
         dialog.show()
     }
 
-    /** El date picker devuelve la medianoche UTC en milisegundos: se formatea como
-     *  dd/MM/yyyy en UTC para que no se corra un dia por el cambio de zona. */
     private fun formatearFechaCita(millis: Long): String {
         val sdf = java.text.SimpleDateFormat("dd/MM/yyyy", Locale.US)
         sdf.timeZone = java.util.TimeZone.getTimeZone("UTC")
         return sdf.format(java.util.Date(millis))
     }
 
-    /** Envía una solicitud de cita como mensaje tipo "cita". */
     private fun enviarCita(fecha: String, hora: String, texto: String) {
         val miUid = auth.currentUser?.uid ?: return
         if (chatId.isBlank()) return
@@ -478,7 +485,6 @@ private var chatId: String = ""
         }
     }
 
-/** Acepta una cita pendiente (solo el propietario; el chat sigue abierto). */
     private fun aceptarCita(m: Mensaje) {
         val miUid = auth.currentUser?.uid ?: return
         val citaId = m.citaId ?: return
@@ -513,7 +519,6 @@ private var chatId: String = ""
             }
     }
 
-    /** Rechaza una cita pendiente (el chat sigue abierto y se puede re-agendar). */
     private fun rechazarCita(m: Mensaje) {
         val miUid = auth.currentUser?.uid ?: return
         val citaId = m.citaId ?: return
@@ -547,7 +552,6 @@ private var chatId: String = ""
             }
     }
 
-    /** Envía un mensaje de tipo "sistema" (avisos como cierre, aceptación, etc.). */
     private fun enviarMensajeSistema(texto: String) {
         val miUid = auth.currentUser?.uid ?: return
         if (chatId.isBlank()) return
@@ -578,27 +582,6 @@ private var chatId: String = ""
             }
     }
 
-    /** Muestra menú de opciones del chat (cerrar chat, eliminar, etc.). */
-    private fun mostrarMenuOpciones() {
-        val popup = PopupMenu(this@ChatDetailActivity, binding.btnChatMenu)
-        popup.menuInflater.inflate(R.menu.menu_chat, popup.menu)
-        popup.setOnMenuItemClickListener { item: android.view.MenuItem ->
-            when (item.itemId) {
-                R.id.menu_cerrar_chat -> {
-                    confirmarCerrarChat()
-                    true
-                }
-                R.id.menu_eliminar_chat -> {
-                    confirmarEliminarChat()
-                    true
-                }
-                else -> false
-            }
-        }
-        popup.show()
-    }
-
-    /** Confirma y cierra el chat (cambia estado a "cerrado", no borra historial). */
     private fun confirmarCerrarChat() {
         MaterialAlertDialogBuilder(this)
             .setTitle(R.string.chat_cerrar_confirm_titulo)
@@ -610,7 +593,6 @@ private var chatId: String = ""
             .show()
     }
 
-    /** Cierra el chat cambiando su estado a "cerrado" (no borra historial). */
     private fun cerrarChat() {
         val miUid = auth.currentUser?.uid ?: return
         if (chatId.isBlank()) return
@@ -622,13 +604,10 @@ private var chatId: String = ""
                 "lastMessageAt" to FieldValue.serverTimestamp()
             ))
             .addOnSuccessListener {
-                // Enviar mensaje de sistema
                 enviarMensajeSistema(getString(R.string.chat_cerrado_sistema))
-                // Actualizar UI
-                binding.cardChatCerrado.visibility = View.VISIBLE
                 chatCerradoPorInmueble = true
                 actualizarEntrada()
-                binding.btnSolicitarCita.visibility = View.GONE
+                ui = ui.copy(mostrarBotonCita = false)
                 Toast.makeText(this, R.string.chat_cerrar_ok, Toast.LENGTH_SHORT).show()
             }
             .addOnFailureListener { e ->
@@ -636,7 +615,6 @@ private var chatId: String = ""
             }
     }
 
-    /** Confirma la ocultación del chat para el usuario actual. */
     private fun confirmarEliminarChat() {
         MaterialAlertDialogBuilder(this)
             .setTitle(R.string.chat_eliminar_confirm_titulo)
@@ -648,8 +626,6 @@ private var chatId: String = ""
             .show()
     }
 
-    /** Oculta el chat solo para el usuario actual (soft delete: NADA se borra de la
-     *  base, el historial queda disponible para auditoría y soporte). */
     private fun eliminarChat() {
         val miUid = auth.currentUser?.uid ?: return
         if (chatId.isBlank()) return
@@ -658,7 +634,7 @@ private var chatId: String = ""
             .update(mapOf("deletedForUsers" to FieldValue.arrayUnion(miUid)))
             .addOnSuccessListener {
                 Toast.makeText(this, R.string.chat_eliminar_ok, Toast.LENGTH_SHORT).show()
-                finish() // Cerrar actividad y volver a la lista
+                finish()
             }
             .addOnFailureListener { e ->
                 Toast.makeText(this, getString(R.string.chat_eliminar_error, e.localizedMessage ?: "?"), Toast.LENGTH_LONG).show()
@@ -672,7 +648,6 @@ private var chatId: String = ""
             .update(mapOf("unreadCount.$miUid" to 0))
     }
 
-    /** Formatea el precio para mostrar en el encabezado del chat. */
     private fun formatearPrecioChat(precio: Double, moneda: String, op: String): String {
         if (precio <= 0) return ""
         val monto = if (precio == precio.toLong().toDouble()) {

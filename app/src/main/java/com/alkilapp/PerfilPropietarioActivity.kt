@@ -8,16 +8,22 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
-import android.view.View
 import android.widget.EditText
 import android.widget.ImageView
 import android.widget.LinearLayout
-import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.compose.setContent
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import com.alkilapp.compose.AlkilTheme
+import com.alkilapp.compose.PantallaPerfilPropietario
+import com.alkilapp.compose.PerfilPropietarioUiState
+import com.alkilapp.compose.ResenaUi
+import com.alkilapp.compose.colorAvatarPorUid
 import com.alkilapp.data.Propiedad
-import com.alkilapp.databinding.ActivityPerfilPropietarioBinding
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
@@ -33,14 +39,14 @@ import java.util.Locale
 import java.util.concurrent.Executors
 
 /**
- * Perfil público de un arrendador/arrendatario (doc en "usuarios/{uid}").
+ * Perfil publico de un arrendador/arrendatario (doc en "usuarios/{uid}").
  * Se abre desde la ficha del inmueble (tarjeta del propietario). Muestra
- * datos de contacto, nivel de confianza/verificación, rating y reseñas, y
- * permite iniciar el chat del inmueble desde acá.
+ * datos de contacto, nivel de confianza/verificacion, rating y resenas, y
+ * permite iniciar el chat del inmueble desde aca. UI en Compose; los
+ * dialogos (resena, confirmaciones) se quedan en View.
  */
 class PerfilPropietarioActivity : AppCompatActivity() {
 
-    private lateinit var binding: ActivityPerfilPropietarioBinding
     private val auth by lazy { FirebaseAuth.getInstance() }
     private val db by lazy { FirebaseFirestore.getInstance("alkilappdb") }
     private val billingManager by lazy { com.alkilapp.billing.BillingManager(this) }
@@ -51,58 +57,53 @@ class PerfilPropietarioActivity : AppCompatActivity() {
     private var escuchaReviews: ListenerRegistration? = null
     private var escuchaInmuebles: ListenerRegistration? = null
 
-    private val coloresAvatar = intArrayOf(
-        R.color.avatar_1, R.color.avatar_2, R.color.avatar_3, R.color.avatar_4, R.color.avatar_5
-    )
-
     private var uid: String = ""
     private var listingId: String = ""
     private var listingTitulo: String = ""
 
+    private var ui by mutableStateOf(PerfilPropietarioUiState())
+    private var inmuebles by mutableStateOf<List<Propiedad>>(emptyList())
+    private var resenas by mutableStateOf<List<ResenaUi>>(emptyList())
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        binding = ActivityPerfilPropietarioBinding.inflate(layoutInflater)
-        setContentView(binding.root)
 
         uid = intent.getStringExtra(EXTRA_UID) ?: ""
         listingId = intent.getStringExtra(EXTRA_LISTING_ID) ?: ""
         listingTitulo = intent.getStringExtra(EXTRA_LISTING_TITULO) ?: ""
 
+        val esMio = auth.currentUser?.uid == uid
+
+        setContent {
+            AlkilTheme {
+                PantallaPerfilPropietario(
+                    ui = ui,
+                    inmuebles = inmuebles,
+                    resenas = resenas,
+                    onCerrar = { finish() },
+                    onChat = { abrirChat() },
+                    onResena = { abrirResena() },
+                    onInmueble = { p -> abrirDetalle(p) },
+                    onFinalizar = { p -> confirmarFinalizar(p) },
+                    onPausar = { p -> pausarPublicacion(p) },
+                    onReactivar = { p -> reactivarPublicacion(p) },
+                    onDestacar = { p -> solicitarDestacar(p) }
+                )
+            }
+        }
+
         if (uid.isBlank()) {
-            binding.tvPerfilNoEncontrado.visibility = View.VISIBLE
+            ui = ui.copy(encontrado = false)
             return
         }
 
-        binding.tvPerfilInicial.backgroundTintList = ColorStateList.valueOf(
-            coloresAvatar[Math.floorMod(uid.hashCode(), coloresAvatar.size)]
+        ui = ui.copy(
+            colorInicial = colorAvatarPorUid(uid),
+            esDueno = esMio,
+            puedeChatear = !esMio && listingId.isNotBlank(),
+            puedeResenar = !esMio
         )
 
-        // Cerrar al tocar overlay o botón cerrar
-        binding.viewOverlay.setOnClickListener { finish() }
-        binding.btnPerfilClose.setOnClickListener { finish() }
-        // Evitar que click en la tarjeta cierre
-        binding.cardPerfil.setOnClickListener { }
-
-        val esMio = auth.currentUser?.uid == uid
-        if (esMio || listingId.isBlank()) {
-            binding.btnPerfilChat.visibility = View.GONE
-        } else {
-            binding.btnPerfilChat.setOnClickListener { abrirChat() }
-        }
-
-        if (esMio || uid.isBlank()) {
-            binding.btnPerfilResena.visibility = View.GONE
-        } else {
-            binding.btnPerfilResena.visibility = View.VISIBLE
-            binding.btnPerfilResena.setOnClickListener { abrirResena() }
-        }
-
-        if (uid.isBlank()) {
-            binding.tvPerfilNoEncontrado.visibility = View.VISIBLE
-            return
-        }
-
-        // Inicializar Billing Manager
         billingManager.initialize { Log.d("AlkilAppBilling", "Billing listo en PerfilPropietario") }
 
         cargarUsuario()
@@ -117,64 +118,48 @@ class PerfilPropietarioActivity : AppCompatActivity() {
             .addOnSuccessListener { doc ->
                 val d = doc.data
                 if (d == null) {
-                    binding.tvPerfilNoEncontrado.visibility = View.VISIBLE
+                    ui = ui.copy(encontrado = false)
                     return@addOnSuccessListener
                 }
                 val nombre = (d["name"] as? String)
                     ?: (d["nombre"] as? String)
                     ?: (d["email"] as? String)?.substringBefore("@")
                     ?: uid.take(6)
-                binding.tvPerfilNombre.text = nombre
-                binding.tvPerfilInicial.text = nombre.trim().firstOrNull()?.uppercaseChar().toString()
 
-                val rol = (d["role"] as? String)
-                    ?: (d["tipoUsuario"] as? String)
-                    ?: ""
-                binding.tvPerfilRol.text = etiquetaRol(rol)
-                binding.tvPerfilRol.visibility = View.VISIBLE
-
+                val rol = (d["role"] as? String) ?: (d["tipoUsuario"] as? String) ?: ""
                 val identityVerified = (d["verification"] as? Map<*, *>)
                     ?.get("identityVerified") as? Boolean ?: false
                 val badge = d["verificationBadge"] == true
                 val verificado = identityVerified || badge
-                if (verificado) {
-                    binding.ivPerfilVerificado.visibility = View.VISIBLE
-                    binding.tvPerfilVerificado.text = getString(R.string.perfil_verificado_ok)
-                    binding.tvPerfilVerificado.visibility = View.VISIBLE
-                    val trust = d["trustLevel"] as? String ?: ""
-                    if (trust.isNotBlank()) {
-                        binding.tvPerfilVerificado.text =
-                            "${etiquetaTrust(trust)} · ${getString(R.string.perfil_verificado_ok)}"
-                    }
-                } else {
-                    binding.ivPerfilVerificado.visibility = View.GONE
-                    binding.tvPerfilVerificado.visibility = View.GONE
-                }
+                val trust = d["trustLevel"] as? String ?: ""
+                val textoVerificado = if (verificado) {
+                    if (trust.isNotBlank()) "${etiquetaTrust(trust)} · ${getString(R.string.perfil_verificado_ok)}"
+                    else getString(R.string.perfil_verificado_ok)
+                } else ""
 
                 val rating = (d["rating"] as? Number)?.toDouble() ?: 0.0
                 val total = (d["totalRatings"] as? Number)?.toInt() ?: 0
-                if (rating > 0) {
-                    binding.tvPerfilRating.text = getString(
-                        R.string.perfil_rating,
-                        String.format(Locale.US, "%.1f", rating),
-                        total
-                    )
-                    binding.tvPerfilRating.visibility = View.VISIBLE
-                }
-
-                // Por privacidad no se muestran telefono ni correo del propietario:
-                // el contacto se hace por el chat interno.
-                binding.tvPerfilTelefono.visibility = View.GONE
-                binding.tvPerfilEmail.visibility = View.GONE
+                val ratingTexto = if (rating > 0) {
+                    getString(R.string.perfil_rating, String.format(Locale.US, "%.1f", rating), total)
+                } else null
 
                 val creado = (d["createdAt"] as? com.google.firebase.Timestamp)?.toDate()
-                if (creado != null) {
-                    binding.tvPerfilMiembroDesde.text = getString(
+                val miembroDesde = if (creado != null) {
+                    getString(
                         R.string.perfil_miembro_desde,
                         SimpleDateFormat("MMMM yyyy", Locale.getDefault()).format(creado)
                     )
-                    binding.tvPerfilMiembroDesde.visibility = View.VISIBLE
-                }
+                } else null
+
+                ui = ui.copy(
+                    nombre = nombre,
+                    inicial = nombre.trim().firstOrNull()?.uppercaseChar()?.toString() ?: "?",
+                    rol = etiquetaRol(rol),
+                    verificado = verificado,
+                    textoVerificado = textoVerificado,
+                    ratingTexto = ratingTexto,
+                    miembroDesde = miembroDesde
+                )
 
                 val foto = d["profilePicture"] as? String
                 val b64 = d["fotoBase64"] as? String
@@ -185,7 +170,7 @@ class PerfilPropietarioActivity : AppCompatActivity() {
                 }
             }
             .addOnFailureListener {
-                binding.tvPerfilNoEncontrado.visibility = View.VISIBLE
+                ui = ui.copy(encontrado = false)
             }
     }
 
@@ -210,9 +195,7 @@ class PerfilPropietarioActivity : AppCompatActivity() {
             val bmp = descargarBitmap(url)
             handlerUi.post {
                 if (bmp != null) {
-                    binding.ivPerfilFoto.setImageBitmap(bmp)
-                    binding.ivPerfilFoto.visibility = View.VISIBLE
-                    binding.tvPerfilInicial.visibility = View.GONE
+                    ui = ui.copy(foto = bmp)
                 }
             }
         }
@@ -223,9 +206,7 @@ class PerfilPropietarioActivity : AppCompatActivity() {
             val bytes = android.util.Base64.decode(b64, android.util.Base64.NO_WRAP)
             val bmp = BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: return
             handlerUi.post {
-                binding.ivPerfilFoto.setImageBitmap(bmp)
-                binding.ivPerfilFoto.visibility = View.VISIBLE
-                binding.tvPerfilInicial.visibility = View.GONE
+                ui = ui.copy(foto = bmp)
             }
         } catch (e: Exception) {
             // Ignore decode errors
@@ -244,7 +225,6 @@ class PerfilPropietarioActivity : AppCompatActivity() {
             conexion.disconnect()
             bmp
         } catch (e: Exception) {
-            // Log.e("PerfilPropietario", "Error descargando imagen: ${e.message}")
             null
         }
     }
@@ -252,85 +232,20 @@ class PerfilPropietarioActivity : AppCompatActivity() {
     // ---- Reseñas ---------------------------------------------------------
 
     private fun escucharReviews() {
-        // Se guarda la suscripcion para soltarla en onDestroy: sin remove() este
-        // listener (y el de inmuebles) seguian vivos con la pantalla cerrada.
         escuchaReviews?.remove()
         escuchaReviews = db.collection("usuarios").document(uid).collection("reviews")
             .orderBy("createdAt", com.google.firebase.firestore.Query.Direction.DESCENDING)
             .addSnapshotListener { snap, _ ->
                 if (snap == null) return@addSnapshotListener
-                binding.llPerfilReviews.removeAllViews()
-                val docs = snap.documents
-                if (docs.isEmpty()) {
-                    binding.tvPerfilReviewsVacio.visibility = View.VISIBLE
-                    return@addSnapshotListener
-                }
-                binding.tvPerfilReviewsVacio.visibility = View.GONE
-                docs.forEach { doc ->
-                    val d = doc.data ?: return@forEach
-                    binding.llPerfilReviews.addView(construirReview(d))
+                resenas = snap.documents.mapNotNull { doc ->
+                    val d = doc.data ?: return@mapNotNull null
+                    ResenaUi(
+                        autor = (d["authorName"] as? String) ?: "—",
+                        rating = (d["rating"] as? Number)?.toInt() ?: 0,
+                        comentario = (d["comment"] as? String) ?: ""
+                    )
                 }
             }
-    }
-
-    private fun construirReview(d: Map<String, Any>): View {
-        val autor = (d["authorName"] as? String) ?: "—"
-        val rating = (d["rating"] as? Number)?.toInt() ?: 0
-        val comentario = (d["comment"] as? String) ?: ""
-
-        val cont = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(0, 10.dp, 0, 10.dp)
-            background = getDrawable(R.drawable.bg_profile_review)
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply {
-                topMargin = 5.dp
-                bottomMargin = 5.dp
-            }
-        }
-
-        val fila = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = android.view.Gravity.CENTER_VERTICAL
-        }
-        val estrellas = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-        }
-        for (i in 0 until 5) {
-            val img = ImageViewRenderer.estrella(this, i < rating)
-            estrellas.addView(img)
-        }
-        val tvAutor = TextView(this).apply {
-            text = getString(R.string.perfil_review_autor, autor)
-            textSize = 12f
-            setTextColor(getColor(R.color.text_secondary))
-            val lp = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-            layoutParams = lp
-            gravity = android.view.Gravity.END
-        }
-        fila.addView(estrellas)
-        fila.addView(tvAutor)
-        cont.addView(fila)
-
-        if (comentario.isNotBlank()) {
-            val tvCom = TextView(this).apply {
-                text = comentario
-                textSize = 13f
-                setTextColor(getColor(R.color.text_primary))
-                val lp = LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT,
-                    LinearLayout.LayoutParams.WRAP_CONTENT
-                )
-                lp.topMargin = 6.dp
-                layoutParams = lp
-            }
-            cont.addView(tvCom)
-        }
-
-        cont.setPadding(12.dp, 10.dp, 12.dp, 10.dp)
-        return cont
     }
 
     // ---- Dejar reseña ----------------------------------------------------
@@ -393,11 +308,6 @@ class PerfilPropietarioActivity : AppCompatActivity() {
         }
     }
 
-    /**
-     * Guarda la reseña en usuarios/{uid}/reviews/{miUid} (una por usuario;
-     * volver a calificar la actualiza) y recalcula el promedio en el doc del
-     * propietario (campos "rating" y "totalRatings").
-     */
     private fun guardarResena(miUid: String, estrellas: Int, comentario: String) {
         val usuario = auth.currentUser
         val nombre = usuario?.displayName?.takeIf { it.isNotBlank() }
@@ -459,7 +369,6 @@ class PerfilPropietarioActivity : AppCompatActivity() {
 
     private fun escucharInmuebles() {
         if (uid.isBlank()) return
-        val miUid = auth.currentUser?.uid
         escuchaInmuebles?.remove()
         escuchaInmuebles = db.collection("propiedades")
             .whereEqualTo("idPropietario", uid)
@@ -469,16 +378,9 @@ class PerfilPropietarioActivity : AppCompatActivity() {
                     return@addSnapshotListener
                 }
                 if (snap == null) return@addSnapshotListener
-                val docs = snap.documents.mapNotNull { Propiedad.desde(it) }
+                inmuebles = snap.documents.mapNotNull { Propiedad.desde(it) }
                     .filter { it.estado != "under_review" && it.estado != "finalizado" && it.estado != "pausada" }
                     .sortedBy { it.precio }
-                binding.llPerfilInmuebles.removeAllViews()
-                if (docs.isEmpty()) {
-                    binding.tvPerfilInmueblesVacio.visibility = View.VISIBLE
-                    return@addSnapshotListener
-                }
-                binding.tvPerfilInmueblesVacio.visibility = View.GONE
-                docs.forEach { p -> binding.llPerfilInmuebles.addView(construirInmueble(p, miUid)) }
             }
     }
 
@@ -490,173 +392,8 @@ class PerfilPropietarioActivity : AppCompatActivity() {
         escuchaInmuebles = null
     }
 
-    private fun construirInmueble(p: Propiedad, miUid: String?): View {
-        val card = com.google.android.material.card.MaterialCardView(this).apply {
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply { topMargin = 8.dp }
-            radius = 16.dp.toFloat()
-            cardElevation = 1.dp.toFloat()
-            setCardBackgroundColor(getColor(R.color.surface))
-            strokeWidth = 1.dp
-            strokeColor = getColor(R.color.divider)
-            isClickable = true
-            setOnClickListener { abrirDetalle(p) }
-        }
-
-        val cont = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(14.dp, 12.dp, 14.dp, 12.dp)
-            background = getDrawable(R.drawable.bg_detail_ivory)
-        }
-
-        cont.addView(TextView(this).apply {
-            text = p.titulo
-            textSize = 14f
-            setTextColor(getColor(R.color.text_primary))
-            setTypeface(null, android.graphics.Typeface.BOLD)
-        })
-
-        val fila = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = android.view.Gravity.CENTER_VERTICAL
-        }
-        fila.addView(TextView(this).apply {
-            text = p.precioFormateado
-            textSize = 14f
-            setTextColor(getColor(R.color.alkil_primary))
-            setTypeface(null, android.graphics.Typeface.BOLD)
-        })
-        val chip = estadoChip(p)
-        chip.layoutParams = LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.WRAP_CONTENT,
-            LinearLayout.LayoutParams.WRAP_CONTENT
-        ).apply { marginStart = 10.dp }
-        fila.addView(chip)
-        cont.addView(fila)
-
-        val estadoNorm = p.estadoNormalizado
-        val esDisponible = estadoNorm == "disponible"
-        val esPausada = estadoNorm == "pausada"
-        if (miUid == uid && (esDisponible || esPausada) && p.id.isNotBlank()) {
-            // Botón "Marcar como alquilado/vendido" (disponible y pausada)
-            val btnFinalizar = com.google.android.material.button.MaterialButton(this).apply {
-                text = getString(
-                    if (p.esVenta) R.string.prop_finalizar_btn_venta
-                    else R.string.prop_finalizar_btn
-                )
-                textSize = 13f
-                isAllCaps = false
-                insetTop = 0
-                insetBottom = 0
-                setTextColor(getColor(R.color.alkil_rojo))
-                backgroundTintList = ColorStateList.valueOf(getColor(R.color.alkil_coral_soft))
-                setOnClickListener { confirmarFinalizar(p) }
-            }
-            val lpB = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply { topMargin = 10.dp }
-            btnFinalizar.layoutParams = lpB
-            cont.addView(btnFinalizar)
-
-            if (esDisponible) {
-                // Botón "Pausar publicación" (solo disponible)
-                val btnPausar = com.google.android.material.button.MaterialButton(this).apply {
-                    text = getString(R.string.perfil_pausar_publicacion)
-                    textSize = 13f
-                    isAllCaps = false
-                    insetTop = 0
-                    insetBottom = 0
-                    setTextColor(getColor(R.color.alkil_primary))
-                    backgroundTintList = ColorStateList.valueOf(getColor(R.color.alkil_primary_soft))
-                    setOnClickListener { pausarPublicacion(p) }
-                }
-                val lpP = LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT,
-                    LinearLayout.LayoutParams.WRAP_CONTENT
-                ).apply { topMargin = (6 * resources.displayMetrics.density).toInt() }
-                btnPausar.layoutParams = lpP
-                cont.addView(btnPausar)
-            } else if (esPausada) {
-                // Botón "Reactivar publicación" (solo pausada)
-                val btnReactivar = com.google.android.material.button.MaterialButton(this).apply {
-                    text = getString(R.string.perfil_reactivar_publicacion)
-                    textSize = 13f
-                    isAllCaps = false
-                    insetTop = 0
-                    insetBottom = 0
-                    setTextColor(getColor(R.color.success_text))
-                    backgroundTintList = ColorStateList.valueOf(getColor(R.color.alkil_mint_soft))
-                    setOnClickListener { reactivarPublicacion(p) }
-                }
-                val lpR = LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT,
-                    LinearLayout.LayoutParams.WRAP_CONTENT
-                ).apply { topMargin = (6 * resources.displayMetrics.density).toInt() }
-                btnReactivar.layoutParams = lpR
-                cont.addView(btnReactivar)
-            }
-
-            // Botón "Destacar publicación" - solicita al admin
-            val btnDestacar = com.google.android.material.button.MaterialButton(this).apply {
-                text = getString(R.string.perfil_destacar_publicacion)
-                textSize = 13f
-                isAllCaps = false
-                insetTop = 0
-                insetBottom = 0
-                setTextColor(getColor(R.color.alkil_primary))
-                backgroundTintList = ColorStateList.valueOf(getColor(R.color.alkil_gold_soft))
-                strokeColor = ColorStateList.valueOf(getColor(R.color.alkil_gold))
-                strokeWidth = (1 * resources.displayMetrics.density).toInt()
-                setOnClickListener { solicitarDestacar(p) }
-            }
-            val lpD = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply { topMargin = (6 * resources.displayMetrics.density).toInt() }
-            btnDestacar.layoutParams = lpD
-            cont.addView(btnDestacar)
-        }
-
-        card.addView(cont)
-        return card
-    }
-
-    private fun estadoChip(p: Propiedad): TextView {
-        val (etiqueta, colorText, colorBg) = when (p.estadoNormalizado) {
-            "disponible" -> Triple(
-                getString(R.string.prop_estado_disponible),
-                R.color.success_text,
-                R.color.alkil_mint_soft
-            )
-            "finalizado" -> Triple(
-                getString(R.string.prop_estado_finalizado),
-                R.color.text_secondary,
-                R.color.divider
-            )
-            else -> Triple(
-                getString(R.string.prop_estado_revision),
-                R.color.gold_text,
-                R.color.alkil_gold_soft
-            )
-        }
-        return TextView(this).apply {
-            text = etiqueta
-            textSize = 12f
-            setTextColor(getColor(colorText))
-            setTypeface(null, android.graphics.Typeface.BOLD)
-            setBackgroundResource(R.drawable.bg_chip_info)
-            backgroundTintList = ColorStateList.valueOf(getColor(colorBg))
-            setPadding(10.dp, 3.dp, 10.dp, 3.dp)
-        }
-    }
-
     private fun confirmarFinalizar(p: Propiedad) {
-        val op = p.operacion
         val tituloConfirm = if (p.esVenta) R.string.detalle_finalizar_confirm_titulo_venta else R.string.detalle_finalizar_confirm_titulo
-        val bannerFinalizado = if (p.esVenta) R.string.detalle_finalizado_banner_venta else R.string.detalle_finalizado_banner_alquiler
         MaterialAlertDialogBuilder(this)
             .setTitle(tituloConfirm)
             .setMessage(R.string.detalle_finalizar_confirm_msg)
@@ -717,36 +454,26 @@ class PerfilPropietarioActivity : AppCompatActivity() {
             .setTitle("Destacar publicación")
             .setMessage("Elige la duración del destacado:")
             .setItems(opciones) { _, which ->
-                val dias = when (which) {
-                    0 -> 7
-                    1 -> 15
-                    else -> 30
-                }
-                val precio = when (which) {
-                    0 -> 6.90
-                    1 -> 12.90
-                    else -> 24.90
-                }
+                val dias = when (which) { 0 -> 7; 1 -> 15; else -> 30 }
+                val precio = when (which) { 0 -> 6.90; 1 -> 12.90; else -> 24.90 }
                 val sku = when (dias) {
                     7 -> com.alkilapp.billing.BillingManager.SKU_DESTACAR_7D
                     15 -> com.alkilapp.billing.BillingManager.SKU_DESTACAR_15D
                     else -> com.alkilapp.billing.BillingManager.SKU_DESTACAR_30D
                 }
 
-                // Guardar solicitud pendiente en Firestore
                 db.collection("propiedades").document(p.id)
                     .set(mapOf(
                         "solicitudDestacar" to true,
                         "destacadoDias" to dias,
                         "destacadoPrecio" to precio,
                         "destacadoSku" to sku,
-                        "solicitudDestacarEn" to com.google.firebase.firestore.FieldValue.serverTimestamp()
+                        "solicitudDestacarEn" to FieldValue.serverTimestamp()
                     ), SetOptions.merge())
                     .addOnSuccessListener {
-                        // Lanzar flujo de compra de Google Play Billing
                         billingManager.launchPurchaseFlow(sku, object : com.alkilapp.billing.BillingManager.PurchaseCallback {
                             override fun onSuccess(productId: String, purchaseToken: String, orderId: String?) {
-                                val hasta = java.util.Date(System.currentTimeMillis() + dias * 24L * 3600 * 1000)
+                                val hasta = Date(System.currentTimeMillis() + dias * 24L * 3600 * 1000)
                                 val datosDestacado = HashMap<String, Any>().apply {
                                     put("isFeatured", true)
                                     put("featuredUntil", hasta)
@@ -754,7 +481,7 @@ class PerfilPropietarioActivity : AppCompatActivity() {
                                     put("destacadoDiasRestantes", dias)
                                     put("destacadoEstado", "aprobado")
                                     put("solicitudDestacar", false)
-                                    put("destacadoAprobadoEn", com.google.firebase.firestore.FieldValue.serverTimestamp())
+                                    put("destacadoAprobadoEn", FieldValue.serverTimestamp())
                                     put("destacadoAprobadoPor", "google-play-billing")
                                     put("purchaseToken", purchaseToken)
                                     put("orderId", orderId ?: "")
@@ -788,8 +515,6 @@ class PerfilPropietarioActivity : AppCompatActivity() {
             .show()
     }
 
-    
-
     /** Abre la ficha del inmueble con las mismas extras que el listado principal. */
     private fun abrirDetalle(p: Propiedad) {
         startActivity(
@@ -813,8 +538,6 @@ class PerfilPropietarioActivity : AppCompatActivity() {
                     PropiedadDetalleActivity.EXTRA_COMODIDADES,
                     ArrayList(p.comodidades)
                 )
-                // Las fotos base64 NO viajan por el intent (TransactionTooLargeException).
-                // PropiedadDetalleActivity las carga por ID desde Firestore.
                 putStringArrayListExtra(
                     PropiedadDetalleActivity.EXTRA_FOTOS_URL,
                     ArrayList(p.photosUrl)
@@ -868,20 +591,5 @@ class PerfilPropietarioActivity : AppCompatActivity() {
         const val EXTRA_UID = "perf_uid"
         const val EXTRA_LISTING_ID = "perf_listing_id"
         const val EXTRA_LISTING_TITULO = "perf_listing_titulo"
-    }
-}
-
-/** Mini-helper para estrella (llena o hueca). */
-private object ImageViewRenderer {
-    fun estrella(context: android.content.Context, llena: Boolean): android.widget.ImageView {
-        val img = android.widget.ImageView(context)
-        val tam = (16 * context.resources.displayMetrics.density).toInt()
-        img.layoutParams = LinearLayout.LayoutParams(tam, tam)
-        img.setImageResource(R.drawable.ic_star)
-        img.imageTintList = android.content.res.ColorStateList.valueOf(
-            if (llena) context.getColor(R.color.alkil_gold)
-            else context.getColor(R.color.divider)
-        )
-        return img
     }
 }

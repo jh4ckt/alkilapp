@@ -60,42 +60,22 @@
         android:background="@android:color/white"
         android:orientation="vertical">
 
-        <!-- Zona de arrastre: handle + titulo -->
+        <!-- Zona de arrastre: handle + titulo (contenido en Compose; el drag
+             sigue siendo el setOnTouchListener de sheetHeader en el codigo) -->
         <LinearLayout
             android:id="@+id/sheetHeader"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:paddingTop="8dp"
+            android:paddingTop="0dp"
             android:background="@android:color/white"
             android:clickable="true"
             android:focusable="true">
 
-            <View
-                android:id="@+id/sheetHandle"
-                android:layout_width="40dp"
-                android:layout_height="4dp"
-                android:layout_gravity="center_horizontal"
-                android:background="@color/sheet_handle" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="@string/nearby_title"
-                android:textStyle="bold"
-                android:textSize="16sp"
-                android:padding="16dp"
-                android:paddingBottom="4dp" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="@string/nearby_subtitle"
-                android:textSize="12sp"
-                android:textColor="@color/text_secondary"
-                android:paddingStart="16dp"
-                android:paddingEnd="16dp"
-                android:paddingBottom="12dp" />
+            <androidx.compose.ui.platform.ComposeView
+                android:id="@+id/cvSheetHeader"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content" />
         </LinearLayout>
 
         <FrameLayout

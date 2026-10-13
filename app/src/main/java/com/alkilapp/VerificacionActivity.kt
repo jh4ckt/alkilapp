@@ -6,15 +6,18 @@ import android.graphics.ImageDecoder
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.text.InputFilter
 import android.util.Base64
-import android.view.View
-import android.widget.AdapterView
 import android.widget.Toast
+import androidx.activity.compose.setContent
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
-import com.alkilapp.databinding.ActivityVerificacionBinding
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import com.alkilapp.compose.AlkilTheme
+import com.alkilapp.compose.PantallaVerificacion
+import com.alkilapp.compose.VerifUiState
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
@@ -24,11 +27,10 @@ import kotlin.math.max
 /**
  * Verificacion de identidad: el usuario sube una foto de su documento.
  * El documento va a "verificaciones/{uid}" (lo revisa el panel admin) y el
- * estado resumido a "usuarios/{uid}.verification".
+ * estado resumido a "usuarios/{uid}.verification". UI en Compose.
  */
 class VerificacionActivity : AppCompatActivity() {
 
-    private lateinit var binding: ActivityVerificacionBinding
     private val auth by lazy { FirebaseAuth.getInstance() }
     private val db by lazy { FirebaseFirestore.getInstance("alkilappdb") }
 
@@ -39,6 +41,8 @@ class VerificacionActivity : AppCompatActivity() {
     private var yaPendiente = false
     private val DNI_RE = Regex("^[0-9]{8}$")
 
+    private var ui by mutableStateOf(VerifUiState(textoBoton = ""))
+
     private val fotoLauncher = registerForActivityResult(
         ActivityResultContracts.PickVisualMedia()
     ) { uri ->
@@ -48,12 +52,7 @@ class VerificacionActivity : AppCompatActivity() {
             Toast.makeText(this, R.string.perfil_foto_error, Toast.LENGTH_SHORT).show()
         } else {
             documentoBase64 = base64
-            val bytes = Base64.decode(base64, Base64.NO_WRAP)
-            val bmp = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-            if (bmp != null) {
-                binding.ivVerifDoc.setImageBitmap(bmp)
-                binding.ivVerifDoc.visibility = View.VISIBLE
-            }
+            ui = ui.copy(fotoFrente = decodificar(base64))
         }
     }
 
@@ -66,83 +65,50 @@ class VerificacionActivity : AppCompatActivity() {
             Toast.makeText(this, R.string.perfil_foto_error, Toast.LENGTH_SHORT).show()
         } else {
             documentoReversoBase64 = base64
-            val bytes = Base64.decode(base64, Base64.NO_WRAP)
-            val bmp = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-            if (bmp != null) {
-                binding.ivVerifDocReverso.setImageBitmap(bmp)
-                binding.ivVerifDocReverso.visibility = View.VISIBLE
-            }
+            ui = ui.copy(fotoReverso = decodificar(base64))
         }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        binding = ActivityVerificacionBinding.inflate(layoutInflater)
-        setContentView(binding.root)
+        ui = ui.copy(textoBoton = getString(R.string.verif_enviar))
 
-        binding.btnVerifBack.setOnClickListener { finish() }
-        binding.btnVerifFoto.setOnClickListener { elegirFoto() }
-        binding.btnVerifFotoReverso.setOnClickListener { elegirFotoReverso() }
-        binding.btnVerifEnviar.setOnClickListener { enviar() }
-
-        binding.spVerifTipo.estilizar(tipos.toList())
-
-        // El formato del numero depende del tipo: el DNI peruano son 8 digitos y
-        // no admite letras, asi que el teclado y el filtro se ajustan al vuelo.
-        binding.spVerifTipo.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
-                aplicarFiltroDocumento()
+        setContent {
+            AlkilTheme {
+                PantallaVerificacion(
+                    ui = ui,
+                    tipos = tipos.toList(),
+                    onTipo = { t ->
+                        val numero = if (t == "DNI") ui.numero.filter { it.isDigit() }.take(8) else ui.numero
+                        ui = ui.copy(tipo = t, numero = numero)
+                    },
+                    onNumero = { raw ->
+                        val esDni = ui.tipo == "DNI"
+                        val limpio = if (esDni) raw.filter { it.isDigit() }.take(8) else raw
+                        ui = ui.copy(numero = limpio)
+                    },
+                    onElegirFrente = { elegirFoto() },
+                    onElegirReverso = { elegirFotoReverso() },
+                    onEnviar = { enviar() },
+                    onAtras = { finish() }
+                )
             }
-            override fun onNothingSelected(parent: AdapterView<*>?) = Unit
         }
 
         cargarEstado()
     }
 
-    /**
-     * Con el tipo "DNI" el campo solo deja pasar digitos y como maximo 8
-     * caracteres; con pasaporte o carnet de extranjeria queda libre (traen letras).
-     */
-    private fun aplicarFiltroDocumento() {
-        val esDni = tipos.getOrNull(binding.spVerifTipo.selectedItemPosition) == "DNI"
-        binding.etVerifNumero.filters = if (esDni) {
-            arrayOf(
-                InputFilter.LengthFilter(8),
-                InputFilter { source, start, end, _, _, _ ->
-                    source.subSequence(start, end).filter { it.isDigit() }.toString()
-                }
-            )
-        } else {
-            emptyArray()
+    private fun decodificar(b64: String): Bitmap? {
+        val bytes = try {
+            Base64.decode(b64, Base64.NO_WRAP)
+        } catch (_: IllegalArgumentException) {
+            return null
         }
-    }
-
-    /** Bloquea/desbloquea los campos del formulario según estado de verificación. */
-    private fun actualizarCamposSegunVerificacion(verificado: Boolean) {
-        if (verificado) {
-            binding.etVerifNumero.isEnabled = false
-            binding.etVerifNumero.alpha = 0.5f
-            binding.spVerifTipo.isEnabled = false
-            binding.spVerifTipo.alpha = 0.5f
-            binding.btnVerifFoto.isEnabled = false
-            binding.btnVerifFoto.alpha = 0.5f
-            binding.btnVerifFotoReverso.isEnabled = false
-            binding.btnVerifFotoReverso.alpha = 0.5f
-            binding.btnVerifEnviar.isEnabled = false
-            binding.btnVerifEnviar.text = getString(R.string.verif_ya_verificado)
-        } else {
-            binding.etVerifNumero.isEnabled = true
-            binding.etVerifNumero.alpha = 1f
-            binding.spVerifTipo.isEnabled = true
-            binding.spVerifTipo.alpha = 1f
-            binding.btnVerifFoto.isEnabled = true
-            binding.btnVerifFoto.alpha = 1f
-            binding.btnVerifFotoReverso.isEnabled = true
-            binding.btnVerifFotoReverso.alpha = 1f
-        }
+        return BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
     }
 
     private fun elegirFoto() {
+        if (!ui.fotosHabilitadas) return
         fotoLauncher.launch(
             PickVisualMediaRequest.Builder()
                 .setMediaType(ActivityResultContracts.PickVisualMedia.ImageOnly)
@@ -151,6 +117,7 @@ class VerificacionActivity : AppCompatActivity() {
     }
 
     private fun elegirFotoReverso() {
+        if (!ui.fotosHabilitadas) return
         fotoReversoLauncher.launch(
             PickVisualMediaRequest.Builder()
                 .setMediaType(ActivityResultContracts.PickVisualMedia.ImageOnly)
@@ -174,32 +141,36 @@ class VerificacionActivity : AppCompatActivity() {
                 when {
                     verificado -> {
                         yaVerificado = true
-                        binding.tvVerifEstado.setText(R.string.verif_estado_verificado)
-                        binding.tvVerifEstado.visibility = View.VISIBLE
-                        bloquearEnvio(true)
-                        actualizarCamposSegunVerificacion(true)
+                        ui = ui.copy(
+                            estadoTexto = getString(R.string.verif_estado_verificado),
+                            camposHabilitados = false,
+                            fotosHabilitadas = false,
+                            enviarHabilitado = false,
+                            textoBoton = getString(R.string.verif_ya_verificado)
+                        )
                     }
                     estado == "pendiente" -> {
-                        // Ya esta en revision: se bloquea todo el formulario para
-                        // que no se puedan enviar solicitudes duplicadas.
                         yaPendiente = true
-                        binding.tvVerifEstado.setText(R.string.verif_estado_pendiente)
-                        binding.tvVerifEstado.visibility = View.VISIBLE
-                        bloquearPorRevision()
+                        ui = ui.copy(
+                            estadoTexto = getString(R.string.verif_estado_pendiente),
+                            camposHabilitados = false,
+                            fotosHabilitadas = false,
+                            enviarHabilitado = false,
+                            textoBoton = getString(R.string.verif_en_revision)
+                        )
                     }
                     estado == "rechazado" -> {
                         val motivo = (v["motivo"] as? String).orEmpty()
-                        binding.tvVerifEstado.text =
-                            getString(R.string.verif_estado_rechazado, motivo.ifBlank { "-" })
-                        binding.tvVerifEstado.visibility = View.VISIBLE
+                        ui = ui.copy(
+                            estadoTexto = getString(R.string.verif_estado_rechazado, motivo.ifBlank { "-" })
+                        )
                     }
-                    else -> binding.tvVerifEstado.visibility = View.GONE
+                    else -> ui = ui.copy(estadoTexto = null)
                 }
                 (v["tipoDocumento"] as? String)?.let { tipo ->
-                    val idx = tipos.indexOfFirst { it == tipo }
-                    if (idx >= 0) binding.spVerifTipo.setSelection(idx)
+                    if (tipos.contains(tipo)) ui = ui.copy(tipo = tipo)
                 }
-                (v["numeroDocumento"] as? String)?.let { binding.etVerifNumero.setText(it) }
+                (v["numeroDocumento"] as? String)?.let { num -> ui = ui.copy(numero = num) }
             }
     }
 
@@ -214,13 +185,12 @@ class VerificacionActivity : AppCompatActivity() {
             Toast.makeText(this, R.string.verif_estado_pendiente, Toast.LENGTH_LONG).show()
             return
         }
-        val tipo = tipos[binding.spVerifTipo.selectedItemPosition]
-        val numero = binding.etVerifNumero.text.toString().trim()
+        val tipo = ui.tipo
+        val numero = ui.numero.trim()
         if (numero.isBlank()) {
             Toast.makeText(this, R.string.verif_numero_requerido, Toast.LENGTH_SHORT).show()
             return
         }
-        // El DNI peruano son 8 digitos exactos: ni letras ni uno mas.
         if (tipo == "DNI" && !DNI_RE.matches(numero)) {
             Toast.makeText(this, R.string.verif_numero_dni_invalido, Toast.LENGTH_LONG).show()
             return
@@ -269,20 +239,6 @@ class VerificacionActivity : AppCompatActivity() {
             .addOnFailureListener { e -> fallo(e.localizedMessage) }
     }
 
-    /** Bloquea el formulario cuando el expediente ya esta en revision. */
-    private fun bloquearPorRevision() {
-        binding.etVerifNumero.isEnabled = false
-        binding.etVerifNumero.alpha = 0.5f
-        binding.spVerifTipo.isEnabled = false
-        binding.spVerifTipo.alpha = 0.5f
-        binding.btnVerifFoto.isEnabled = false
-        binding.btnVerifFoto.alpha = 0.5f
-        binding.btnVerifFotoReverso.isEnabled = false
-        binding.btnVerifFotoReverso.alpha = 0.5f
-        binding.btnVerifEnviar.isEnabled = false
-        binding.btnVerifEnviar.text = getString(R.string.verif_en_revision)
-    }
-
     private fun fallo(mensaje: String?) {
         bloquearEnvio(false)
         Toast.makeText(
@@ -293,13 +249,18 @@ class VerificacionActivity : AppCompatActivity() {
     }
 
     private fun bloquearEnvio(bloqueado: Boolean) {
-        binding.btnVerifEnviar.isEnabled = !bloqueado
-        binding.btnVerifFoto.isEnabled = !bloqueado
-        binding.btnVerifFotoReverso.isEnabled = !bloqueado
-        binding.btnVerifEnviar.text = if (bloqueado) {
-            getString(R.string.auth_procesando)
+        ui = if (bloqueado) {
+            ui.copy(
+                fotosHabilitadas = false,
+                enviarHabilitado = false,
+                textoBoton = getString(R.string.auth_procesando)
+            )
         } else {
-            getString(R.string.verif_enviar)
+            ui.copy(
+                fotosHabilitadas = true,
+                enviarHabilitado = true,
+                textoBoton = getString(R.string.verif_enviar)
+            )
         }
     }
 

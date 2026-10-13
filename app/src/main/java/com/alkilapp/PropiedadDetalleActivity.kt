@@ -1,43 +1,43 @@
 package com.alkilapp
 
 import android.content.Intent
-import android.content.res.ColorStateList
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import android.graphics.Color
-import android.graphics.drawable.ColorDrawable
 import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
 import android.util.Base64
 import android.util.Log
-import android.view.View
-import android.widget.ImageView
-import android.widget.LinearLayout
 import android.widget.Toast
+import androidx.activity.compose.setContent
 import androidx.appcompat.app.AppCompatActivity
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.Color
+import androidx.core.graphics.toColorInt
+import androidx.lifecycle.lifecycleScope
+import com.alkilapp.compose.AlkilTheme
+import com.alkilapp.compose.DetalleUiState
+import com.alkilapp.compose.EstadoPropietario
+import com.alkilapp.compose.PantallaDetalle
+import com.alkilapp.compose.cargarFotoDetalle
 import com.alkilapp.data.PerfilUsuario
 import com.alkilapp.data.Propiedad
-import com.alkilapp.databinding.ActivityPropiedadDetalleBinding
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.SetOptions
-import java.net.HttpURLConnection
-import java.net.URL
+import kotlinx.coroutines.launch
 import java.util.concurrent.Executors
 
 class PropiedadDetalleActivity : AppCompatActivity() {
 
-    private lateinit var binding: ActivityPropiedadDetalleBinding
     private val auth by lazy { FirebaseAuth.getInstance() }
     private val db by lazy { FirebaseFirestore.getInstance("alkilappdb") }
 
     private val cargadorImagenes = Executors.newSingleThreadExecutor()
-    private val handlerUi = Handler(Looper.getMainLooper())
 
-    private val coloresAvatar = intArrayOf(
-        R.color.avatar_1, R.color.avatar_2, R.color.avatar_3, R.color.avatar_4, R.color.avatar_5
+    private val coloresAvatar = arrayOf(
+        "#7E57C2", "#26A69A", "#EF6C00", "#42A5F5", "#EC407A"
     )
 
     private var fotos: List<String> = emptyList()
@@ -46,16 +46,42 @@ class PropiedadDetalleActivity : AppCompatActivity() {
     private var idPropietario: String = ""
     private var listingTitle: String = ""
 
+    private var ui by mutableStateOf(DetalleUiState())
+    private var propietario by mutableStateOf<EstadoPropietario?>(null)
+    private var preview by mutableStateOf<Bitmap?>(null)
+    private var thumbs by mutableStateOf<List<Bitmap?>>(emptyList())
+    private var indiceActual by mutableStateOf(0)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        binding = ActivityPropiedadDetalleBinding.inflate(layoutInflater)
-        setContentView(binding.root)
+        setContent {
+            AlkilTheme {
+                PantallaDetalle(
+                    ui = ui,
+                    propietario = propietario,
+                    preview = preview,
+                    thumbs = thumbs,
+                    indiceActual = indiceActual,
+                    onAtras = { finish() },
+                    onCompartir = { compartirPublicacion() },
+                    onFotoZoom = { abrirZoomFoto(it) },
+                    onThumb = { i ->
+                        indiceActual = i
+                        thumbs.getOrNull(i)?.let { preview = it }
+                    },
+                    onVerMapa = { abrirUbicacionMapa() },
+                    onChat = { abrirChatPropietario() },
+                    onDenunciar = { abrirDenuncia() },
+                    onFinalizar = { confirmarFinalizar() },
+                    onPerfilPropietario = { abrirPerfilPropietario() }
+                )
+            }
+        }
 
         // Manejar deep link: alkilapp://propiedad/{propId}
         val deepLinkId = intent.data?.lastPathSegment
         if (deepLinkId != null && deepLinkId.isNotBlank()) {
             propId = deepLinkId
-            // Cargar el resto desde Firestore
             cargarDesdeFirestore(propId)
             return
         }
@@ -72,6 +98,11 @@ class PropiedadDetalleActivity : AppCompatActivity() {
         cargarDatosDesdeIntent()
     }
 
+    override fun onDestroy() {
+        super.onDestroy()
+        cargadorImagenes.shutdown()
+    }
+
     private fun cargarDatosDesdeIntent() {
         listingTitle = intent.getStringExtra(EXTRA_TITULO).orEmpty()
         idPropietario = intent.getStringExtra(EXTRA_ID_PROPIETARIO).orEmpty()
@@ -85,92 +116,53 @@ class PropiedadDetalleActivity : AppCompatActivity() {
         // Recibir arrays de strings (pueden venir como String[] o ArrayList<String>)
         val fotosArray = intent.getStringArrayExtra(EXTRA_FOTOS)
         val fotosUrlArray = intent.getStringArrayExtra(EXTRA_FOTOS_URL)
-        fotos = if (fotosArray != null) fotosArray.toList() else intent.getStringArrayListExtra(EXTRA_FOTOS) ?: emptyList()
-        fotosUrl = if (fotosUrlArray != null) fotosUrlArray.toList() else intent.getStringArrayListExtra(EXTRA_FOTOS_URL) ?: emptyList()
+        fotos =
+            if (fotosArray != null) fotosArray.toList() else intent.getStringArrayListExtra(
+                EXTRA_FOTOS
+            ) ?: emptyList()
+        fotosUrl =
+            if (fotosUrlArray != null) fotosUrlArray.toList() else intent.getStringArrayListExtra(
+                EXTRA_FOTOS_URL
+            ) ?: emptyList()
         val isFeatured = intent.getBooleanExtra(EXTRA_FEATURED, false)
 
-        binding.btnDetalleBack.setOnClickListener { finish() }
-        binding.btnDetalleCompartir.setOnClickListener { compartirPublicacion() }
+        val miUid = auth.currentUser?.uid
+        val esMio = idPropietario.isNotBlank() && miUid == idPropietario
 
-        // Información principal
-        binding.tvDetTitulo.text = listingTitle
-        binding.tvDetTipo.text = tipoMostrable(intent.getStringExtra(EXTRA_TIPO).orEmpty())
-        binding.tvDetDireccion.text = direccionCompleta()
-        binding.tvDetPrecio.text = formatearPrecio(
-            intent.getDoubleExtra(EXTRA_PRECIO, 0.0),
-            moneda,
-            op
-        )
-        // Etiqueta de operación (Venta/Alquiler)
-        binding.tvDetOperacion.text = when (op) {
-            "venta" -> getString(R.string.detalle_operacion_venta)
-            "alquiler" -> getString(R.string.detalle_operacion_alquiler)
-            else -> getString(R.string.detalle_operacion_desconocida)
-        }
-        binding.tvDetOperacion.visibility = View.VISIBLE
-
-        binding.tvDetallePill.visibility = if (isFeatured) View.VISIBLE else View.GONE
-
-        val (estadoLabel, estadoText, estadoFondo) = when (estado) {
-            "disponible" -> Triple(
-                getString(R.string.prop_estado_disponible), R.color.success_text, R.color.alkil_mint_soft
-            )
-            "finalizado" -> Triple(
-                getString(R.string.prop_estado_finalizado), R.color.text_secondary, R.color.alkil_gray_soft
-            )
-            "pausada" -> Triple(
-                getString(R.string.prop_estado_pausada), R.color.text_secondary, R.color.alkil_gray_soft
-            )
-            else -> Triple(
-                getString(R.string.prop_estado_revision), R.color.gold_text, R.color.alkil_gold_soft
-            )
-        }
-        binding.tvDetEstado.text = estadoLabel
-        binding.tvDetEstado.setTextColor(getColor(estadoText))
-        binding.tvDetEstado.backgroundTintList = ColorStateList.valueOf(getColor(estadoFondo))
-
-        // Fichas de specs: ambientes / superficie
-        val ambientes = intent.getIntExtra(EXTRA_AMBIENTES, 0)
-        val superficie = intent.getDoubleExtra(EXTRA_SUPERFICIE, 0.0)
-        binding.tileDetAmbientes.visibility =
-            if (ambientes > 0) View.VISIBLE else View.GONE
-        if (ambientes > 0) binding.tvDetAmbientes.text = getString(R.string.detalle_amb, ambientes)
-        binding.tileDetSuperficie.visibility =
-            if (superficie > 0) View.VISIBLE else View.GONE
-        if (superficie > 0) {
-            binding.tvDetSuperficie.text =
-                getString(R.string.detalle_superficie, superficie.toInt().toString())
-        }
-
-        // Comodidades como tags (pills) en fila horizontal
-        val comodidades = intent.getStringArrayListExtra(EXTRA_COMODIDADES) ?: emptyList()
-        val hayComodidades = comodidades.isNotEmpty()
-        binding.tvDetComodidades.visibility = if (hayComodidades) View.VISIBLE else View.GONE
-        binding.hsvDetComodidades.visibility = if (hayComodidades) View.VISIBLE else View.GONE
-        binding.llDetComodidades.removeAllViews()
-        comodidades.forEach { c ->
-            binding.llDetComodidades.addView(
-                android.widget.TextView(this).apply {
-                    text = c
-                    textSize = 12f
-                    setTextColor(getColor(R.color.text_primary))
-                    setBackgroundResource(R.drawable.bg_chip_spec)
-                    setPadding(12.dp, 7.dp, 12.dp, 7.dp)
-                    layoutParams = LinearLayout.LayoutParams(
-                        LinearLayout.LayoutParams.WRAP_CONTENT,
-                        LinearLayout.LayoutParams.WRAP_CONTENT
-                    ).apply { marginEnd = 8.dp }
+        ui = DetalleUiState(
+            propId = propId,
+            titulo = listingTitle,
+            tipo = tipoMostrable(intent.getStringExtra(EXTRA_TIPO).orEmpty()),
+            direccion = direccionCompleta(),
+            precioTexto = formatearPrecio(
+                intent.getDoubleExtra(EXTRA_PRECIO, 0.0),
+                moneda,
+                op
+            ),
+            operacion = when (op) {
+                "venta" -> getString(R.string.detalle_operacion_venta)
+                "alquiler" -> getString(R.string.detalle_operacion_alquiler)
+                else -> getString(R.string.detalle_operacion_desconocida)
+            },
+            descripcion = intent.getStringExtra(EXTRA_DESCRIPCION).orEmpty(),
+            comodidades = intent.getStringArrayListExtra(EXTRA_COMODIDADES) ?: emptyList(),
+            ambientes = intent.getIntExtra(EXTRA_AMBIENTES, 0),
+            superficie = intent.getDoubleExtra(EXTRA_SUPERFICIE, 0.0),
+            estado = estado,
+            estadoFinalizadoTexto = if (estado == "finalizado") {
+                if (Propiedad.normalizarOperacion(op) == "venta") {
+                    getString(R.string.detalle_finalizado_banner_venta)
+                } else {
+                    getString(R.string.detalle_finalizado_banner_alquiler)
                 }
-            )
-        }
-
-        val descripcion = intent.getStringExtra(EXTRA_DESCRIPCION).orEmpty()
-        binding.tvDetDescripcion.visibility =
-            if (descripcion.isNotBlank()) View.VISIBLE else View.GONE
-        binding.tvDetDescripcion.text = descripcion
-        binding.cardDetAcerca.visibility = if (comodidades.isNotEmpty() || descripcion.isNotBlank()) {
-            View.VISIBLE
-        } else View.GONE
+            } else null,
+            destacado = isFeatured,
+            lat = intent.getDoubleExtra(EXTRA_LAT, 0.0),
+            lng = intent.getDoubleExtra(EXTRA_LNG, 0.0),
+            idPropietario = idPropietario,
+            esMio = esMio,
+            hayFotos = fotos.isNotEmpty() || fotosUrl.isNotEmpty()
+        )
 
         // Galería (las fotos base64 ya no viajan por el intent: superaban el
         // límite de Binder y causaban TransactionTooLargeException. Se cargan por ID.)
@@ -179,55 +171,7 @@ class PropiedadDetalleActivity : AppCompatActivity() {
         } else {
             armarGaleria()
         }
-        binding.ivPreview.setOnClickListener { abrirZoomFoto(indiceActual) }
 
-        // Ubicación en el mapa
-        binding.btnVerMapa.setOnClickListener { abrirUbicacionMapa() }
-        binding.btnVerMapa.visibility =
-            if (intent.getDoubleExtra(EXTRA_LAT, 0.0) == 0.0 &&
-                intent.getDoubleExtra(EXTRA_LNG, 0.0) == 0.0
-            ) View.GONE else View.VISIBLE
-
-        // Chat con el propietario
-        binding.btnChatPropietario.setOnClickListener { abrirChatPropietario() }
-        val miUid = auth.currentUser?.uid
-        val esMio = idPropietario.isNotBlank() && miUid == idPropietario
-        if (esMio) {
-            binding.btnChatPropietario.visibility = View.GONE
-        }
-
-        // Denunciar el anuncio
-        binding.btnDenunciar.setOnClickListener { abrirDenuncia() }
-        if (esMio) {
-            binding.btnDenunciar.visibility = View.GONE
-        }
-
-        // Publicación finalizada: banner de aviso y sin botón de chat
-        if (estado == "finalizado") {
-            binding.tvDetFinalizado.visibility = View.VISIBLE
-            binding.btnChatPropietario.visibility = View.GONE
-        }
-
-        // Publicación en revisión (por admin): banner de aviso, no se puede reactivar desde la app
-        if (estado == "under_review") {
-            binding.tvDetRevision.visibility = View.VISIBLE
-        }
-
-        // Publicación pausada (por usuario): se muestra como disponible para el dueño pero sin chat
-        if (estado == "pausada") {
-            binding.tvDetPausada.visibility = View.VISIBLE
-            binding.btnChatPropietario.visibility = View.GONE
-        }
-
-        // Finalizar la publicación (solo el dueño y mientras esté disponible o pausada)
-        binding.btnFinalizarPub.visibility =
-            if (esMio && (estado == "disponible" || estado == "pausada")) View.VISIBLE else View.GONE
-        binding.btnFinalizarPub.setOnClickListener { confirmarFinalizar() }
-
-        // Tarjeta del propietario → perfil completo
-        binding.cardPropietario.setOnClickListener {
-            abrirPerfilPropietario()
-        }
         cargarPropietario()
     }
 
@@ -248,46 +192,45 @@ class PropiedadDetalleActivity : AppCompatActivity() {
                     return@addOnSuccessListener
                 }
                 val p = Propiedad.desde(doc) ?: run {
-                Log.e("AlkilApp", "Propiedad $propId no se pudo parsear")
-                Toast.makeText(this, "Error en datos de la publicación", Toast.LENGTH_LONG).show()
-                finish()
-                return@addOnSuccessListener
-            }
-            // Setear datos como si vinieran del intent
-            listingTitle = p.titulo
-            idPropietario = p.idPropietario
+                    Log.e("AlkilApp", "Propiedad $propId no se pudo parsear")
+                    Toast.makeText(this, "Error en datos de la publicación", Toast.LENGTH_LONG)
+                        .show()
+                    finish()
+                    return@addOnSuccessListener
+                }
+                // Setear datos como si vinieran del intent
+                listingTitle = p.titulo
+                idPropietario = p.idPropietario
 
-            fotos = p.fotos
-            fotosUrl = p.photosUrl ?: emptyList()
+                fotos = p.fotos
+                fotosUrl = p.photosUrl ?: emptyList()
 
-            // Deep link: se inyectan los datos en el intent REAL de la Activity y se
-            // delega en el MISMO binder que usa el listado. Antes se armaba un
-            // `intentMock` que se descartaba y luego se llamaba a un binder paralelo
-            // que leia `intent`: por eso el deep link abria con precio 0 y sin
-            // descripcion/comodidades/mapa.
-            intent.putExtra(EXTRA_TITULO, p.titulo)
-            intent.putExtra(EXTRA_DESCRIPCION, p.descripcion)
-            intent.putExtra(EXTRA_TIPO, p.tipo)
-            intent.putExtra(EXTRA_OPERACION, p.operacion)
-            intent.putExtra(EXTRA_PRECIO, p.precio)
-            intent.putExtra(EXTRA_MONEDA, p.moneda)
-            intent.putExtra(EXTRA_DIRECCION, p.direccion)
-            intent.putExtra(EXTRA_BARRIO, p.barrio)
-            intent.putExtra(EXTRA_CIUDAD, p.ciudad)
-            intent.putExtra(EXTRA_LAT, p.lat)
-            intent.putExtra(EXTRA_LNG, p.lng)
-            intent.putExtra(EXTRA_ID_PROPIETARIO, p.idPropietario)
-            intent.putExtra(EXTRA_AMBIENTES, p.ambientes)
-            intent.putExtra(EXTRA_SUPERFICIE, p.superficieM2)
-            // getStringArrayListExtra (el binder) NO lee un String[]: por eso las
-            // comodidades nunca aparecian al abrir un anuncio.
-            intent.putStringArrayListExtra(EXTRA_COMODIDADES, ArrayList(p.comodidades))
-            intent.putExtra(EXTRA_FEATURED, p.esDestacado)
-            intent.putExtra(EXTRA_ESTADO, p.estado)
-            fotos = p.fotos
-            fotosUrl = p.photosUrl ?: emptyList()
-            // Unico punto de entrada para pintar la UI.
-            cargarDatosDesdeIntent()
+                // Deep link: se inyectan los datos en el intent REAL de la Activity y se
+                // delega en el MISMO binder que usa el listado. Antes se armaba un
+                // `intentMock` que se descartaba y luego se llamaba a un binder paralelo
+                // que leia `intent`: por eso el deep link abria con precio 0 y sin
+                // descripcion/comodidades/mapa.
+                intent.putExtra(EXTRA_TITULO, p.titulo)
+                intent.putExtra(EXTRA_DESCRIPCION, p.descripcion)
+                intent.putExtra(EXTRA_TIPO, p.tipo)
+                intent.putExtra(EXTRA_OPERACION, p.operacion)
+                intent.putExtra(EXTRA_PRECIO, p.precio)
+                intent.putExtra(EXTRA_MONEDA, p.moneda)
+                intent.putExtra(EXTRA_DIRECCION, p.direccion)
+                intent.putExtra(EXTRA_BARRIO, p.barrio)
+                intent.putExtra(EXTRA_CIUDAD, p.ciudad)
+                intent.putExtra(EXTRA_LAT, p.lat)
+                intent.putExtra(EXTRA_LNG, p.lng)
+                intent.putExtra(EXTRA_ID_PROPIETARIO, p.idPropietario)
+                intent.putExtra(EXTRA_AMBIENTES, p.ambientes)
+                intent.putExtra(EXTRA_SUPERFICIE, p.superficieM2)
+                // getStringArrayListExtra (el binder) NO lee un String[]: por eso las
+                // comodidades nunca aparecian al abrir un anuncio.
+                intent.putStringArrayListExtra(EXTRA_COMODIDADES, ArrayList(p.comodidades))
+                intent.putExtra(EXTRA_FEATURED, p.esDestacado)
+                intent.putExtra(EXTRA_ESTADO, p.estado)
+                // Unico punto de entrada para pintar la UI.
+                cargarDatosDesdeIntent()
             }
             .addOnFailureListener { e ->
                 Log.e("AlkilApp", "Error cargando propiedad $propId: ${e.message}")
@@ -321,12 +264,7 @@ class PropiedadDetalleActivity : AppCompatActivity() {
     // Galería (base64 de la app + URLs del backend)
     // ======================================================================
 
-    private val fuentes = mutableListOf<String>()
-    private var indiceActual = 0
-
-    /** Una imagen de la galería: su fuente original (base64 o URL) y el bitmap ya
-     *  decodificado en el caso de base64 (la URL se descarga aparte). */
-    private class FotoLista(val fuente: String, val bmp: Bitmap?)
+    private val fuentes = mutableListOf<Pair<String, Boolean>>()
 
     /** Carga las fotos del inmueble desde Firestore usando solo el ID, evitando
      *  enviar base64 (potencialmente >1MB) por el intent. */
@@ -343,105 +281,28 @@ class PropiedadDetalleActivity : AppCompatActivity() {
 
     private fun armarGaleria() {
         fuentes.clear()
-        binding.llThumbs.removeAllViews()
-        binding.tvSinFotos.visibility = View.GONE
-        val items = mutableListOf<FotoLista>()
+        thumbs = emptyList()
+        preview = null
+        indiceActual = 0
+
+        val items = mutableListOf<Pair<String, Boolean>>()
         for (foto in fotos) {
-            items.add(FotoLista("b64:$foto", decodificarBase64(foto)))
+            if (foto.isNotBlank()) items.add(foto to true)
         }
         for (url in fotosUrl) {
-            if (url.isNotBlank()) items.add(FotoLista(url, null))
+            if (url.isNotBlank()) items.add(url to false)
         }
-        val validos = items.filter { it.bmp != null || !it.fuente.startsWith("b64:") }
-        if (validos.isEmpty()) {
-            binding.tvSinFotos.visibility = View.VISIBLE
-            return
-        }
+        if (items.isEmpty()) return
 
-        fuentes.addAll(validos.map { it.fuente })
-        var pendientes = validos.size
-        val marcarProgreso = {
-            pendientes--
-            if (pendientes <= 0) {
-                binding.hsvThumbs.visibility =
-                    if (binding.llThumbs.childCount > 1) View.VISIBLE else View.GONE
-                if (binding.llThumbs.childCount == 0) binding.tvSinFotos.visibility = View.VISIBLE
+        fuentes.addAll(items)
+        lifecycleScope.launch {
+            val bitmaps = items.map { (fuente, esBase64) ->
+                cargarFotoDetalle(fuente, esBase64)
             }
-        }
-
-        validos.forEachIndexed { indice, foto ->
-            if (foto.bmp != null) {
-                agregarImagenGaleria(foto.bmp!!, indice)
-                marcarProgreso()
-            } else {
-                cargarUrl(foto.fuente, indice, marcarProgreso)
-            }
-        }
-    }
-
-    private fun agregarImagenGaleria(bmp: Bitmap, indice: Int) {
-        if (indice == 0) {
-            binding.ivPreview.setImageBitmap(bmp)
-            binding.ivPreview.background = ColorDrawable(Color.TRANSPARENT)
-        }
-        val madre = 56.dp
-        val thumb = ImageView(this).apply {
-            layoutParams = LinearLayout.LayoutParams(madre, madre).apply {
-                marginEnd = 8.dp
-            }
-            scaleType = ImageView.ScaleType.CENTER_CROP
-            setImageBitmap(bmp)
-            setBackgroundResource(R.drawable.bg_thumb_vacia)
-            isClickable = true
-            alpha = if (indice == 0) 1.0f else 0.6f
-            setOnClickListener {
-                binding.ivPreview.setImageBitmap(bmp)
-                binding.ivPreview.background = ColorDrawable(Color.TRANSPARENT)
-                indiceActual = indice
-                actualizarIndice(indice)
-            }
-        }
-        binding.llThumbs.addView(thumb)
-    }
-
-    private fun cargarUrl(url: String, indice: Int, alTerminar: () -> Unit) {
-        cargadorImagenes.execute {
-            val bmp = descargarBitmap(url)
-            handlerUi.post {
-                if (bmp != null) agregarImagenGaleria(bmp, indice)
-                alTerminar()
-            }
-        }
-    }
-
-    private fun descargarBitmap(urlString: String): Bitmap? {
-        return try {
-            val conexion = URL(urlString).openConnection() as HttpURLConnection
-            conexion.connectTimeout = 10000
-            conexion.readTimeout = 10000
-            val stream = conexion.inputStream
-            val bmp = BitmapFactory.decodeStream(stream)
-            stream.close()
-            conexion.disconnect()
-            bmp
-        } catch (_: Exception) {
-            null
-        }
-    }
-
-    private fun decodificarBase64(foto: String): Bitmap? {
-        val bytes = try {
-            Base64.decode(foto, Base64.NO_WRAP)
-        } catch (_: IllegalArgumentException) {
-            return null
-        }
-        val opts = BitmapFactory.Options().apply { inSampleSize = 2 }
-        return BitmapFactory.decodeByteArray(bytes, 0, bytes.size, opts)
-    }
-
-    private fun actualizarIndice(seleccionado: Int) {
-        for (i in 0 until binding.llThumbs.childCount) {
-            binding.llThumbs.getChildAt(i).alpha = if (i == seleccionado) 1.0f else 0.6f
+            val visibles = bitmaps.filterNotNull()
+            thumbs = visibles
+            preview = visibles.firstOrNull()
+            indiceActual = 0
         }
     }
 
@@ -551,8 +412,10 @@ class PropiedadDetalleActivity : AppCompatActivity() {
         if (propId.isBlank()) return
         val op = intent.getStringExtra(EXTRA_OPERACION) ?: "alquiler"
         val esVenta = Propiedad.normalizarOperacion(op) == "venta"
-        val tituloConfirm = if (esVenta) R.string.detalle_finalizar_confirm_titulo_venta else R.string.detalle_finalizar_confirm_titulo
-        val bannerFinalizado = if (esVenta) R.string.detalle_finalizado_banner_venta else R.string.detalle_finalizado_banner_alquiler
+        val tituloConfirm =
+            if (esVenta) R.string.detalle_finalizar_confirm_titulo_venta else R.string.detalle_finalizar_confirm_titulo
+        val bannerFinalizado =
+            if (esVenta) R.string.detalle_finalizado_banner_venta else R.string.detalle_finalizado_banner_alquiler
         com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
             .setTitle(tituloConfirm)
             .setMessage(R.string.detalle_finalizar_confirm_msg)
@@ -561,11 +424,12 @@ class PropiedadDetalleActivity : AppCompatActivity() {
                 db.collection("propiedades").document(propId)
                     .update("estado", "finalizado")
                     .addOnSuccessListener {
-                        Toast.makeText(this, R.string.detalle_finalizar_ok, Toast.LENGTH_SHORT).show()
-                        binding.btnFinalizarPub.visibility = View.GONE
-                        binding.tvDetFinalizado.text = getString(bannerFinalizado)
-                        binding.tvDetFinalizado.visibility = View.VISIBLE
-                        binding.btnChatPropietario.visibility = View.GONE
+                        Toast.makeText(this, R.string.detalle_finalizar_ok, Toast.LENGTH_SHORT)
+                            .show()
+                        ui = ui.copy(
+                            estado = "finalizado",
+                            estadoFinalizadoTexto = getString(bannerFinalizado)
+                        )
                     }
                     .addOnFailureListener { e ->
                         Toast.makeText(
@@ -649,26 +513,18 @@ class PropiedadDetalleActivity : AppCompatActivity() {
         if (idPropietario.isBlank()) return
         PerfilUsuario.buscar(db, idPropietario) { perfil ->
             if (perfil == null) return@buscar
-            binding.cardPropietario.visibility = View.VISIBLE
-            binding.tvDetAvatar.text = perfil.inicial.toString()
-            binding.tvDetAvatar.backgroundTintList =
-                android.content.res.ColorStateList.valueOf(
-                    getColor(coloresAvatar[Math.floorMod(idPropietario.hashCode(), coloresAvatar.size)])
+            propietario = EstadoPropietario(
+                nombre = perfil.nombre,
+                inicial = perfil.inicial,
+                verificado = perfil.verificado,
+                rating = perfil.rating,
+                colorAvatar = Color(
+                    coloresAvatar[Math.floorMod(idPropietario.hashCode(), coloresAvatar.size)]
+                        .toColorInt()
                 )
-            binding.tvDetOwnerName.text = perfil.nombre
-            binding.ivDetVerificado.visibility =
-                if (perfil.verificado) View.VISIBLE else View.GONE
-            binding.tvDetVerificadoLinea.visibility =
-                if (perfil.verificado) View.VISIBLE else View.GONE
-            if (perfil.rating > 0) {
-                binding.tvDetOwnerRating.text = String.format("%.1f", perfil.rating)
-                binding.tvDetOwnerRating.visibility = View.VISIBLE
-            }
+            )
         }
     }
-
-    private val Int.dp: Int
-        get() = (this * resources.displayMetrics.density).toInt()
 
     private fun compartirPublicacion() {
         val deepLink = "alkilapp://propiedad/$propId"

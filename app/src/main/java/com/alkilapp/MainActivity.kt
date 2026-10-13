@@ -40,8 +40,11 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.doOnPreDraw
 import com.alkilapp.compose.AlkilTheme
 import com.alkilapp.compose.AlkilTopStack
+import com.alkilapp.compose.CabeceraSheet
 import com.alkilapp.compose.ItemLista
 import com.alkilapp.compose.ListaInmuebles
+import com.alkilapp.compose.MenuUiState
+import com.alkilapp.compose.PantallaMenu
 import com.alkilapp.data.Favoritos
 import com.alkilapp.data.Propiedad
 import com.alkilapp.databinding.ActivityMainBinding
@@ -98,6 +101,9 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     private val cargadorNavFoto by lazy { Executors.newSingleThreadExecutor() }
     private val handlerMain = Handler(Looper.getMainLooper())
     private var callbackChatNoLeidos: ((Int) -> Unit)? = null
+
+    // Estado del menu lateral (Compose): cabecera de sesion + badges.
+    private var menuUi by mutableStateOf(MenuUiState())
 
     private var filtroDepartamento: String? = null
     private var filtroDistrito: String? = null
@@ -365,75 +371,91 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
                 }
             binding.bottomSheet.setPadding(0, 0, 0, abajo)
 
-            // El panel lateral se dibuja detras de la barra de estado: solo se
-            // desplaza el contenido (cabecera y filas) para no taparlo.
-            binding.panelMenu.panelMenuRoot.setPadding(0, 0, 0, abajo)
-            binding.panelMenu.llNavHeader.setPadding(20.dp, 24.dp + arriba, 20.dp, 22.dp)
+            // El panel lateral aplica sus propios insets (statusBars en la
+            // cabecera, navigationBars en la lista) dentro de Compose.
 
             insets
         }
         ViewCompat.requestApplyInsets(binding.root)
     }
 
-    /** BotÃ³n de menÃº en la esquina superior: abre el panel lateral. */
+    /** Botón de menú en la esquina superior: abre el panel lateral (Compose). */
     private fun configurarMenu() {
-        // El boton de menu vive ahora en el top stack Compose (onMenu).
-        val panel = binding.panelMenu
-        panel.llNavHeader.setOnClickListener {
-            binding.drawerLayout.closeDrawers()
-            onBotonAuth()
-        }
-        panel.btnNavPerfil.setOnClickListener {
-            binding.drawerLayout.closeDrawers()
-            onBotonAuth()
-        }
-        panel.btnNavChat.setOnClickListener {
-            binding.drawerLayout.closeDrawers()
-            abrirChat()
-        }
-        panel.btnNavFavoritos.setOnClickListener {
-            binding.drawerLayout.closeDrawers()
-            if (auth.currentUser == null) {
-                Toast.makeText(this, R.string.favoritos_requiere_sesion, Toast.LENGTH_LONG).show()
-                abrirDialogoAutenticar()
-                return@setOnClickListener
+        // El panel lateral es Compose: se pinta desde MenuUiState y cierra el
+        // drawer antes de cada accion (misma UX que las filas XML anteriores).
+        binding.panelMenu.cvMenu.setViewCompositionStrategy(
+            ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed
+        )
+        binding.panelMenu.cvMenu.setContent {
+            AlkilTheme {
+                PantallaMenu(
+                    ui = menuUi,
+                    onPerfilHeader = {
+                        binding.drawerLayout.closeDrawers()
+                        onBotonAuth()
+                    },
+                    onPerfil = {
+                        binding.drawerLayout.closeDrawers()
+                        onBotonAuth()
+                    },
+                    onChats = {
+                        binding.drawerLayout.closeDrawers()
+                        abrirChat()
+                    },
+                    onFavoritos = {
+                        binding.drawerLayout.closeDrawers()
+                        if (auth.currentUser == null) {
+                            Toast.makeText(
+                                this,
+                                R.string.favoritos_requiere_sesion,
+                                Toast.LENGTH_LONG
+                            ).show()
+                            abrirDialogoAutenticar()
+                            return@PantallaMenu
+                        }
+                        startActivity(Intent(this, FavoritosActivity::class.java))
+                    },
+                    onFiltros = {
+                        binding.drawerLayout.closeDrawers()
+                        abrirDialogoFiltros()
+                    },
+                    onPublicar = {
+                        binding.drawerLayout.closeDrawers()
+                        abrirRegistrarPropiedad()
+                    },
+                    onMisPublicaciones = {
+                        binding.drawerLayout.closeDrawers()
+                        val uid = auth.currentUser?.uid
+                        if (uid == null) {
+                            Toast.makeText(this, R.string.mis_pub_sesion, Toast.LENGTH_LONG).show()
+                            abrirDialogoAutenticar()
+                            return@PantallaMenu
+                        }
+                        startActivity(Intent(this, MisPublicacionesActivity::class.java))
+                    },
+                    onVerificar = {
+                        binding.drawerLayout.closeDrawers()
+                        if (auth.currentUser == null) {
+                            Toast.makeText(
+                                this,
+                                R.string.verif_sesion_requerida,
+                                Toast.LENGTH_LONG
+                            ).show()
+                            abrirDialogoAutenticar()
+                            return@PantallaMenu
+                        }
+                        startActivity(Intent(this, VerificacionActivity::class.java))
+                    },
+                    onSoporte = {
+                        binding.drawerLayout.closeDrawers()
+                        startActivity(Intent(this, SoporteActivity::class.java))
+                    },
+                    onSalir = {
+                        binding.drawerLayout.closeDrawers()
+                        cerrarSesion()
+                    }
+                )
             }
-            startActivity(Intent(this, FavoritosActivity::class.java))
-        }
-        panel.btnNavFiltros.setOnClickListener {
-            binding.drawerLayout.closeDrawers()
-            abrirDialogoFiltros()
-        }
-        panel.btnNavPublicar.setOnClickListener {
-            binding.drawerLayout.closeDrawers()
-            abrirRegistrarPropiedad()
-        }
-        panel.btnNavMisPublicaciones.setOnClickListener {
-            binding.drawerLayout.closeDrawers()
-            val uid = auth.currentUser?.uid
-            if (uid == null) {
-                Toast.makeText(this, R.string.mis_pub_sesion, Toast.LENGTH_LONG).show()
-                abrirDialogoAutenticar()
-                return@setOnClickListener
-            }
-            startActivity(Intent(this, MisPublicacionesActivity::class.java))
-        }
-        panel.btnNavVerificar.setOnClickListener {
-            binding.drawerLayout.closeDrawers()
-            if (auth.currentUser == null) {
-                Toast.makeText(this, R.string.verif_sesion_requerida, Toast.LENGTH_LONG).show()
-                abrirDialogoAutenticar()
-                return@setOnClickListener
-            }
-            startActivity(Intent(this, VerificacionActivity::class.java))
-        }
-        panel.btnNavSoporte.setOnClickListener {
-            binding.drawerLayout.closeDrawers()
-            startActivity(Intent(this, SoporteActivity::class.java))
-        }
-        panel.btnNavSalir.setOnClickListener {
-            binding.drawerLayout.closeDrawers()
-            cerrarSesion()
         }
     }
 
@@ -469,11 +491,9 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
 
     /** Muestra cuantos favoritos tiene el usuario en la fila del menu. */
     private fun actualizarBadgeFavoritos() {
-        val panel = binding.panelMenu
         // Leer directo de SharedPreferences para evitar cache stale
         val n = Favoritos.locales(this).size
-        panel.tvNavFavoritosBadge.visibility = if (n > 0) View.VISIBLE else View.GONE
-        panel.tvNavFavoritosBadge.text = n.toString()
+        menuUi = menuUi.copy(badgeFavoritos = n)
     }
 
     /** Corazon de la tarjeta: requiere sesion, persiste local + Firestore. */
@@ -601,6 +621,17 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
                     onItem = { abrirDetallePropiedad(it) },
                     onFavorito = { alternarFavorito(it) }
                 )
+            }
+        }
+
+        // Cabecera del bottom sheet en Compose (handle + titulo + subtitulo).
+        // El drag/tap sigue en sheetHeader.setOnTouchListener (configurarBottomSheet).
+        binding.cvSheetHeader.setViewCompositionStrategy(
+            ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed
+        )
+        binding.cvSheetHeader.setContent {
+            AlkilTheme {
+                CabeceraSheet()
             }
         }
 
@@ -1636,28 +1667,27 @@ private fun limpiarMarcadores() {
 
     private fun actualizarUiSesion() {
         val usuario = auth.currentUser
-        val panel = binding.panelMenu
         if (usuario != null) {
             val nombre = usuario.displayName?.takeIf { it.isNotBlank() }
                 ?: usuario.email?.substringBefore('@').orEmpty()
-            panel.tvNavNombre.text = nombre
-            panel.tvNavEmail.text = usuario.email.orEmpty()
-            panel.tvNavAvatar.text = nombre.take(1).uppercase()
-            panel.tvNavSesionHint.visibility = View.GONE
-            panel.tvNavEmail.visibility = View.VISIBLE
-            panel.btnNavSalir.visibility = View.VISIBLE
-            panel.ivNavFoto.visibility = View.GONE
-            panel.tvNavAvatar.visibility = View.VISIBLE
+            menuUi = menuUi.copy(
+                nombre = nombre,
+                email = usuario.email.orEmpty(),
+                inicial = nombre.take(1).uppercase(),
+                invitado = false,
+                sesionActiva = true,
+                foto = null
+            )
             cargarFotoNav()
         } else {
-            panel.tvNavNombre.text = getString(R.string.nav_invitado)
-            panel.tvNavEmail.text = ""
-            panel.tvNavEmail.visibility = View.GONE
-            panel.tvNavAvatar.text = "?"
-            panel.tvNavSesionHint.visibility = View.VISIBLE
-            panel.btnNavSalir.visibility = View.GONE
-            panel.ivNavFoto.visibility = View.GONE
-            panel.tvNavAvatar.visibility = View.VISIBLE
+            menuUi = menuUi.copy(
+                nombre = getString(R.string.nav_invitado),
+                email = "",
+                inicial = "?",
+                invitado = true,
+                sesionActiva = false,
+                foto = null
+            )
         }
         actualizarBadgeChats(ChatNoLeidos.totalActual())
     }
@@ -1678,9 +1708,7 @@ private fun limpiarMarcadores() {
                     }
                     handlerMain.post {
                         if (bmp != null) {
-                            binding.panelMenu.ivNavFoto.setImageBitmap(bmp)
-                            binding.panelMenu.ivNavFoto.visibility = View.VISIBLE
-                            binding.panelMenu.tvNavAvatar.visibility = View.GONE
+                            menuUi = menuUi.copy(foto = bmp)
                         }
                     }
                 }
@@ -1714,14 +1742,7 @@ private fun limpiarMarcadores() {
 
     /** Badge rojo de chats sin leer en la fila "Mis chats" del panel lateral. */
     private fun actualizarBadgeChats(total: Int) {
-        val badge = binding.panelMenu.tvNavChatBadge
-        if (total > 0) {
-            badge.text = if (total > 99) "99+" else total.toString()
-            badge.contentDescription = getString(R.string.nav_chats_sin_leer, total)
-            badge.visibility = View.VISIBLE
-        } else {
-            badge.visibility = View.GONE
-        }
+        menuUi = menuUi.copy(badgeChats = total)
     }
 }
 

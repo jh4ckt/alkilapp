@@ -3,10 +3,14 @@ package com.alkilapp
 import android.os.Bundle
 import android.util.Log
 import android.util.Patterns
-import android.view.View
 import android.widget.Toast
+import androidx.activity.compose.setContent
 import androidx.appcompat.app.AppCompatActivity
-import com.alkilapp.databinding.ActivitySoporteBinding
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import com.alkilapp.compose.AlkilTheme
+import com.alkilapp.compose.PantallaSoporte
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
@@ -19,18 +23,31 @@ import com.google.firebase.firestore.FirebaseFirestore
  */
 class SoporteActivity : AppCompatActivity() {
 
-    private lateinit var binding: ActivitySoporteBinding
     private val auth by lazy { FirebaseAuth.getInstance() }
     // IMPORTANTE: base nombrada (el proyecto no tiene (default))
     private val db by lazy { FirebaseFirestore.getInstance("alkilappdb") }
 
+    private var email by mutableStateOf("")
+    private var asunto by mutableStateOf("")
+    private var mensaje by mutableStateOf("")
+    private var enviando by mutableStateOf(false)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        binding = ActivitySoporteBinding.inflate(layoutInflater)
-        setContentView(binding.root)
-
-        binding.btnSoporteBack.setOnClickListener { finish() }
-        binding.btnSoporteEnviar.setOnClickListener { enviarTicket() }
+        setContent {
+            AlkilTheme {
+                PantallaSoporte(
+                    email = email,
+                    asunto = asunto,
+                    mensaje = mensaje,
+                    enviando = enviando,
+                    onAsunto = { asunto = it },
+                    onMensaje = { mensaje = it },
+                    onEnviar = { enviarTicket() },
+                    onAtras = { finish() }
+                )
+            }
+        }
 
         // UID y Email vienen SIEMPRE de FirebaseAuth (no los escribe el usuario)
         val usuario = auth.currentUser
@@ -40,52 +57,48 @@ class SoporteActivity : AppCompatActivity() {
             finish()
             return
         }
-        binding.etSoporteEmail.setText(usuario?.email)
-        binding.etSoporteEmail.isEnabled = false
+        email = usuario?.email.orEmpty()
     }
 
     private fun enviarTicket() {
         val usuario = auth.currentUser
         val uid = usuario?.uid
-        val email = usuario?.email
+        val correo = usuario?.email
 
-        if (uid.isNullOrBlank() || email.isNullOrBlank()) {
+        if (uid.isNullOrBlank() || correo.isNullOrBlank()) {
             Toast.makeText(this, R.string.soporte_requiere_sesion, Toast.LENGTH_LONG).show()
             return
         }
 
-        val asunto = binding.etSoporteAsunto.text.toString().trim()
-        val mensaje = binding.etSoporteMensaje.text.toString().trim()
+        val asuntoTxt = asunto.trim()
+        val mensajeTxt = mensaje.trim()
 
         // Validaciones de campos
-        if (asunto.isBlank() || mensaje.isBlank()) {
+        if (asuntoTxt.isBlank() || mensajeTxt.isBlank()) {
             Toast.makeText(this, R.string.soporte_campos_requeridos, Toast.LENGTH_SHORT).show()
             return
         }
-        if (!Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
+        if (!Patterns.EMAIL_ADDRESS.matcher(correo).matches()) {
             Toast.makeText(this, R.string.soporte_email_invalido, Toast.LENGTH_SHORT).show()
             return
         }
-        if (asunto.length > 150) {
+        if (asuntoTxt.length > 150) {
             Toast.makeText(this, R.string.soporte_asunto_largo, Toast.LENGTH_SHORT).show()
             return
         }
-        if (mensaje.length > 4000) {
+        if (mensajeTxt.length > 4000) {
             Toast.makeText(this, R.string.soporte_mensaje_largo, Toast.LENGTH_SHORT).show()
             return
         }
 
-        // Estado de carga: botón deshabilitado + ProgressBar visible
-        binding.btnSoporteEnviar.isEnabled = false
-        binding.btnSoporteEnviar.text = getString(R.string.soporte_enviando)
-        binding.progressBarSoporte.visibility = View.VISIBLE
+        enviando = true
 
         // Esquema del ticket (colección "soporte")
         val ticket = hashMapOf<String, Any>(
             "usuarioId" to uid,
-            "emailContacto" to email,
-            "asunto" to asunto,
-            "mensaje" to mensaje,
+            "emailContacto" to correo,
+            "asunto" to asuntoTxt,
+            "mensaje" to mensajeTxt,
             "estado" to "pendiente", // pendiente | en_proceso | resuelto
             "fechaCreacion" to FieldValue.serverTimestamp()
         )
@@ -95,7 +108,7 @@ class SoporteActivity : AppCompatActivity() {
             .addOnSuccessListener { ref ->
                 Log.i(TAG, "Ticket de soporte creado: ${ref.id}")
                 Toast.makeText(this, R.string.soporte_enviado, Toast.LENGTH_SHORT).show()
-                restaurarBoton()
+                enviando = false
                 finish()
             }
             .addOnFailureListener { e ->
@@ -105,14 +118,8 @@ class SoporteActivity : AppCompatActivity() {
                     getString(R.string.soporte_error, e.localizedMessage ?: "desconocido"),
                     Toast.LENGTH_LONG
                 ).show()
-                restaurarBoton()
+                enviando = false
             }
-    }
-
-    private fun restaurarBoton() {
-        binding.progressBarSoporte.visibility = View.GONE
-        binding.btnSoporteEnviar.isEnabled = true
-        binding.btnSoporteEnviar.text = getString(R.string.soporte_enviar)
     }
 
     companion object {

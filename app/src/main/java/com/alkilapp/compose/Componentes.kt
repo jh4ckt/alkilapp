@@ -83,8 +83,8 @@ fun PillContador(texto: String, modifier: Modifier = Modifier) {
     }
 }
 
-/** CTA coral con gradiente (brand_accent_deep -> brand_accent_dark) y estado
- *  presionado atenuado. Reemplaza a los MaterialButton planos de color solido. */
+/** CTA coral con gradiente (brand_accent_deep -> brand_accent_dark), sombra
+ *  coral suave y estado presionado atenuado. Objetivo de toque generoso (46dp). */
 @Composable
 fun BotonCta(
     texto: String,
@@ -93,13 +93,14 @@ fun BotonCta(
 ) {
     val interaccion = remember { MutableInteractionSource() }
     val presionado by interaccion.collectIsPressedAsState()
-    val forma = RoundedCornerShape(12.dp)
+    val forma = RoundedCornerShape(14.dp)
     Box(
         modifier = modifier
+            .shadow(6.dp, forma, clip = false, ambientColor = AlkilColores.Acento.copy(alpha = 0.40f))
             .clip(forma)
             .background(
                 Brush.horizontalGradient(
-                    listOf(AlkilColores.AcentoDeep, AlkilColores.AcentoOscuro)
+                    listOf(AlkilColores.AcentoDeep, AlkilColores.Acento)
                 )
             )
             .clickable(
@@ -107,16 +108,21 @@ fun BotonCta(
                 indication = LocalIndication.current,
                 onClick = onClick
             )
-            .graphicsLayer { alpha = if (presionado) 0.85f else 1f }
-            .heightIn(min = 38.dp)
-            .padding(horizontal = 14.dp),
+            .graphicsLayer {
+                alpha = if (presionado) 0.90f else 1f
+                val e = if (presionado) 0.85f else 1f
+                scaleX = e; scaleY = e
+            }
+            .heightIn(min = 46.dp)
+            .padding(horizontal = 18.dp),
         contentAlignment = Alignment.Center
     ) {
         androidx.compose.material3.Text(
             text = texto,
             color = Color.White,
-            fontSize = 13.sp,
-            fontWeight = FontWeight.SemiBold
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = 0.2.sp
         )
     }
 }

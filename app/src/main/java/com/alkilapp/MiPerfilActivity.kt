@@ -8,32 +8,37 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.util.Base64
-import android.view.View
-import android.widget.ArrayAdapter
 import android.widget.Toast
+import androidx.activity.compose.setContent
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import com.alkilapp.compose.AlkilTheme
+import com.alkilapp.compose.MiPerfilUiState
+import com.alkilapp.compose.PantallaMiPerfil
 import com.alkilapp.data.Favoritos
-import com.alkilapp.databinding.ActivityMiPerfilBinding
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
 import kotlin.math.max
-import android.widget.AdapterView
 
 /** Pantalla "Mi perfil": el usuario autenticado edita sus datos personales. */
 class MiPerfilActivity : AppCompatActivity() {
 
-    private lateinit var binding: ActivityMiPerfilBinding
     private val auth by lazy { FirebaseAuth.getInstance() }
     private val db by lazy { FirebaseFirestore.getInstance("alkilappdb") }
 
     private var fotoBase64: String? = null
     private val valoresTipo = arrayOf("dueno", "inquilino", "ambos")
     private lateinit var departamentos: List<String>
+    private lateinit var etiquetasTipo: List<String>
 
-    private var enModoEdicion = false
+    private var ui by mutableStateOf(MiPerfilUiState())
+    private var ciudades by mutableStateOf<List<String>>(emptyList())
+
     private var telefonoOriginal = ""
     private var tipoOriginal = 0
     private var zonaDepOriginal = ""
@@ -48,159 +53,124 @@ class MiPerfilActivity : AppCompatActivity() {
             Toast.makeText(this, R.string.perfil_foto_error, Toast.LENGTH_SHORT).show()
         } else {
             fotoBase64 = base64
-            mostrarFoto(base64)
+            ui = ui.copy(foto = decodificar(base64))
         }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        binding = ActivityMiPerfilBinding.inflate(layoutInflater)
-        setContentView(binding.root)
-
-        binding.btnPerfilBack.setOnClickListener { finish() }
-        binding.btnPerfilGuardar.setOnClickListener { guardarPerfil() }
-        binding.btnPerfilEditar.setOnClickListener { activarModoEdicion() }
-        binding.btnPerfilCerrarSesion.setOnClickListener {
-            auth.signOut()
-            com.google.android.gms.auth.api.signin.GoogleSignIn.getClient(this, com.google.android.gms.auth.api.signin.GoogleSignInOptions.DEFAULT_SIGN_IN).signOut()
-            // Limpiar favoritos locales al cerrar sesión
-            Favoritos.limpiarLocales(this)
-            Toast.makeText(this, R.string.auth_sesion_cerrada, Toast.LENGTH_SHORT).show()
-            finish()
-        }
-
-        binding.spPerfilTipo.adapter = crearAdapterSpinner(
-            resources.getStringArray(R.array.tipos_usuario).toList()
-        )
-
-        departamentos = resources.getStringArray(R.array.departamentos_peru).toList()
-        binding.spPerfilZonaDepartamento.adapter = crearAdapterSpinner(departamentos)
-
-        binding.spPerfilZonaDepartamento.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-            override fun onItemSelected(parent: AdapterView<*>?, view: android.view.View?, position: Int, id: Long) {
-                val dep = departamentos[position]
-                val ciudades = obtenerCiudades(dep)
-                val opciones = if (dep == "Lima") {
-                    listOf(getString(R.string.prop_distrito_sin)) + ciudades
-                } else {
-                    listOf(getString(R.string.prop_distrito_sin), "Otro") + ciudades
-                }
-                binding.spPerfilZonaCiudad.adapter = crearAdapterSpinner(opciones)
+        setContent {
+            AlkilTheme {
+                PantallaMiPerfil(
+                    ui = ui,
+                    opcionesTipo = valoresTipo.toList(),
+                    departamentos = departamentos,
+                    ciudades = ciudades,
+                    etiquetaTipo = ::etiquetaTipo,
+                    onTelefono = { ui = ui.copy(telefono = it) },
+                    onTipo = { ui = ui.copy(tipo = it) },
+                    onDepartamento = { dep ->
+                        zonaCiuSeleccionada("")
+                        ui = ui.copy(zonaDep = dep, zonaCiudad = "")
+                        actualizarCiudades(dep)
+                    },
+                    onCiudad = { ciudad -> ui = ui.copy(zonaCiudad = ciudad) },
+                    onEditar = { activarModoEdicion() },
+                    onGuardar = { guardarPerfil() },
+                    onCancelar = { cancelarEdicion() },
+                    onFoto = {
+                        fotoLauncher.launch(
+                            PickVisualMediaRequest.Builder()
+                                .setMediaType(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                .build()
+                        )
+                    },
+                    onCerrarSesion = {
+                        auth.signOut()
+                        com.google.android.gms.auth.api.signin.GoogleSignIn.getClient(
+                            this,
+                            com.google.android.gms.auth.api.signin.GoogleSignInOptions.DEFAULT_SIGN_IN
+                        ).signOut()
+                        Favoritos.limpiarLocales(this)
+                        Toast.makeText(this, R.string.auth_sesion_cerrada, Toast.LENGTH_SHORT).show()
+                        finish()
+                    },
+                    onAtras = { finish() }
+                )
             }
-            override fun onNothingSelected(parent: AdapterView<*>?) {}
         }
 
-        binding.btnPerfilFoto.setOnClickListener {
-            fotoLauncher.launch(
-                PickVisualMediaRequest.Builder()
-                    .setMediaType(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                    .build()
-            )
-        }
-
-        // Inicialmente campos bloqueados
-        bloquearCampos()
+        etiquetasTipo = resources.getStringArray(R.array.tipos_usuario).toList()
+        departamentos = resources.getStringArray(R.array.departamentos_peru).toList()
+        ui = ui.copy(zonaDep = departamentos.first(), zonaCiudad = "")
+        actualizarCiudades(departamentos.first())
         cargarMisDatos()
     }
 
-    private fun crearAdapterSpinner(opciones: List<String>): ArrayAdapter<String> =
-        spinnerAdapter(this, opciones)
+    private fun etiquetaTipo(t: String): String =
+        etiquetasTipo[valoresTipo.indexOf(t).coerceAtLeast(0)]
 
-    private fun desbloquearCampos() {
-        binding.etPerfilTelefono.isEnabled = true
-        binding.spPerfilTipo.isEnabled = true
-        binding.spPerfilZonaDepartamento.isEnabled = true
-        binding.spPerfilZonaCiudad.isEnabled = true
-        binding.btnPerfilFoto.isEnabled = true
-        binding.btnPerfilEditar.visibility = View.GONE
-        binding.layPerfilGuardar.visibility = View.VISIBLE
+    private fun actualizarCiudades(dep: String) {
+        val base = obtenerCiudades(dep)
+        ciudades = if (dep == "Lima") {
+            listOf(getString(R.string.prop_distrito_sin)) + base
+        } else {
+            listOf(getString(R.string.prop_distrito_sin), "Otro") + base
+        }
+    }
+
+    private fun zonaCiuSeleccionada(valor: String) {
+        ui = ui.copy(zonaCiudad = valor)
     }
 
     private fun activarModoEdicion() {
-        // Guardar valores originales
-        telefonoOriginal = binding.etPerfilTelefono.text.toString()
-        tipoOriginal = binding.spPerfilTipo.selectedItemPosition
-        zonaDepOriginal = binding.spPerfilZonaDepartamento.selectedItem?.toString() ?: ""
-        zonaCiuOriginal = binding.spPerfilZonaCiudad.selectedItem?.toString() ?: ""
-        enModoEdicion = true
-        desbloquearCampos()
-        binding.btnPerfilCancelar.setOnClickListener { cancelarEdicion() }
-        binding.btnPerfilCancelar2.setOnClickListener { cancelarEdicion() }
+        telefonoOriginal = ui.telefono
+        tipoOriginal = valoresTipo.indexOf(ui.tipo).coerceAtLeast(0)
+        zonaDepOriginal = ui.zonaDep
+        zonaCiuOriginal = ui.zonaCiudad
+        ui = ui.copy(enEdicion = true)
     }
 
     private fun cancelarEdicion() {
-        // Restaurar valores originales
-        binding.etPerfilTelefono.setText(telefonoOriginal)
-        binding.spPerfilTipo.setSelection(tipoOriginal)
-        val depIndex = departamentos.indexOfFirst { it == zonaDepOriginal }
-        if (depIndex >= 0) binding.spPerfilZonaDepartamento.setSelection(depIndex)
-        // zonaCiudad se restaurará tras actualizar el adapter
-        binding.spPerfilZonaCiudad.post {
-            val adapter = binding.spPerfilZonaCiudad.adapter as? ArrayAdapter<String>
-            adapter?.let { ad ->
-                val ciuIndex = ad.getPosition(zonaCiuOriginal)
-                if (ciuIndex >= 0) binding.spPerfilZonaCiudad.setSelection(ciuIndex)
-            }
-        }
-        enModoEdicion = false
-        bloquearCampos()
-    }
-
-    private fun bloquearCampos() {
-        binding.etPerfilTelefono.isEnabled = false
-        binding.spPerfilTipo.isEnabled = false
-        binding.spPerfilZonaDepartamento.isEnabled = false
-        binding.spPerfilZonaCiudad.isEnabled = false
-        binding.btnPerfilFoto.isEnabled = false
-        binding.btnPerfilEditar.visibility = View.VISIBLE
-        binding.layPerfilGuardar.visibility = View.GONE
+        ui = ui.copy(
+            telefono = telefonoOriginal,
+            tipo = valoresTipo[tipoOriginal],
+            zonaDep = zonaDepOriginal,
+            zonaCiudad = zonaCiuOriginal,
+            enEdicion = false
+        )
+        actualizarCiudades(zonaDepOriginal)
     }
 
     private fun cargarMisDatos() {
         val u = auth.currentUser ?: run { finish(); return }
-        binding.tvPerfilEmail.text = u.email ?: ""
-        // Estado de verificación de email
-        val verificado = u.isEmailVerified
-        binding.tvPerfilEmailVerificado.visibility = if (verificado) View.VISIBLE else View.GONE
-        binding.tvPerfilEmailPendiente.visibility = if (!verificado) View.VISIBLE else View.GONE
+        ui = ui.copy(email = u.email ?: "", emailVerificado = u.isEmailVerified)
         db.collection("usuarios").document(u.uid).get()
             .addOnSuccessListener { doc ->
                 if (!doc.exists()) return@addOnSuccessListener
                 val d = doc.data ?: return@addOnSuccessListener
-                binding.tvPerfilNombre.text = (d["nombre"] as? String).orEmpty()
-                binding.etPerfilTelefono.setText((d["telefono"] as? String).orEmpty())
                 val tipo = (d["tipoUsuario"] as? String) ?: "dueno"
-                binding.spPerfilTipo.setSelection(
-                    valoresTipo.indexOfFirst { it == tipo }.coerceAtLeast(0)
-                )
                 val zonaDep = (d["zonaDepartamento"] as? String)
-                if (!zonaDep.isNullOrBlank()) {
-                    val depIndex = departamentos.indexOfFirst { it == zonaDep }
-                    if (depIndex >= 0) {
-                        binding.spPerfilZonaDepartamento.setSelection(depIndex)
-                    }
-                }
                 val zonaCiu = (d["zonaCiudad"] as? String)
-                if (!zonaCiu.isNullOrBlank()) {
-                    binding.spPerfilZonaCiudad.post {
-                        val adapter = binding.spPerfilZonaCiudad.adapter as? ArrayAdapter<String>
-                        adapter?.let { ad ->
-                            val ciuIndex = ad.getPosition(zonaCiu)
-                            if (ciuIndex >= 0) {
-                                binding.spPerfilZonaCiudad.setSelection(ciuIndex)
-                            }
-                        }
-                    }
-                }
+                val depUsar = if (!zonaDep.isNullOrBlank() && departamentos.contains(zonaDep)) zonaDep
+                else ui.zonaDep
+                actualizarCiudades(depUsar)
+                ui = ui.copy(
+                    nombre = (d["nombre"] as? String).orEmpty(),
+                    telefono = (d["telefono"] as? String).orEmpty(),
+                    tipo = tipo,
+                    zonaDep = depUsar,
+                    zonaCiudad = zonaCiu.orEmpty().takeIf { ciudades.contains(it) }
+                        ?: ui.zonaCiudad
+                )
                 val b64 = (d["fotoBase64"] as? String)
                 if (!b64.isNullOrBlank()) {
                     fotoBase64 = b64
-                    mostrarFoto(b64)
+                    ui = ui.copy(foto = decodificar(b64))
                 }
             }
     }
 
-    // Función para obtener ciudades por departamento (copiada de RegistrarPropiedadActivity)
     private fun obtenerCiudades(departamento: String): List<String> {
         return when (departamento) {
             "Amazonas" -> resources.getStringArray(R.array.ciudades_amazonas).toList()
@@ -232,38 +202,34 @@ class MiPerfilActivity : AppCompatActivity() {
         }
     }
 
-    private fun mostrarFoto(b64: String) {
+    private fun decodificar(b64: String): Bitmap? {
         val bytes = try {
             Base64.decode(b64, Base64.NO_WRAP)
         } catch (_: IllegalArgumentException) {
-            return
+            return null
         }
-        val bmp = BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: return
-        binding.ivPerfilFoto.setImageBitmap(bmp)
-        binding.ivPerfilFoto.visibility = View.VISIBLE
-        binding.tvPerfilInicial.visibility = View.GONE
+        return BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
     }
 
     private fun guardarPerfil() {
         val u = auth.currentUser ?: run { finish(); return }
-        val telefono = binding.etPerfilTelefono.text.toString().trim()
+        val telefono = ui.telefono.trim()
         if (telefono.filter { it.isDigit() }.length < 9) {
             Toast.makeText(this, R.string.auth_telefono_requerido, Toast.LENGTH_SHORT).show()
             return
         }
         val datos = hashMapOf<String, Any>(
             "telefono" to telefono,
-            "tipoUsuario" to valoresTipo[binding.spPerfilTipo.selectedItemPosition],
-            "zonaDepartamento" to binding.spPerfilZonaDepartamento.selectedItem?.toString().orEmpty(),
-            "zonaCiudad" to binding.spPerfilZonaCiudad.selectedItem?.toString().orEmpty()
+            "tipoUsuario" to ui.tipo,
+            "zonaDepartamento" to ui.zonaDep,
+            "zonaCiudad" to ui.zonaCiudad
         )
         fotoBase64?.let { datos["fotoBase64"] = it }
         db.collection("usuarios").document(u.uid)
             .set(datos, SetOptions.merge())
             .addOnSuccessListener {
                 Toast.makeText(this, R.string.perfil_ok, Toast.LENGTH_SHORT).show()
-                enModoEdicion = false
-                bloquearCampos()
+                ui = ui.copy(enEdicion = false)
                 finish()
             }
             .addOnFailureListener { e ->

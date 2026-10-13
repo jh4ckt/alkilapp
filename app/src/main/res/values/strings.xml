@@ -594,6 +594,7 @@
     <string name="detalle_finalizado_banner_alquiler">Publicación finalizada — este inmueble ya fue alquilado</string>
     <string name="detalle_finalizar_confirm_titulo_venta">¿Ya vendiste este inmueble?</string>
     <string name="detalle_revision_banner">En revisión - un administrador está revisando este inmueble</string>
+    <string name="detalle_pausada_banner">Publicación pausada - no se muestra en el listado</string>
 
     <!-- Perfil / Mis publicaciones -->
     <string name="perfil_pausar_publicacion">Pausar publicación</string>
@@ -839,4 +840,27 @@
     <string name="cita_estado_rechazada">Rechazada ✗</string>
     <string name="cita_estado_rechazaste">Rechazaste ✗</string>
     <string name="cita_estado_pendiente">Pendiente de confirmación</string>
+
+    <!-- MisPublicaciones (Compose): textos que antes estaban hardcodeados en el .kt -->
+    <string name="mis_pub_menu_destacar">Destacar publicación</string>
+    <string name="mis_pub_menu_quitar_destacado">Quitar destacado</string>
+    <string name="mis_pub_menu_pausar">Pausar publicación</string>
+    <string name="mis_pub_menu_reactivar">Reactivar publicación</string>
+    <string name="mis_pub_menu_eliminar">Eliminar publicación</string>
+    <string name="mis_pub_mas_opciones">Más opciones</string>
+    <string name="mis_pub_pausar_titulo">Pausar publicación</string>
+    <string name="mis_pub_pausar_msg">La publicación dejará de mostrarse en el listado. Podrás reactivarla cuando quieras.</string>
+    <string name="mis_pub_pausar_ok">Publicación pausada</string>
+    <string name="mis_pub_reactivar_ok">Publicación reactivada (disponible)</string>
+    <string name="mis_pub_eliminar_titulo">Eliminar publicación</string>
+    <string name="mis_pub_eliminar_msg">¿Eliminar definitivamente \"%1$s\"? Esta acción no se puede deshacer.</string>
+    <string name="mis_pub_eliminar_ok">Publicación eliminada</string>
+    <string name="mis_pub_abriendo">Abriendo %1$s</string>
+    <string name="mis_pub_destacado_ok">¡Destacado activado por %1$d días!</string>
+    <string name="mis_pub_destacado_retirado">Destacado retirado</string>
+    <string name="mis_pub_compra_error">Error en compra: %1$s</string>
+    <string name="mis_pub_compra_guardar_error">Compra OK pero error guardando: %1$s</string>
+    <string name="mis_pub_solicitud_error">Error guardando solicitud: %1$s</string>
+    <string name="mis_pub_error_generico">Error: %1$s</string>
+    <string name="mis_pub_opcion_destacar">%1$d días - S/ %2$s</string>
 </resources>
