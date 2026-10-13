@@ -45,3 +45,25 @@ jobs:
             -not -path "*/public/*" \
             -not -name "prod-app.js" \
             -print0 | xargs -0 -n1 node --check
+
+      # El paso de arriba EXCLUYE backend/admin/public (los .js del panel), y no
+      # por capricho: `node --check` interpreta un .js como CommonJS, asi que
+      # cualquier `import`/`export` de un modulo ES da error de sintaxis falso.
+      # Estos pasos los validan de verdad, porque un error ahi NO sale en el
+      # build del APK ni en el backend: solo aparece al abrir el panel.
+      - name: Front modules (ES) syntax
+        working-directory: backend/admin
+        run: node --experimental-vm-modules verify-sintaxis.js
+
+      # Un atributo style= mal formado no lanza error: deja de aplicarse en
+      # silencio. Comprueba que ninguno de los ~670 del panel este roto.
+      - name: Inline styles are well formed
+        working-directory: backend/admin
+        run: node verify-estilos.js
+
+      # Comprueba el HTML del aviso por correo (escapado de HTML, tabla cerrada)
+      # ANTES de desplegar la funcion: si falla ahi, llega un correo roto al
+      # buzon del admin.
+      - name: Email template is safe
+        working-directory: functions
+        run: node verify-email-inmueble.js
