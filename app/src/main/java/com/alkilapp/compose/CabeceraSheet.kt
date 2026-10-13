@@ -25,9 +25,12 @@ import com.alkilapp.R
  * Cabecera del bottom sheet en Compose (handle + titulo + subtitulo). El
  * contenido vive aqui, pero el drag/tap sigue siendo el setOnTouchListener
  * de sheetHeader en MainActivity (la logica manual de translationY no se toca).
+ *
+ * [subtitulo] es el texto de la leyenda inferior; si es null se usa el
+ * generico sin rango (cuando aun no hay ubicacion del usuario).
  */
 @Composable
-fun CabeceraSheet() {
+fun CabeceraSheet(subtitulo: String? = null) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -51,7 +54,7 @@ fun CabeceraSheet() {
             modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 3.dp)
         )
         Text(
-            text = stringResource(R.string.nearby_subtitle),
+            text = subtitulo ?: stringResource(R.string.nearby_subtitle),
             color = AlkilColores.TextoSuave,
             fontSize = 12.sp,
             lineHeight = 16.sp,

@@ -2,7 +2,10 @@
     <string name="app_name">AlkilApp</string>
     <string name="search_hint">Filtra y busca tu inmueble</string>
     <string name="nearby_title">Inmuebles Cercanos</string>
-    <string name="nearby_subtitle">Muestra los inmuebles cercanos a tu ubicación en un rango de 5 km</string>
+    <string name="nearby_subtitle">Muestra los inmuebles cercanos a tu ubicación</string>
+    <string name="nearby_subtitle_rango">Muestra los inmuebles cercanos a tu ubicación en un rango de %1$s</string>
+    <string name="nearby_rango_km">%1$d km</string>
+    <string name="nearby_rango_pais">todo el país</string>
     <string name="my_location_title">Tu Ubicación</string>
     <string name="mi_ubicacion_btn">Mi ubicación</string>
     <string name="location_error">No se logró obtener la ubicación actual</string>

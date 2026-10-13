@@ -129,6 +129,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     private var listaVisible by mutableStateOf<List<ItemLista>>(emptyList())
     // Estado vacio de la zona en el bottom sheet.
     private var mostrarVacio by mutableStateOf(false)
+    // Leyenda del sheet con el rango segun zoom (null = sin ubicacion, texto generico).
+    private var sheetSubtitulo by mutableStateOf<String?>(null)
     // Padding inferior del mapa (peek o altura expandida del sheet + 16dp).
     private var paddingMapaAbajo = 0
 
@@ -631,7 +633,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         )
         binding.cvSheetHeader.setContent {
             AlkilTheme {
-                CabeceraSheet()
+                CabeceraSheet(subtitulo = sheetSubtitulo)
             }
         }
 
@@ -985,14 +987,23 @@ fun llenar(sp: Spinner, opciones: List<String>) {
 
     /** Calcula el radio de bÃºsqueda en km segÃºn el nivel de zoom del mapa.
      * zoom 15 (por defecto) -> 5 km
-     * zoom 5 (todo PerÃº) -> 3000 km (cubre todo el paÃ­s)
-     * Cada nivel de zoom alejado duplica el radio. */
-    private fun calcularRadioKmDesdeZoom(zoom: Float): Double {
-        if (zoom >= 15f) return 5.0
-        if (zoom <= 5f) return 3000.0
-        // Cada nivel de zoom out duplica el radio (exponencial base 2)
-        return 5.0 * Math.pow(2.0, 15.0 - zoom)
+     * Se aleja en escalones "redondos" (10, 20, 50, 100, 250, 500 km) y
+     * zoom muy alejado (vista de todo PerÃº) -> 3000 km (sin tope real). */
+    private fun calcularRadioKmDesdeZoom(zoom: Float): Double = when {
+        zoom >= 15f -> 5.0
+        zoom >= 14f -> 10.0
+        zoom >= 13f -> 20.0
+        zoom >= 12f -> 50.0
+        zoom >= 11f -> 100.0
+        zoom >= 10f -> 250.0
+        zoom >= 8f -> 500.0
+        else -> 3000.0
     }
+
+    /** Texto del rango para la leyenda ("5 km", "todo el paÃ­s", ...). */
+    private fun textoRangoKm(radioKm: Double): String =
+        if (radioKm >= 3000.0) getString(R.string.nearby_rango_pais)
+        else getString(R.string.nearby_rango_km, radioKm.toInt())
 
     private fun configurarBadges() {
         mMap.setOnCameraIdleListener {
@@ -1004,10 +1015,12 @@ fun llenar(sp: Spinner, opciones: List<String>) {
                 marcadorSeleccionado?.showInfoWindow()
             }
             // Actualizar radio de bÃºsqueda segÃºn zoom (centro = ubicaciÃ³n usuario)
+            // y la leyenda del sheet que lo refleja.
             if (ultimaUbicacion != null) {
                 val zoom = mMap.cameraPosition.zoom
                 val radioKm = calcularRadioKmDesdeZoom(zoom)
                 store.setRadioMaximoKm(radioKm)
+                sheetSubtitulo = getString(R.string.nearby_subtitle_rango, textoRangoKm(radioKm))
             }
         }
     }
