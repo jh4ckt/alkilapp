@@ -45,6 +45,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
@@ -293,7 +294,10 @@ private fun ChipFiltro(texto: String, activo: Boolean, onClick: () -> Unit, modi
     Box(
         modifier = modifier
             .clip(forma)
-            .background(if (activo) AlkilColores.Primario else AlkilColores.Tarjeta)
+            .background(
+                if (activo) Brush.horizontalGradient(listOf(AlkilColores.Primario, Color(0xFF3A4A63)))
+                else Brush.horizontalGradient(listOf(AlkilColores.Tarjeta, AlkilColores.Tarjeta))
+            )
             .border(
                 width = 1.dp,
                 color = if (activo) AlkilColores.Primario else AlkilColores.Borde,
@@ -474,8 +478,7 @@ private fun MisPubCard(
                         texto = stringResource(
                             if (p.esDestacado) R.string.mis_pub_destacada else R.string.mis_pub_destacar
                         ),
-                        fondo = if (p.esDestacado) AlkilColores.Dorado else AlkilColores.DoradoSuave,
-                        colorTexto = if (p.esDestacado) Color.White else AlkilColores.DoradoTexto,
+                        fondo = Brush.horizontalGradient(listOf(Color(0xFF9A6B00), Color(0xFFC9992E))),
                         icono = R.drawable.ic_star,
                         onClick = onToggleDestacado,
                         modifier = Modifier
@@ -485,8 +488,7 @@ private fun MisPubCard(
                 }
                 BotonAccion(
                     texto = stringResource(R.string.mis_pub_editar),
-                    fondo = AlkilColores.CoralSuave,
-                    colorTexto = AlkilColores.CoralTexto,
+                    fondo = Brush.horizontalGradient(listOf(AlkilColores.AcentoDeep, AlkilColores.Acento)),
                     icono = R.drawable.ic_editar,
                     onClick = onEditar,
                     modifier = Modifier
@@ -518,40 +520,35 @@ private fun OpcionMenu(icono: Int, texto: Int, onClick: () -> Unit) {
 /** Chip de estado (disponible/finalizado/pausada/en revision). */
 @Composable
 private fun EstadoChip(p: Propiedad, modifier: Modifier = Modifier) {
-    val (etiqueta, colorText, colorBg) = when (p.estadoNormalizado) {
-        "disponible" -> Triple(
-            stringResource(R.string.prop_estado_disponible),
-            AlkilColores.Verde,
-            AlkilColores.VerdeSuave
-        )
-
-        "finalizado" -> Triple(
-            stringResource(R.string.prop_estado_finalizado),
-            AlkilColores.TextoSuave,
-            AlkilColores.GrisSuave
-        )
-
-        "pausada" -> Triple(
-            stringResource(R.string.prop_estado_pausada),
-            AlkilColores.TextoSuave,
-            AlkilColores.GrisSuave
-        )
-
-        else -> Triple(
-            stringResource(R.string.prop_estado_revision),
-            AlkilColores.DoradoTexto,
-            AlkilColores.DoradoSuave
-        )
+    val etiqueta: String
+    val fondo: Brush
+    when (p.estadoNormalizado) {
+        "disponible" -> {
+            etiqueta = stringResource(R.string.prop_estado_disponible)
+            fondo = Brush.horizontalGradient(listOf(AlkilColores.Verde, Color(0xFF34B07E)))
+        }
+        "finalizado" -> {
+            etiqueta = stringResource(R.string.prop_estado_finalizado)
+            fondo = Brush.horizontalGradient(listOf(Color(0xFF475569), Color(0xFF7C8CA1)))
+        }
+        "pausada" -> {
+            etiqueta = stringResource(R.string.prop_estado_pausada)
+            fondo = Brush.horizontalGradient(listOf(Color(0xFF64748B), Color(0xFF94A3B8)))
+        }
+        else -> {
+            etiqueta = stringResource(R.string.prop_estado_revision)
+            fondo = Brush.horizontalGradient(listOf(Color(0xFF9A6B00), Color(0xFFC9992E)))
+        }
     }
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(8.dp))
-            .background(colorBg)
+            .background(fondo)
             .padding(horizontal = 10.dp, vertical = 3.dp)
     ) {
         Text(
             text = etiqueta,
-            color = colorText,
+            color = Color.White,
             fontSize = 10.sp,
             fontWeight = FontWeight.Bold
         )
@@ -562,8 +559,7 @@ private fun EstadoChip(p: Propiedad, modifier: Modifier = Modifier) {
 @Composable
 private fun BotonAccion(
     texto: String,
-    fondo: Color,
-    colorTexto: Color,
+    fondo: Brush,
     icono: Int,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
@@ -580,13 +576,13 @@ private fun BotonAccion(
         Icon(
             painter = painterResource(icono),
             contentDescription = null,
-            tint = colorTexto,
+            tint = Color.White,
             modifier = Modifier.size(16.dp)
         )
         Spacer(Modifier.width(5.dp))
         Text(
             text = texto,
-            color = colorTexto,
+            color = Color.White,
             fontSize = 12.sp,
             fontWeight = FontWeight.Bold
         )

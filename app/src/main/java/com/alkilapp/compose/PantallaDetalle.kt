@@ -581,30 +581,33 @@ private fun BannerEstado(texto: String, fondo: Color, colorTexto: Color) {
 
 @Composable
 private fun EstadoChipDetalle(estado: String) {
-    val (etiqueta, colorText, colorBg) = when (estado) {
-        "disponible" -> Triple(
-            stringResource(R.string.prop_estado_disponible), AlkilColores.Verde, AlkilColores.VerdeSuave
-        )
-
-        "finalizado" -> Triple(
-            stringResource(R.string.prop_estado_finalizado), AlkilColores.TextoSuave, AlkilColores.GrisSuave
-        )
-
-        "pausada" -> Triple(
-            stringResource(R.string.prop_estado_pausada), AlkilColores.TextoSuave, AlkilColores.GrisSuave
-        )
-
-        else -> Triple(
-            stringResource(R.string.prop_estado_revision), AlkilColores.DoradoTexto, AlkilColores.DoradoSuave
-        )
+    val etiqueta: String
+    val fondo: Brush
+    when (estado) {
+        "disponible" -> {
+            etiqueta = stringResource(R.string.prop_estado_disponible)
+            fondo = Brush.horizontalGradient(listOf(AlkilColores.Verde, Color(0xFF34B07E)))
+        }
+        "finalizado" -> {
+            etiqueta = stringResource(R.string.prop_estado_finalizado)
+            fondo = Brush.horizontalGradient(listOf(Color(0xFF475569), Color(0xFF7C8CA1)))
+        }
+        "pausada" -> {
+            etiqueta = stringResource(R.string.prop_estado_pausada)
+            fondo = Brush.horizontalGradient(listOf(Color(0xFF64748B), Color(0xFF94A3B8)))
+        }
+        else -> {
+            etiqueta = stringResource(R.string.prop_estado_revision)
+            fondo = Brush.horizontalGradient(listOf(Color(0xFF9A6B00), Color(0xFFC9992E)))
+        }
     }
     Box(
         modifier = Modifier
             .clip(RoundedCornerShape(8.dp))
-            .background(colorBg)
+            .background(fondo)
             .padding(horizontal = 10.dp, vertical = 4.dp)
     ) {
-        Text(text = etiqueta, color = colorText, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+        Text(text = etiqueta, color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
     }
 }
 
@@ -635,9 +638,11 @@ private fun TileSpec(icono: Int, texto: String, modifier: Modifier = Modifier) {
 
 @Composable
 private fun BotonSecundario(texto: String, color: Color, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    // Contorno sutil + leve relleno del propio tinte: se lee como accion clara
-    // sin competir con el CTA coral.
-    val fondo = color.copy(alpha = 0.08f)
+    // Degradado leve del propio tinte: se lee como accion clara sin competir
+    // con el CTA coral.
+    val fondo = Brush.horizontalGradient(
+        listOf(color.copy(alpha = 0.10f), color.copy(alpha = 0.20f))
+    )
     Box(
         modifier = modifier
             .height(48.dp)

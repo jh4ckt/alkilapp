@@ -36,6 +36,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.res.painterResource
@@ -123,6 +124,41 @@ fun PantallaChatDetail(
             onCerrarChat = onCerrarChat,
             onEliminarChat = onEliminarChat
         )
+
+        // Subtitulo estatico del inmueble: titulo + precio
+        if (ui.listingTitulo.isNotBlank() || ui.precio.isNotBlank()) {
+            Column(modifier = Modifier.fillMaxWidth().background(Color(0xFFE8EEF6))) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = 9.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (ui.listingTitulo.isNotBlank()) {
+                        Text(
+                            text = ui.listingTitulo,
+                            color = AlkilColores.Texto,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Medium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                    if (ui.precio.isNotBlank()) {
+                        if (ui.listingTitulo.isNotBlank()) Spacer(Modifier.width(10.dp))
+                        Text(
+                            text = ui.precio,
+                            color = AlkilColores.Primario,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1
+                        )
+                    }
+                }
+                Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(AlkilColores.Borde))
+            }
+        }
 
         LazyColumn(
             state = listaState,
@@ -239,46 +275,6 @@ private fun HeaderChat(
                         color = AlkilColores.CoralTexto,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold
-                    )
-                }
-            }
-            if (ui.listingTitulo.isNotBlank()) {
-                Text(
-                    text = ui.listingTitulo,
-                    color = AlkilColores.TextoSuave,
-                    fontSize = 12.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(top = 1.dp)
-                )
-            }
-            if (ui.precio.isNotBlank()) {
-                Text(
-                    text = ui.precio,
-                    color = AlkilColores.Primario,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(top = 2.dp)
-                )
-            }
-            if (ui.verificado) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(top = 2.dp)
-                ) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_verificado_escudo),
-                        contentDescription = null,
-                        tint = AlkilColores.Verde,
-                        modifier = Modifier.size(11.dp)
-                    )
-                    Spacer(Modifier.width(4.dp))
-                    Text(
-                        text = stringResource(R.string.chat_verificado_linea),
-                        color = AlkilColores.Verde,
-                        fontSize = 11.sp
                     )
                 }
             }
@@ -569,13 +565,13 @@ private fun FilaBotonesCita(onAceptar: () -> Unit, onRechazar: () -> Unit) {
     Row(modifier = Modifier.padding(top = 8.dp)) {
         BotonMini(
             texto = stringResource(R.string.aceptar),
-            colorTexto = AlkilColores.Verde,
+            fondo = Brush.horizontalGradient(listOf(AlkilColores.Verde, Color(0xFF34B07E))),
             onClick = onAceptar,
             modifier = Modifier.padding(end = 6.dp)
         )
         BotonMini(
             texto = stringResource(R.string.rechazar),
-            colorTexto = AlkilColores.Rojo,
+            fondo = Brush.horizontalGradient(listOf(AlkilColores.Rojo, Color(0xFFF06565))),
             onClick = onRechazar
         )
     }
@@ -584,18 +580,18 @@ private fun FilaBotonesCita(onAceptar: () -> Unit, onRechazar: () -> Unit) {
 @Composable
 private fun BotonMini(
     texto: String,
-    colorTexto: Color,
+    fondo: Brush,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(10.dp))
-            .border(1.dp, AlkilColores.Borde, RoundedCornerShape(10.dp))
+            .background(fondo)
             .clickable(onClick = onClick)
             .padding(horizontal = 14.dp, vertical = 6.dp)
     ) {
-        Text(text = texto, color = colorTexto, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+        Text(text = texto, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
     }
 }
 

@@ -115,7 +115,7 @@ fun PropertyCard(
                         modifier = Modifier
                             .align(Alignment.TopStart)
                             .padding(10.dp),
-                        fondo = AlkilColores.TextoMuted,
+                        fondo = Brush.horizontalGradient(listOf(Color(0xFF475569), Color(0xFF7C8CA1))),
                         colorTexto = Color.White
                     )
                 } else {
@@ -130,7 +130,7 @@ fun PropertyCard(
                         modifier = Modifier
                             .align(Alignment.TopStart)
                             .padding(10.dp),
-                        fondo = AlkilColores.Tarjeta,
+                        fondo = Brush.horizontalGradient(listOf(AlkilColores.Tarjeta, AlkilColores.Tarjeta)),
                         colorTexto = AlkilColores.Navy,
                         borde = AlkilColores.Borde
                     )
@@ -166,20 +166,20 @@ fun PropertyCard(
                             .align(Alignment.BottomStart)
                             .padding(10.dp)
                             .clip(RoundedCornerShape(100.dp))
-                            .background(AlkilColores.Dorado)
+                            .background(Brush.horizontalGradient(listOf(Color(0xFF9A6B00), Color(0xFFC9992E))))
                             .padding(start = 10.dp, end = 10.dp, top = 4.dp, bottom = 4.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
                             painter = painterResource(R.drawable.ic_star),
                             contentDescription = null,
-                            tint = AlkilColores.Primario,
+                            tint = Color.White,
                             modifier = Modifier.size(13.dp)
                         )
                         Spacer(Modifier.width(4.dp))
                         Text(
                             text = stringResource(R.string.destacado_etiqueta),
-                            color = AlkilColores.Primario,
+                            color = Color.White,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold
                         )
@@ -214,20 +214,20 @@ fun PropertyCard(
                         modifier = Modifier
                             .padding(top = 6.dp)
                             .clip(RoundedCornerShape(100.dp))
-                            .background(AlkilColores.VerdeSuave)
+                            .background(Brush.horizontalGradient(listOf(AlkilColores.Verde, Color(0xFF34B07E))))
                             .padding(start = 8.dp, end = 8.dp, top = 3.dp, bottom = 3.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
                             painter = painterResource(R.drawable.ic_verificado_escudo),
                             contentDescription = stringResource(R.string.verificado_chip_cd),
-                            tint = Color.Unspecified,
+                            tint = Color.White,
                             modifier = Modifier.size(12.dp)
                         )
                         Spacer(Modifier.width(4.dp))
                         Text(
                             text = stringResource(R.string.verificado_chip),
-                            color = AlkilColores.Verde,
+                            color = Color.White,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold
                         )
@@ -335,7 +335,7 @@ private fun FotoThumb(foto: String?) {
 @Composable
 private fun Insignia(
     texto: String,
-    fondo: Color,
+    fondo: Brush,
     colorTexto: Color,
     modifier: Modifier = Modifier,
     borde: Color? = null

@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
@@ -95,25 +96,22 @@ fun PantallaPerfilPropietario(
     onReactivar: (Propiedad) -> Unit,
     onDestacar: (Propiedad) -> Unit
 ) {
-    Box(
+    Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0x80000000))
-            .clickable(onClick = onCerrar)
+            .background(AlkilColores.Fondo)
     ) {
+        Cabecera(
+            titulo = stringResource(R.string.perfil_titulo),
+            onAtras = onCerrar
+        )
+
         Column(
             modifier = Modifier
-                .align(Alignment.Center)
-                .padding(16.dp)
-                .clip(RoundedCornerShape(20.dp))
-                .background(AlkilColores.Tarjeta)
-                .clickable { /* evitar cierre al tocar la tarjeta */ }
+                .weight(1f)
                 .verticalScroll(rememberScrollState())
+                .navigationBarsPadding()
         ) {
-            // ===== Cabecera con cerrar =====
-            CabeceraPerfil(onCerrar = onCerrar)
-            Separador()
-
             Column(modifier = Modifier.padding(16.dp)) {
                 // ===== Hero: avatar + nombre + rol + rating =====
                 Hero(ui, onResena = onResena)
@@ -188,49 +186,6 @@ fun PantallaPerfilPropietario(
 }
 
 @Composable
-private fun CabeceraPerfil(onCerrar: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(start = 16.dp, top = 16.dp, end = 8.dp, bottom = 8.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Spacer(Modifier.weight(1f))
-        Text(
-            text = stringResource(R.string.perfil_titulo),
-            color = AlkilColores.Texto,
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Bold
-        )
-        Box(
-            modifier = Modifier
-                .size(40.dp)
-                .padding(8.dp)
-                .clip(CircleShape)
-                .clickable(onClick = onCerrar),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                painter = painterResource(R.drawable.ic_back),
-                contentDescription = stringResource(R.string.chat_atras),
-                tint = AlkilColores.TextoSuave
-            )
-        }
-    }
-}
-
-@Composable
-private fun Separador() {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp)
-            .height(1.dp)
-            .background(AlkilColores.Borde)
-    )
-}
-
-@Composable
 private fun Hero(ui: PerfilPropietarioUiState, onResena: () -> Unit) {
     Column(
         modifier = Modifier
@@ -282,22 +237,53 @@ private fun Hero(ui: PerfilPropietarioUiState, onResena: () -> Unit) {
             overflow = TextOverflow.Ellipsis
         )
 
-        // Rol + verificado
-        Row(
-            modifier = Modifier.padding(top = 6.dp),
-            verticalAlignment = Alignment.CenterVertically
+        // Tipo de usuario (linea 1)
+        Box(
+            modifier = Modifier
+                .padding(top = 6.dp)
+                .clip(RoundedCornerShape(100.dp))
+                .background(
+                    Brush.horizontalGradient(
+                        listOf(AlkilColores.Primario, Color(0xFF3A4A63))
+                    )
+                )
+                .padding(horizontal = 14.dp, vertical = 4.dp)
         ) {
-            PiplTexto(ui.rol, AlkilColores.Texto)
-            if (ui.verificado) {
-                Spacer(Modifier.width(6.dp))
+            Text(
+                text = ui.rol,
+                color = Color.White,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+        }
+
+        // Verificado (linea 2)
+        if (ui.verificado) {
+            Row(
+                modifier = Modifier
+                    .padding(top = 6.dp)
+                    .clip(RoundedCornerShape(100.dp))
+                    .background(
+                        Brush.horizontalGradient(
+                            listOf(AlkilColores.Verde, Color(0xFF34B07E))
+                        )
+                    )
+                    .padding(horizontal = 10.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Icon(
                     painter = painterResource(R.drawable.ic_verificado_escudo),
                     contentDescription = stringResource(R.string.chat_identidad_verificada),
-                    tint = AlkilColores.Verde,
-                    modifier = Modifier.size(14.dp)
+                    tint = Color.White,
+                    modifier = Modifier.size(12.dp)
                 )
-                Spacer(Modifier.width(3.dp))
-                PiplTexto(ui.textoVerificado, AlkilColores.Verde)
+                Spacer(Modifier.width(4.dp))
+                Text(
+                    text = ui.textoVerificado,
+                    color = Color.White,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold
+                )
             }
         }
 
@@ -335,25 +321,34 @@ private fun Hero(ui: PerfilPropietarioUiState, onResena: () -> Unit) {
 
         // Boton reseña (solo si aplica)
         if (ui.puedeResenar) {
-            BotonOutline(
-                texto = stringResource(R.string.resena_btn),
-                onClick = onResena,
-                color = AlkilColores.DoradoTexto,
-                modifier = Modifier.padding(top = 8.dp)
-            )
+            Row(
+                modifier = Modifier
+                    .padding(top = 10.dp)
+                    .clip(RoundedCornerShape(13.dp))
+                    .background(
+                        Brush.horizontalGradient(
+                            listOf(Color(0xFF9A6B00), Color(0xFFC9992E))
+                        )
+                    )
+                    .clickable(onClick = onResena)
+                    .padding(horizontal = 18.dp, vertical = 9.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_star),
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(15.dp)
+                )
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    text = stringResource(R.string.resena_btn),
+                    color = Color.White,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
         }
-    }
-}
-
-@Composable
-private fun PiplTexto(texto: String, color: Color) {
-    Box(
-        modifier = Modifier
-            .clip(RoundedCornerShape(100.dp))
-            .background(AlkilColores.PrimarioSuave)
-            .padding(horizontal = 8.dp, vertical = 3.dp)
-    ) {
-        Text(text = texto, color = color, fontSize = 11.sp, fontWeight = FontWeight.Bold)
     }
 }
 
@@ -409,39 +404,61 @@ private fun TarjetaInmueble(
             ChipEstado(p.estadoNormalizado)
         }
 
+        // Direccion (box informativo)
+        val direccionCompleta = listOf(p.direccion, p.barrio, p.ciudad)
+            .filter { it.isNotBlank() }
+            .distinct()
+            .joinToString(", ")
+        if (direccionCompleta.isNotBlank()) {
+            Row(
+                modifier = Modifier.padding(top = 6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_location),
+                    contentDescription = null,
+                    tint = AlkilColores.TextoSuave,
+                    modifier = Modifier.size(14.dp)
+                )
+                Text(
+                    text = direccionCompleta,
+                    color = AlkilColores.TextoSuave,
+                    fontSize = 12.sp,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(start = 5.dp)
+                )
+            }
+        }
+
         val estadoNorm = p.estadoNormalizado
         val esDisponible = estadoNorm == "disponible"
         val esPausada = estadoNorm == "pausada"
         if (esDueno && (esDisponible || esPausada) && p.id.isNotBlank()) {
             BotonAccion(
                 texto = stringResource(if (p.esVenta) R.string.prop_finalizar_btn_venta else R.string.prop_finalizar_btn),
-                colorTexto = AlkilColores.Rojo,
-                colorFondo = AlkilColores.CoralSuave,
+                fondo = Brush.horizontalGradient(listOf(AlkilColores.AcentoDeep, AlkilColores.Acento)),
                 onClick = onFinalizar,
                 modifier = Modifier.padding(top = 10.dp)
             )
             if (esDisponible) {
                 BotonAccion(
                     texto = stringResource(R.string.perfil_pausar_publicacion),
-                    colorTexto = AlkilColores.Primario,
-                    colorFondo = AlkilColores.PrimarioSuave,
+                    fondo = Brush.horizontalGradient(listOf(AlkilColores.Primario, Color(0xFF3A4A63))),
                     onClick = onPausar,
                     modifier = Modifier.padding(top = 6.dp)
                 )
             } else if (esPausada) {
                 BotonAccion(
                     texto = stringResource(R.string.perfil_reactivar_publicacion),
-                    colorTexto = AlkilColores.Verde,
-                    colorFondo = AlkilColores.VerdeSuave,
+                    fondo = Brush.horizontalGradient(listOf(AlkilColores.Verde, Color(0xFF34B07E))),
                     onClick = onReactivar,
                     modifier = Modifier.padding(top = 6.dp)
                 )
             }
             BotonAccion(
                 texto = stringResource(R.string.perfil_destacar_publicacion),
-                colorTexto = AlkilColores.Primario,
-                colorFondo = AlkilColores.DoradoSuave,
-                borde = AlkilColores.Dorado,
+                fondo = Brush.horizontalGradient(listOf(Color(0xFF9A6B00), Color(0xFFC9992E))),
                 onClick = onDestacar,
                 modifier = Modifier.padding(top = 6.dp)
             )
@@ -451,30 +468,29 @@ private fun TarjetaInmueble(
 
 @Composable
 private fun ChipEstado(estado: String) {
-    val (texto, colorTexto, colorFondo) = when (estado) {
-        "disponible" -> Triple(
-            stringResource(R.string.prop_estado_disponible),
-            AlkilColores.Verde,
-            AlkilColores.VerdeSuave
-        )
-        "finalizado" -> Triple(
-            stringResource(R.string.prop_estado_finalizado),
-            AlkilColores.TextoSuave,
-            AlkilColores.Borde
-        )
-        else -> Triple(
-            stringResource(R.string.prop_estado_revision),
-            AlkilColores.DoradoTexto,
-            AlkilColores.DoradoSuave
-        )
+    val texto: String
+    val fondo: Brush
+    when (estado) {
+        "disponible" -> {
+            texto = stringResource(R.string.prop_estado_disponible)
+            fondo = Brush.horizontalGradient(listOf(AlkilColores.Verde, Color(0xFF34B07E)))
+        }
+        "finalizado" -> {
+            texto = stringResource(R.string.prop_estado_finalizado)
+            fondo = Brush.horizontalGradient(listOf(Color(0xFF475569), Color(0xFF7C8CA1)))
+        }
+        else -> {
+            texto = stringResource(R.string.prop_estado_revision)
+            fondo = Brush.horizontalGradient(listOf(Color(0xFF9A6B00), Color(0xFFC9992E)))
+        }
     }
     Box(
         modifier = Modifier
             .clip(RoundedCornerShape(12.dp))
-            .background(colorFondo)
+            .background(fondo)
             .padding(horizontal = 10.dp, vertical = 3.dp)
     ) {
-        Text(text = texto, color = colorTexto, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+        Text(text = texto, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
     }
 }
 
@@ -517,29 +533,23 @@ private fun TarjetaResena(r: ResenaUi, modifier: Modifier = Modifier) {
     }
 }
 
-/** Boton de accion del dueño con fondo tenue y texto de color. */
+/** Boton de accion del dueño con degradado y texto blanco. */
 @Composable
 private fun BotonAccion(
     texto: String,
-    colorTexto: Color,
-    colorFondo: Color,
+    fondo: Brush,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    borde: Color? = null
+    modifier: Modifier = Modifier
 ) {
     Box(
         modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(11.dp))
-            .background(colorFondo)
-            .then(
-                if (borde != null) Modifier.border(1.dp, borde, RoundedCornerShape(11.dp))
-                else Modifier
-            )
+            .background(fondo)
             .clickable(onClick = onClick)
             .padding(vertical = 9.dp),
         contentAlignment = Alignment.Center
     ) {
-        Text(text = texto, color = colorTexto, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+        Text(text = texto, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
     }
 }

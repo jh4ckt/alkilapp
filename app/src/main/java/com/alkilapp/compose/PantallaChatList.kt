@@ -25,6 +25,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
@@ -243,7 +244,7 @@ private fun FilaChat(
                         modifier = Modifier.weight(1f)
                     )
                     if (hayNoLeidos) {
-                        BadgeCircular(texto = chat.unreadMio.toString(), fondo = AlkilColores.Acento)
+                        BadgeCircular(texto = chat.unreadMio.toString(), fondo = Brush.horizontalGradient(listOf(AlkilColores.AcentoDeep, AlkilColores.Acento)))
                     }
                     if (esIniciadoPorMi) {
                         Spacer(Modifier.width(8.dp))
@@ -266,7 +267,7 @@ private fun FilaChat(
 }
 
 @Composable
-private fun BadgeCircular(texto: String, fondo: Color) {
+private fun BadgeCircular(texto: String, fondo: Brush) {
     Box(
         modifier = Modifier
             .padding(start = 8.dp)

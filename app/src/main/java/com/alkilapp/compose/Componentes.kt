@@ -39,7 +39,10 @@ fun ChipTipo(
     modifier: Modifier = Modifier
 ) {
     val forma = RoundedCornerShape(18.dp)
-    val fondo = if (seleccionado) AlkilColores.Navy else AlkilColores.Tarjeta
+    val fondo = if (seleccionado)
+        Brush.horizontalGradient(listOf(AlkilColores.Navy, Color(0xFF254A73)))
+    else
+        Brush.horizontalGradient(listOf(AlkilColores.Tarjeta, AlkilColores.Tarjeta))
     val colorTexto = if (seleccionado) Color.White else AlkilColores.Navy
     Box(
         modifier = modifier
@@ -71,7 +74,7 @@ fun PillContador(texto: String, modifier: Modifier = Modifier) {
         modifier = modifier
             .shadow(4.dp, forma, clip = false)
             .clip(forma)
-            .background(AlkilColores.Navy)
+            .background(Brush.horizontalGradient(listOf(AlkilColores.Navy, Color(0xFF254A73))))
             .padding(horizontal = 14.dp, vertical = 6.dp)
     ) {
         androidx.compose.material3.Text(
