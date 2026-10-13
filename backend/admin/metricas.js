@@ -382,7 +382,11 @@ function resumenCalidad(props) {
 
     const checks = [
         { campo: 'precio', etiqueta: 'Precio', ok: (p) => numPositivo(p, 'precio') },
-        { campo: 'departamento', etiqueta: 'Departamento', ok: (p) => hay(p, 'departamento') },
+        // El departamento se acepta tambien si viene en `ciudad`: la app guarda ahi el
+        // nombre del departamento (hace `"ciudad" to departamento`). Si no se
+        // aceptara, esta comprobacion daria falsos positivos en TODOS los
+        // anuncios nuevos, que es una alarma que nadie va a poder resolver.
+        { campo: 'departamento', etiqueta: 'Departamento', ok: (p) => hay(p, 'departamento') || hay(p, 'ciudad') },
         { campo: 'ciudad', etiqueta: 'Ciudad', ok: (p) => hay(p, 'ciudad') },
         { campo: 'barrio', etiqueta: 'Barrio', ok: (p) => hay(p, 'barrio') },
         { campo: 'fotos', etiqueta: 'Al menos una foto', ok: (p) => hay(p, 'fotos') || hay(p, 'imagenUrl') },

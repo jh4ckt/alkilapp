@@ -175,9 +175,22 @@ function conteoPor(pubs, valorDe, dim) {
 }
 
 /** Todas las dimensiones de golpe, sobre el MISMO conjunto de documentos. */
+// Departamento con respaldo en `ciudad`.
+//
+// La app guarda el departamento en el campo `ciudad`: al publicar hace
+// `"ciudad" to departamento` (RegistrarPropiedadActivity). O sea, cada anuncio
+// nuevo llega con `departamento` VACIO y el nombre del departamento dentro de
+// `ciudad`. Sin este respaldo la KPI de departamento se vaciaba poco a poco
+// segun entraron publicaciones nuevas.
+//
+// El backfill (backfill-departamento.js) lleno el campo en los anuncios que ya
+// habia. Cuando la app empiece a guardarlo de verdad, este respaldo deja de
+// activarse solo: `departamento` gana y el grafico se separa del de ciudad.
+const departamentoDe = (p) => p.departamento || p.ciudad;
+
 function distribuciones(pubs) {
     return {
-        departamento: conteoPor(pubs, (p) => p.departamento, 'departamento'),
+        departamento: conteoPor(pubs, departamentoDe, 'departamento'),
         ciudad: conteoPor(pubs, (p) => p.ciudad, 'ciudad'),
         distrito: conteoPor(pubs, (p) => p.distrito, 'distrito'),
         barrio: conteoPor(pubs, (p) => p.barrio, 'barrio'),
@@ -919,12 +932,11 @@ async function getPublicaciones(url) {
             if (pedirNo) return p.isFeatured !== true;
             return p.isFeatured === true;
         })
-        // Dimensiones. Cada comparacion usa el MISMO extractor que la KPI del
-        // dashboard (estadoCanonico / tramoPrecio / los campos directos), para
-        // que el conteo del grafico y el de la tabla nunca discrepen. `sin_dato`
-        // es un valor filtrable de primera clase: si no, no habria forma de
-        // encontrar las publicaciones sin departamento.
-        .filter((p) => !departamento || (p.departamento || 'sin_dato') === departamento)
+        // El filtro usa el MISMO extractor que la KPI (departamentoDe), para que el
+        // conteo del grafico y el de la tabla no discrepen. `sin_dato` es un
+        // valor filtrable de primera clase: si no, no habria forma de encontrar
+        // las publicaciones sin departamento.
+        .filter((p) => !departamento || (departamentoDe(p) || 'sin_dato') === departamento)
         .filter((p) => !ciudad || (p.ciudad || 'sin_dato') === ciudad)
         .filter((p) => !distrito || (p.distrito || 'sin_dato') === distrito)
         .filter((p) => !tipo || (p.tipo || 'sin_dato') === tipo)
