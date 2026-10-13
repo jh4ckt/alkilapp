@@ -123,10 +123,7 @@ class RegistrarPropiedadActivity : AppCompatActivity() {
         }
     }
 
-    private val rectPeru = LatLngBounds(
-        LatLng(-18.6, -81.5),
-        LatLng(-0.5, -68.0)
-    )
+    private val rectPeru = PeruLimites.BOUNDS
 
     private val fotosLauncher = registerForActivityResult(
         ActivityResultContracts.PickMultipleVisualMedia()
@@ -156,6 +153,10 @@ class RegistrarPropiedadActivity : AppCompatActivity() {
         val lat = data.getDoubleExtra(MapaSeleccionActivity.EXTRA_LAT_RESULTADO, 0.0)
         val lng = data.getDoubleExtra(MapaSeleccionActivity.EXTRA_LNG_RESULTADO, 0.0)
         if (lat != 0.0 || lng != 0.0) {
+            if (!PeruLimites.dentroDe(lat, lng)) {
+                Toast.makeText(this, R.string.mapa_seleccion_fuera_peru, Toast.LENGTH_SHORT).show()
+                return@registerForActivityResult
+            }
             latAgregar = lat
             lngAgregar = lng
             binding.tvPropUbicacionInfo.text = getString(
@@ -240,6 +241,13 @@ class RegistrarPropiedadActivity : AppCompatActivity() {
 
         latAgregar = intent.getDoubleExtra(EXTRA_LAT, 0.0)
         lngAgregar = intent.getDoubleExtra(EXTRA_LNG, 0.0)
+        // Si el lat/lng heredado queda fuera de Peru (fijacion GPS previa con VPN
+        // o error), descartarlo; actualizarUbicacionSiPosible() intentara una
+        // fijacion fresca valida dentro del pais.
+        if (!PeruLimites.dentroDe(latAgregar, lngAgregar)) {
+            latAgregar = 0.0
+            lngAgregar = 0.0
+        }
 
         val editMode = intent.getBooleanExtra(EXTRA_EDIT_MODE, false)
         val propiedadId = intent.getStringExtra(EXTRA_PROPIEDAD_ID)?.orEmpty() ?: ""
@@ -543,6 +551,10 @@ spinnerTipo.adapter = crearAdapterSpinner(tipos.toList())
                 Log.d("AlkilAppBilling", "seleccionarLugar: porTipo=$porTipo")
 
                 if (latlng != null) {
+                    if (!PeruLimites.dentroDe(latlng.latitude, latlng.longitude)) {
+                        Toast.makeText(this, R.string.mapa_seleccion_fuera_peru, Toast.LENGTH_SHORT).show()
+                        return@addOnSuccessListener
+                    }
                     latAgregar = latlng.latitude
                     lngAgregar = latlng.longitude
                     binding.tvPropUbicacionInfo.text = getString(
@@ -798,10 +810,15 @@ spinnerTipo.adapter = crearAdapterSpinner(tipos.toList())
         if (!tienePermisoUbicacion()) return
         fusedLocationClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, null)
             .addOnSuccessListener { location ->
-                if (location != null) {
-                    latAgregar = location.latitude
-                    lngAgregar = location.longitude
+                if (location == null) return@addOnSuccessListener
+                // AlkilApp opera solo en Peru: una fijacion de GPS fuera del pais
+                // (ej. VPN o error) no debe pasarse como ubicacion del inmueble.
+                if (!PeruLimites.dentroDe(location.latitude, location.longitude)) {
+                    Log.w("AlkilAppBilling", "Ubicacion del dispositivo fuera de Peru: ${location.latitude},${location.longitude}")
+                    return@addOnSuccessListener
                 }
+                latAgregar = location.latitude
+                lngAgregar = location.longitude
             }
     }
 

@@ -104,6 +104,8 @@
     <string name="mapa_seleccion_confirmar">Confirmar ubicación</string>
     <string name="mapa_seleccion_sin_punto">Toca el mapa para colocar el marcador</string>
     <string name="mapa_seleccion_mi_ubicacion">Mi ubicación</string>
+    <string name="mapa_seleccion_fuera_peru">Solo puedes seleccionar un punto dentro de Perú.</string>
+    <string name="mapa_seleccion_ubicacion_fuera_peru">Tu ubicación actual está fuera de Perú. No se puede usar.</string>
     <string name="prop_tipo_label">Tipo de inmueble</string>
     <string name="prop_operacion_label">Operación</string>
     <string name="prop_descripcion_requerida">La descripción es obligatoria</string>

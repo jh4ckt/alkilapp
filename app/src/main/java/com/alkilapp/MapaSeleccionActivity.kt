@@ -77,8 +77,15 @@ class MapaSeleccionActivity : AppCompatActivity(), OnMapReadyCallback {
         map.uiSettings.isZoomControlsEnabled = true
         map.uiSettings.isMyLocationButtonEnabled = false
 
+        // AlkilApp opera solo en Peru: la camara no puede salir del pais.
+        map.setLatLngBoundsForCameraTarget(PeruLimites.BOUNDS)
+
         /** Tocar el mapa coloca (o mueve) el marcador con la ubicacion elegida. */
         map.setOnMapClickListener { punto ->
+            if (!PeruLimites.dentroDe(punto.latitude, punto.longitude)) {
+                Toast.makeText(this, R.string.mapa_seleccion_fuera_peru, Toast.LENGTH_SHORT).show()
+                return@setOnMapClickListener
+            }
             latSel = punto.latitude
             lngSel = punto.longitude
             if (marcador == null) {
@@ -89,8 +96,16 @@ class MapaSeleccionActivity : AppCompatActivity(), OnMapReadyCallback {
         }
 
         val puntoInicial = if (latSel != 0.0 || lngSel != 0.0) {
-            LatLng(latSel, lngSel).also { p ->
-                marcador = map.addMarker(MarkerOptions().position(p))
+            if (PeruLimites.dentroDe(latSel, lngSel)) {
+                LatLng(latSel, lngSel).also { p ->
+                    marcador = map.addMarker(MarkerOptions().position(p))
+                }
+            } else {
+                // El lat/lng heredado cayo fuera de Peru (ej. una fijacion de GPS
+                // anterior). Ignorarlo y centrar en Lima como si no hubiera punto.
+                latSel = 0.0
+                lngSel = 0.0
+                LatLng(-12.0464, -77.0428)
             }
         } else {
             LatLng(-12.0464, -77.0428)
@@ -116,6 +131,10 @@ class MapaSeleccionActivity : AppCompatActivity(), OnMapReadyCallback {
             .addOnSuccessListener { location ->
                 if (location == null) return@addOnSuccessListener
                 val p = LatLng(location.latitude, location.longitude)
+                if (!PeruLimites.dentroDe(p.latitude, p.longitude)) {
+                    Toast.makeText(this, R.string.mapa_seleccion_ubicacion_fuera_peru, Toast.LENGTH_SHORT).show()
+                    return@addOnSuccessListener
+                }
                 latSel = p.latitude
                 lngSel = p.longitude
                 if (marcador == null) {
